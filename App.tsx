@@ -5,7 +5,7 @@ import { GameState, ActionType, Player } from './types';
 import { INITIAL_STATE } from './constants';
 import { ScoreboardDisplay } from './components/ScoreboardDisplay';
 import { ScoreboardControls } from './components/ScoreboardControls';
-import { MonitorPlay, Maximize, Keyboard, Settings, ExternalLink, RotateCcw, Gamepad2, BookOpen } from 'lucide-react';
+import { MonitorPlay, Maximize, Keyboard, Settings, ExternalLink, RotateCcw, Gamepad2, BookOpen, Plus, Minus } from 'lucide-react';
 import { useShortcuts, DEFAULT_SHORTCUTS, ShortcutMap } from './hooks/useShortcuts';
 import { useGamepad } from './hooks/useGamepad';
 import { ShortcutSettingsModal } from './components/ShortcutSettingsModal';
@@ -435,7 +435,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">26.7.28.1 ver.</span>
+          <span className="text-slate-600 ml-2">2026.8.7 ver.</span>
        </footer>
 
         <ShortcutSettingsModal
