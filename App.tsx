@@ -364,7 +364,10 @@ export const App: React.FC = () => {
           {/* Left/Top: Display */}
           <div 
             className={`flex-none p-4 bg-slate-950 flex flex-col items-center justify-center overflow-y-auto overscroll-contain overflow-x-hidden border-r border-slate-700 relative w-[var(--left-width)]`}
-            style={{ '--left-width': isDisplayMode ? '100%' : `calc(${100 - controlPanelWidth}% - 4px)` } as React.CSSProperties}
+            style={{ 
+              '--left-width': isDisplayMode ? '100%' : `calc(${100 - controlPanelWidth}% - 4px)`,
+              ...(isDisplayMode ? { zoom: '150%' } : {})
+            } as React.CSSProperties}
           >
               
               {isDisplayMode && (

@@ -292,7 +292,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
       className={`p-3 rounded border ${teamKey === 'away' ? 'bg-blue-50/50 border-blue-200' : 'bg-red-50/50 border-red-200'}`}
     >
       <div className="flex flex-col gap-2 mb-2">
-        <div className="flex items-center justify-between gap-1">
+        <div className="flex flex-wrap items-center justify-between gap-2">
            <div className="flex items-center gap-1 shrink-0">
              <div className="flex flex-col gap-1">
                <div className="flex items-center gap-1" title={language === 'en' ? 'Team Color' : language === 'zh' ? '隊伍色' : 'チーム色'}>
@@ -310,7 +310,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
              </label>
            </div>
            
-           <div className="flex flex-col gap-1 shrink w-[120px]">
+           <div className="flex flex-col gap-1 flex-1 min-w-[110px]">
                <div className="flex items-center justify-between border-2 border-slate-400 bg-white rounded text-black overflow-hidden shadow-sm">
                   <button className="px-2 py-1 hover:bg-gray-100 text-black font-bold border-r-2 border-slate-200 flex-1" onClick={() => dispatch({type: 'ADD_SCORE', team: teamKey, amount: -1})}>-</button>
                   <span className="font-mono font-bold text-black text-base min-w-[1.5rem] text-center">{globalTeam.score}</span>
