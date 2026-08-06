@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pro Baseball Scoreboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;500;700&family=Rammetto+One&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/line-seed-jp@0.0.5/line-seed-jp.css">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'Noto Sans TC', 'sans-serif'],
+              display: ['Chakra Petch', 'Noto Sans TC', 'sans-serif'],
+              rammetto: ['"Rammetto One"', 'cursive'],
+            },
+            colors: {
+              'led-green': '#00ff41',
+              'led-red': '#ff3b30',
+              'led-yellow': '#ffcc00',
+              'led-off': '#2a2a2a',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #0f172a;
+        color: white;
+      }
+      .no-scrollbar::-webkit-scrollbar {
+          display: none;
+      }
+      .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+      }
+      /* Optional custom keyframe if needed, though Tailwind classes usually suffice */
+      @keyframes score-flash {
+        0% { color: #fef08a; transform: scale(1.1); }
+        100% { color: white; transform: scale(1); }
+      }
+      @keyframes pop-in {
+        0% { transform: scale(1.5); filter: brightness(1.5); }
+        100% { transform: scale(1); filter: brightness(1); }
+      }
+      .animate-pop-in {
+        animation: pop-in 0.2s ease-out forwards;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
