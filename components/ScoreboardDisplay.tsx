@@ -55,7 +55,7 @@ const playBeep = (freq: number, duration: number, type: 'sine' | 'square' | 'tri
 };
 
 // Helper for Score Animation
-const AnimatedScore = ({ score, color, sizeClass, disableScale }: { score: number, color?: string, sizeClass?: string, disableScale?: boolean }) => {
+const AnimatedScore = ({ score, color, sizeClass, disableScale, style }: { score: number, color?: string, sizeClass?: string, disableScale?: boolean, style?: React.CSSProperties }) => {
     const [animate, setAnimate] = useState(false);
 
     useEffect(() => {
@@ -69,7 +69,8 @@ const AnimatedScore = ({ score, color, sizeClass, disableScale }: { score: numbe
           className={`flex items-center justify-center w-full h-full ${sizeClass || 'text-[6rem] sm:text-[12rem] lg:text-[16rem] xl:text-[22rem]'} font-bold text-center cursor-pointer select-none transition-all drop-shadow-lg leading-none rounded-lg ${animate ? (disableScale ? 'scale-110' : 'scale-150') + ' duration-150 z-50' : 'duration-300'}`}
           style={{ 
              color: animate ? '#fde047' : 'white', // Yellow flash
-             textShadow: animate ? `0 0 40px ${color || '#fde047'}` : 'none'
+             textShadow: animate ? `0 0 40px ${color || '#fde047'}` : 'none',
+             ...style
           }}
         >
           {score}
@@ -1323,7 +1324,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
               {/* Away Player Row (Top) */}
               {showAwayPlayer && (
                 <div 
-                  className="border-b-[3px] border-slate-700 px-2 flex items-center text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative"
+                  className="border-b-[3px] border-slate-700 px-2 flex items-center gap-1 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative"
                   style={{ height: `${state.meta.broadcastPlayerRowHeight ?? 50}px` }}
                 >
                   {/* Top Resizer */}
@@ -1354,9 +1355,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     />
                   )}
                   {isAwayBatter ? (
-                    <span className="mr-2 shrink-0 text-slate-400 font-bold w-6 text-center inline-block">{state.awayTeam.currentBatterIndex + 1}.</span>
+                    <span className="shrink-0 text-slate-400 font-bold inline-block text-left">{state.awayTeam.currentBatterIndex + 1}.</span>
                   ) : (
-                    <span className="mr-2 shrink-0 text-slate-400 font-bold w-6 text-center inline-block">P</span>
+                    <span className="shrink-0 text-slate-400 font-bold inline-block text-left">P</span>
                   )}
                   <AnimatePresence mode="wait">
                     <motion.div
@@ -1368,11 +1369,12 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                       className="flex-1 min-w-0 flex items-center h-full justify-between gap-2"
                     >
                       <div className="flex-1 min-w-0">
-                        <AutoScalingText text={`${awayPlayer.name} ${('number' in awayPlayer && awayPlayer.number) ? '#' + awayPlayer.number : ''}`} className="leading-none" align="left" />
+                        <AutoScalingText text={`${awayPlayer.name} ${('number' in awayPlayer && awayPlayer.number) ? '#' + awayPlayer.number : ''}`} className="leading-tight py-0.5" style={{ fontSize: `${state.meta.broadcastPlayerNameSize ?? 20}px` }} align="left" />
                       </div>
                       {isAwayBatter && state.showTimer && (showBroadcastTimer || state.isAdjustmentMode) && (
                         <div 
-                          className={`font-display text-2xl shrink-0 ${state.isAdjustmentMode ? 'cursor-pointer' : ''} ${state.timer <= 8 && state.isTimerRunning && showBroadcastTimer ? 'text-red-500 animate-pulse' : 'text-yellow-400'} ${!showBroadcastTimer ? 'opacity-30' : ''}`}
+                          className={`font-display shrink-0 ${state.isAdjustmentMode ? 'cursor-pointer' : ''} ${state.timer <= 8 && state.isTimerRunning && showBroadcastTimer ? 'text-red-500 animate-pulse' : 'text-yellow-400'} ${!showBroadcastTimer ? 'opacity-30' : ''}`}
+                          style={{ fontSize: `${state.meta.broadcastTimerSize ?? 24}px` }}
                           onClick={(e) => {
                             if (state.isAdjustmentMode) {
                               e.stopPropagation();
@@ -1418,7 +1420,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         {state.awayTeam.logoUrl ? <img src={state.awayTeam.logoUrl} alt="Away Logo" className="w-full h-full object-cover" /> : <div className="w-6 h-6 rounded-full" style={{backgroundColor: state.awayTeam.color}} />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <AutoScalingText text={state.awayTeam.name} className="text-2xl font-bold tracking-wider uppercase leading-none" align="left" />
+                        <AutoScalingText text={state.awayTeam.name} className="font-bold tracking-wider uppercase leading-tight py-0.5" style={{ fontSize: `${state.meta.broadcastTeamNameSize ?? 24}px` }} align="left" />
                       </div>
                     </div>
                     <div 
@@ -1455,7 +1457,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                           }}
                         />
                       )}
-                      <AnimatedScore score={state.awayTeam.score} color="#facc15" sizeClass="text-3xl" disableScale={true} />
+                      <AnimatedScore score={state.awayTeam.score} color="#facc15" sizeClass="" style={{ fontSize: `${state.meta.broadcastScoreSize ?? 30}px` }} disableScale={true} />
                       {showScoreControlsAway && (
                         <div className={`absolute right-full mr-2 top-1/2 -translate-y-1/2 flex gap-2 bg-slate-900/95 p-2 rounded border-2 border-slate-500 shadow-2xl z-50 animate-in fade-in zoom-in duration-200`}>
                             <button className="p-2 bg-white/10 hover:bg-white/20 rounded text-green-400" onClick={(e) => { e.stopPropagation(); dispatch({type: 'ADD_SCORE', team: 'away', amount: 1})}}><Plus size={20}/></button>
@@ -1500,7 +1502,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         {state.homeTeam.logoUrl ? <img src={state.homeTeam.logoUrl} alt="Home Logo" className="w-full h-full object-cover" /> : <div className="w-6 h-6 rounded-full" style={{backgroundColor: state.homeTeam.color}} />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <AutoScalingText text={state.homeTeam.name} className="text-2xl font-bold tracking-wider uppercase leading-none" align="left" />
+                        <AutoScalingText text={state.homeTeam.name} className="font-bold tracking-wider uppercase leading-tight py-0.5" style={{ fontSize: `${state.meta.broadcastTeamNameSize ?? 24}px` }} align="left" />
                       </div>
                     </div>
                     <div 
@@ -1513,7 +1515,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                       onTouchEnd={handleScoreMouseUp}
                       onClick={(e) => handleScoreClick(e, 'home')}
                     >
-                      <AnimatedScore score={state.homeTeam.score} color="#facc15" sizeClass="text-3xl" disableScale={true} />
+                      <AnimatedScore score={state.homeTeam.score} color="#facc15" sizeClass="" style={{ fontSize: `${state.meta.broadcastScoreSize ?? 30}px` }} disableScale={true} />
                       {showScoreControlsHome && (
                         <div className={`absolute right-full mr-2 top-1/2 -translate-y-1/2 flex gap-2 bg-slate-900/95 p-2 rounded border-2 border-slate-500 shadow-2xl z-50 animate-in fade-in zoom-in duration-200`}>
                             <button className="p-2 bg-white/10 hover:bg-white/20 rounded text-green-400" onClick={(e) => { e.stopPropagation(); dispatch({type: 'ADD_SCORE', team: 'home', amount: 1})}}><Plus size={20}/></button>
@@ -1552,7 +1554,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     />
                   )}
                   <div className={`w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[12px] ${state.isTop ? 'border-b-yellow-400' : 'border-b-slate-600'}`} />
-                  <div className="text-2xl font-black font-display">{state.inning}</div>
+                  <div className="font-black font-display" style={{ fontSize: `${state.meta.broadcastInningSize ?? 24}px` }}>{state.inning}</div>
                   <div className={`w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[12px] ${!state.isTop ? 'border-t-yellow-400' : 'border-t-slate-600'}`} />
                 </div>
               </div>
@@ -1560,7 +1562,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
               {/* Home Player Row (Bottom) */}
               {showHomePlayer && (
                 <div 
-                  className="px-2 flex items-center gap-3 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative"
+                  className="px-2 flex items-center gap-1 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative"
                   style={{ height: `${state.meta.broadcastPlayerRowHeight ?? 50}px` }}
                 >
                   {/* Bottom Resizer */}
@@ -1591,9 +1593,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     />
                   )}
                   {!isAwayBatter ? (
-                    <span className="mr-2 shrink-0 text-slate-400 font-bold w-6 text-center inline-block">{state.homeTeam.currentBatterIndex + 1}.</span>
+                    <span className="shrink-0 text-slate-400 font-bold inline-block text-left">{state.homeTeam.currentBatterIndex + 1}.</span>
                   ) : (
-                    <span className="mr-2 shrink-0 text-slate-400 font-bold w-6 text-center inline-block">P</span>
+                    <span className="shrink-0 text-slate-400 font-bold inline-block text-left">P</span>
                   )}
                   <AnimatePresence mode="wait">
                     <motion.div
@@ -1605,11 +1607,12 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                       className="flex-1 min-w-0 flex items-center h-full justify-between gap-2"
                     >
                       <div className="flex-1 min-w-0">
-                        <AutoScalingText text={`${homePlayer.name} ${('number' in homePlayer && homePlayer.number) ? '#' + homePlayer.number : ''}`} className="leading-none" align="left" />
+                        <AutoScalingText text={`${homePlayer.name} ${('number' in homePlayer && homePlayer.number) ? '#' + homePlayer.number : ''}`} className="leading-tight py-0.5" style={{ fontSize: `${state.meta.broadcastPlayerNameSize ?? 20}px` }} align="left" />
                       </div>
                       {!isAwayBatter && state.showTimer && (showBroadcastTimer || state.isAdjustmentMode) && (
                         <div 
-                          className={`font-display text-2xl shrink-0 ${state.isAdjustmentMode ? 'cursor-pointer' : ''} ${state.timer <= 8 && state.isTimerRunning && showBroadcastTimer ? 'text-red-500 animate-pulse' : 'text-yellow-400'} ${!showBroadcastTimer ? 'opacity-30' : ''}`}
+                          className={`font-display shrink-0 ${state.isAdjustmentMode ? 'cursor-pointer' : ''} ${state.timer <= 8 && state.isTimerRunning && showBroadcastTimer ? 'text-red-500 animate-pulse' : 'text-yellow-400'} ${!showBroadcastTimer ? 'opacity-30' : ''}`}
+                          style={{ fontSize: `${state.meta.broadcastTimerSize ?? 24}px` }}
                           onClick={(e) => {
                             if (state.isAdjustmentMode) {
                               e.stopPropagation();
@@ -1691,7 +1694,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                 className="flex items-center justify-center w-full shrink-0"
                 style={{ height: `${Math.max(effectiveA, effectiveH) + teamRowHeight}px` }}
               >
-                 <div className="transform scale-[0.55] origin-center">
+                 <div style={{ transform: 'scale(0.35)', transformOrigin: 'center' }}>
                    <Diamond 
                       bases={state.bases} 
                       onToggle={(idx) => dispatch({type: 'TOGGLE_BASE', baseIndex: idx})}
@@ -1707,54 +1710,54 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
 
               {/* Count (Bottom Half) */}
               <div 
-                className="flex flex-col justify-center items-center gap-1 w-full px-2 shrink-0"
+                className="flex flex-col justify-center items-center w-full px-2 shrink-0 overflow-hidden min-h-0"
                 style={{ 
                   height: `${teamRowHeight + effectiveH - pitchInfoHeight}px`,
                   paddingTop: `${pitchInfoHeight}px`
                 }}
               >
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-0.5 justify-center my-auto">
                       {/* Balls */}
-                      <div className="flex items-center gap-2 cursor-pointer group" onClick={handleBallClick}>
-                          <span className="text-xl font-bold text-slate-500 group-hover:text-white transition-colors w-5 text-center">B</span>
-                          <div className="flex space-x-1.5">
+                      <div className="flex items-center gap-1.5 cursor-pointer group" onClick={handleBallClick}>
+                          <span className="text-base sm:text-lg font-bold text-slate-500 group-hover:text-white transition-colors w-4 text-center leading-none">B</span>
+                          <div className="flex space-x-1 items-center">
                               {[0, 1, 2].map(i => (
                                   <AnimatedIndicator 
                                       key={i}
                                       active={i < state.balls} 
                                       colorClass="bg-led-green" 
                                       shadowClass="shadow-[0_0_10px_#00ff41]" 
-                                      baseClass="w-5 h-5 rounded-full border-2"
+                                      baseClass="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full border-2"
                                   />
                               ))}
                           </div>
                       </div>
                       {/* Strikes */}
-                      <div className="flex items-center gap-2 cursor-pointer group" onClick={handleStrikeClick}>
-                          <span className="text-xl font-bold text-slate-500 group-hover:text-white transition-colors w-5 text-center">S</span>
-                          <div className="flex space-x-1.5">
+                      <div className="flex items-center gap-1.5 cursor-pointer group" onClick={handleStrikeClick}>
+                          <span className="text-base sm:text-lg font-bold text-slate-500 group-hover:text-white transition-colors w-4 text-center leading-none">S</span>
+                          <div className="flex space-x-1 items-center">
                               {[0, 1].map(i => (
                                   <AnimatedIndicator 
                                       key={i}
                                       active={i < state.strikes} 
                                       colorClass="bg-led-yellow" 
                                       shadowClass="shadow-[0_0_10px_#ffcc00]" 
-                                      baseClass="w-5 h-5 rounded-full border-2"
+                                      baseClass="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full border-2"
                                   />
                               ))}
                           </div>
                       </div>
                       {/* Outs */}
-                      <div className="flex items-center gap-2 cursor-pointer group" onClick={handleOutClick}>
-                          <span className="text-xl font-bold text-slate-500 group-hover:text-white transition-colors w-5 text-center">O</span>
-                          <div className="flex space-x-1.5">
+                      <div className="flex items-center gap-1.5 cursor-pointer group" onClick={handleOutClick}>
+                          <span className="text-base sm:text-lg font-bold text-slate-500 group-hover:text-white transition-colors w-4 text-center leading-none">O</span>
+                          <div className="flex space-x-1 items-center">
                               {[0, 1].map(i => (
                                   <AnimatedIndicator 
                                       key={i}
                                       active={i < state.outs} 
                                       colorClass="bg-led-red" 
                                       shadowClass="shadow-[0_0_10px_#ff3b30]" 
-                                      baseClass="w-5 h-5 rounded-full border-2"
+                                      baseClass="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full border-2"
                                   />
                               ))}
                           </div>

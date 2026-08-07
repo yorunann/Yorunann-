@@ -4,9 +4,10 @@ interface AutoScalingTextProps {
   text: string;
   className?: string;
   align?: 'left' | 'center' | 'right';
+  style?: React.CSSProperties;
 }
 
-export const AutoScalingText: React.FC<AutoScalingTextProps> = ({ text, className, align = 'left' }) => {
+export const AutoScalingText: React.FC<AutoScalingTextProps> = ({ text, className, align = 'left', style }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
   const [scale, setScale] = useState(1);
@@ -34,10 +35,10 @@ export const AutoScalingText: React.FC<AutoScalingTextProps> = ({ text, classNam
   const justify = align === 'left' ? 'justify-start' : align === 'right' ? 'justify-end' : 'justify-center';
 
   return (
-    <div ref={containerRef} className={`overflow-hidden flex items-center ${justify} ${className}`} style={{ width: '100%' }}>
+    <div ref={containerRef} className={`overflow-hidden flex items-center ${justify} ${className}`} style={{ width: '100%', ...style }}>
       <span 
         ref={textRef} 
-        className="whitespace-nowrap inline-block"
+        className="whitespace-nowrap inline-block py-0.5 leading-normal"
         style={{ 
           transform: `scale(${scale})`,
           transformOrigin: origin,

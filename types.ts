@@ -48,6 +48,11 @@ export interface GameMeta {
   broadcastInningWidth?: number;
   broadcastShowTimer?: boolean;
   broadcastShowPitchCount?: boolean;
+  broadcastTeamNameSize?: number;
+  broadcastPlayerNameSize?: number;
+  broadcastScoreSize?: number;
+  broadcastTimerSize?: number;
+  broadcastInningSize?: number;
   settingsVersion?: number;
 }
 

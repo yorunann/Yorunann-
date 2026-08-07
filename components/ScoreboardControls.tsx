@@ -941,6 +941,107 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                    ? (language === 'en' ? 'Finish Adjustment' : language === 'zh' ? '結束調整' : '調整終了') 
                    : (language === 'en' ? 'Adjustment Mode' : language === 'zh' ? '調整模式' : '調整モード')}
                </button>
+               {state.isAdjustmentMode && (
+                  <div className="mt-3 space-y-2 bg-slate-50 p-2.5 rounded border text-xs">
+                     <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                        <span className="font-semibold text-slate-700">{language === "en" ? "Font Sizes" : language === "zh" ? "字體大小設定" : "フォントサイズ設定"}</span>
+                        <button
+                          onClick={() => {
+                            dispatch({ type: "UPDATE_META", field: "broadcastTeamNameSize", value: 24 });
+                            dispatch({ type: "UPDATE_META", field: "broadcastPlayerNameSize", value: 20 });
+                            dispatch({ type: "UPDATE_META", field: "broadcastScoreSize", value: 30 });
+                            dispatch({ type: "UPDATE_META", field: "broadcastTimerSize", value: 24 });
+                            dispatch({ type: "UPDATE_META", field: "broadcastInningSize", value: 24 });
+                          }}
+                          className="px-1.5 py-0.5 text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 rounded flex items-center gap-1 transition-colors"
+                          title={language === "en" ? "Reset all font sizes to default" : language === "zh" ? "重置全部字體大小為默認" : "所有的フォントサイズをデフォルトに戻す"}
+                        >
+                          <RotateCcw size={10} />
+                          <span>{language === "en" ? "Reset All" : language === "zh" ? "重置全部" : "全重置"}</span>
+                        </button>
+                     </div>
+
+                     <div className="flex items-center justify-between gap-1.5">
+                        <span className="text-slate-600 whitespace-nowrap min-w-[60px]">{language === "en" ? "Team Name Size" : language === "zh" ? "隊名大小" : "チーム名サイズ"}</span>
+                        <div className="flex items-center gap-1 flex-1 justify-end">
+                          <input type="range" min="12" max="64" value={state.meta.broadcastTeamNameSize ?? 24} onChange={(e) => dispatch({ type: "UPDATE_META", field: "broadcastTeamNameSize", value: parseInt(e.target.value) })} className="w-16 sm:w-20 accent-blue-600" />
+                          <span className="w-5 text-right font-mono text-[11px] text-slate-500 shrink-0">{state.meta.broadcastTeamNameSize ?? 24}</span>
+                          <button
+                            onClick={() => dispatch({ type: "UPDATE_META", field: "broadcastTeamNameSize", value: 24 })}
+                            className="px-1.5 py-0.5 text-[10px] bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 rounded flex items-center gap-0.5 shrink-0 transition-colors"
+                            title={language === "en" ? "Reset to default (24)" : language === "zh" ? "重置為默認 (24)" : "默認に戻す (24)"}
+                          >
+                            <RotateCcw size={9} />
+                            <span>{language === "en" ? "Reset" : language === "zh" ? "重置為默認" : "デフォルト"}</span>
+                          </button>
+                        </div>
+                     </div>
+
+                     <div className="flex items-center justify-between gap-1.5">
+                        <span className="text-slate-600 whitespace-nowrap min-w-[60px]">{language === "en" ? "Player Name Size" : language === "zh" ? "球員名大小" : "選手名サイズ"}</span>
+                        <div className="flex items-center gap-1 flex-1 justify-end">
+                          <input type="range" min="10" max="48" value={state.meta.broadcastPlayerNameSize ?? 20} onChange={(e) => dispatch({ type: "UPDATE_META", field: "broadcastPlayerNameSize", value: parseInt(e.target.value) })} className="w-16 sm:w-20 accent-blue-600" />
+                          <span className="w-5 text-right font-mono text-[11px] text-slate-500 shrink-0">{state.meta.broadcastPlayerNameSize ?? 20}</span>
+                          <button
+                            onClick={() => dispatch({ type: "UPDATE_META", field: "broadcastPlayerNameSize", value: 20 })}
+                            className="px-1.5 py-0.5 text-[10px] bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 rounded flex items-center gap-0.5 shrink-0 transition-colors"
+                            title={language === "en" ? "Reset to default (20)" : language === "zh" ? "重置為默認 (20)" : "默認に戻す (20)"}
+                          >
+                            <RotateCcw size={9} />
+                            <span>{language === "en" ? "Reset" : language === "zh" ? "重置為默認" : "デフォルト"}</span>
+                          </button>
+                        </div>
+                     </div>
+
+                     <div className="flex items-center justify-between gap-1.5">
+                        <span className="text-slate-600 whitespace-nowrap min-w-[60px]">{language === "en" ? "Score Size" : language === "zh" ? "分數大小" : "スコアサイズ"}</span>
+                        <div className="flex items-center gap-1 flex-1 justify-end">
+                          <input type="range" min="16" max="72" value={state.meta.broadcastScoreSize ?? 30} onChange={(e) => dispatch({ type: "UPDATE_META", field: "broadcastScoreSize", value: parseInt(e.target.value) })} className="w-16 sm:w-20 accent-blue-600" />
+                          <span className="w-5 text-right font-mono text-[11px] text-slate-500 shrink-0">{state.meta.broadcastScoreSize ?? 30}</span>
+                          <button
+                            onClick={() => dispatch({ type: "UPDATE_META", field: "broadcastScoreSize", value: 30 })}
+                            className="px-1.5 py-0.5 text-[10px] bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 rounded flex items-center gap-0.5 shrink-0 transition-colors"
+                            title={language === "en" ? "Reset to default (30)" : language === "zh" ? "重置為默認 (30)" : "默認に戻す (30)"}
+                          >
+                            <RotateCcw size={9} />
+                            <span>{language === "en" ? "Reset" : language === "zh" ? "重置為默認" : "デフォルト"}</span>
+                          </button>
+                        </div>
+                     </div>
+
+                     <div className="flex items-center justify-between gap-1.5">
+                        <span className="text-slate-600 whitespace-nowrap min-w-[60px]">{language === "en" ? "Timer Size" : language === "zh" ? "計時器大小" : "タイマーサイズ"}</span>
+                        <div className="flex items-center gap-1 flex-1 justify-end">
+                          <input type="range" min="12" max="64" value={state.meta.broadcastTimerSize ?? 24} onChange={(e) => dispatch({ type: "UPDATE_META", field: "broadcastTimerSize", value: parseInt(e.target.value) })} className="w-16 sm:w-20 accent-blue-600" />
+                          <span className="w-5 text-right font-mono text-[11px] text-slate-500 shrink-0">{state.meta.broadcastTimerSize ?? 24}</span>
+                          <button
+                            onClick={() => dispatch({ type: "UPDATE_META", field: "broadcastTimerSize", value: 24 })}
+                            className="px-1.5 py-0.5 text-[10px] bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 rounded flex items-center gap-0.5 shrink-0 transition-colors"
+                            title={language === "en" ? "Reset to default (24)" : language === "zh" ? "重置為默認 (24)" : "默認に戻す (24)"}
+                          >
+                            <RotateCcw size={9} />
+                            <span>{language === "en" ? "Reset" : language === "zh" ? "重置為默認" : "デフォルト"}</span>
+                          </button>
+                        </div>
+                     </div>
+
+                     <div className="flex items-center justify-between gap-1.5">
+                        <span className="text-slate-600 whitespace-nowrap min-w-[60px]">{language === "en" ? "Inning Size" : language === "zh" ? "局數大小" : "イニングサイズ"}</span>
+                        <div className="flex items-center gap-1 flex-1 justify-end">
+                          <input type="range" min="12" max="64" value={state.meta.broadcastInningSize ?? 24} onChange={(e) => dispatch({ type: "UPDATE_META", field: "broadcastInningSize", value: parseInt(e.target.value) })} className="w-16 sm:w-20 accent-blue-600" />
+                          <span className="w-5 text-right font-mono text-[11px] text-slate-500 shrink-0">{state.meta.broadcastInningSize ?? 24}</span>
+                          <button
+                            onClick={() => dispatch({ type: "UPDATE_META", field: "broadcastInningSize", value: 24 })}
+                            className="px-1.5 py-0.5 text-[10px] bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 rounded flex items-center gap-0.5 shrink-0 transition-colors"
+                            title={language === "en" ? "Reset to default (24)" : language === "zh" ? "重置為默認 (24)" : "默認に戻す (24)"}
+                          >
+                            <RotateCcw size={9} />
+                            <span>{language === "en" ? "Reset" : language === "zh" ? "重置為默認" : "デフォルト"}</span>
+                          </button>
+                        </div>
+                     </div>
+                  </div>
+                )}
              </div>
           </div>
         </div>
