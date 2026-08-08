@@ -53,6 +53,7 @@ export interface GameMeta {
   broadcastScoreSize?: number;
   broadcastTimerSize?: number;
   broadcastInningSize?: number;
+  broadcastPlayerNumberStyle?: 'normal' | 'gray' | 'hidden';
   settingsVersion?: number;
 }
 

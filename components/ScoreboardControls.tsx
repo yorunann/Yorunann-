@@ -1040,6 +1040,18 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                           </button>
                         </div>
                      </div>
+                     <div className="flex items-center justify-between gap-1.5 pt-1.5 border-t border-slate-200">
+                        <span className="text-slate-600 whitespace-nowrap min-w-[60px]">{language === "en" ? "Player Number" : language === "zh" ? "球員背號顯示" : "背番号表示"}</span>
+                        <select
+                          value={state.meta.broadcastPlayerNumberStyle || "normal"}
+                          onChange={(e) => dispatch({ type: "UPDATE_META", field: "broadcastPlayerNumberStyle", value: e.target.value })}
+                          className="w-full max-w-[120px] bg-white border border-slate-300 text-slate-700 text-[11px] rounded px-1.5 py-0.5 outline-none focus:border-blue-500"
+                        >
+                          <option value="normal">{language === "en" ? "Show" : language === "zh" ? "正常顯示" : "通常"}</option>
+                          <option value="gray">{language === "en" ? "Gray" : language === "zh" ? "灰色顯示" : "グレー"}</option>
+                          <option value="hidden">{language === "en" ? "Hidden" : language === "zh" ? "不顯示" : "非表示"}</option>
+                        </select>
+                     </div>
                   </div>
                 )}
              </div>

@@ -2,12 +2,13 @@ import React, { useState, useRef, useLayoutEffect } from 'react';
 
 interface AutoScalingTextProps {
   text: string;
+  content?: React.ReactNode;
   className?: string;
   align?: 'left' | 'center' | 'right';
   style?: React.CSSProperties;
 }
 
-export const AutoScalingText: React.FC<AutoScalingTextProps> = ({ text, className, align = 'left', style }) => {
+export const AutoScalingText: React.FC<AutoScalingTextProps> = ({ text, content, className, align = 'left', style }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
   const [scale, setScale] = useState(1);
@@ -45,7 +46,7 @@ export const AutoScalingText: React.FC<AutoScalingTextProps> = ({ text, classNam
           transition: 'transform 0.2s ease-out'
         }}
       >
-        {text}
+        {content !== undefined ? content : text}
       </span>
     </div>
   );

@@ -438,7 +438,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">26.8.7.1 ver.</span>
+          <span className="text-slate-600 ml-2">26.8.8.0 ver.</span>
        </footer>
 
         <ShortcutSettingsModal
@@ -481,10 +481,7 @@ export const App: React.FC = () => {
                     {language === 'en' ? 'Cancel' : language === 'zh' ? '取消' : 'キャンセル'}
                   </button>
                   <button
-                    onClick={() => {
-                      handleDispatch({ type: 'FULL_RESET' });
-                      setIsResetConfirmOpen(false);
-                    }}
+                    onClick={handleConfirmReset}
                     className="flex-1 px-4 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-500 transition-colors shadow-lg shadow-red-900/20"
                   >
                     {language === 'en' ? 'Reset All' : language === 'zh' ? '確認重置' : 'リセット'}

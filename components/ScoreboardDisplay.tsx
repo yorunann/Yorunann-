@@ -1087,6 +1087,26 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
   };
 
   const renderBroadcastView = () => {
+    const getPlayerText = (player) => {
+      const hasNumber = "number" in player && player.number;
+      const numberStyle = state.meta.broadcastPlayerNumberStyle || "normal";
+      if (!hasNumber || numberStyle === "hidden") return player.name;
+      return `${player.name} #${player.number}`;
+    };
+
+    const getPlayerContent = (player) => {
+      const hasNumber = "number" in player && player.number;
+      const numberStyle = state.meta.broadcastPlayerNumberStyle || "normal";
+      if (!hasNumber || numberStyle === "hidden") return player.name;
+      return (
+        <span>
+          {player.name}
+          <span className={numberStyle === "gray" ? "text-slate-400 ml-1.5" : "ml-1.5"}>
+            #{player.number}
+          </span>
+        </span>
+      );
+    };
     const isAwayBatter = state.isTop;
     const awayPlayer = isAwayBatter ? (state.awayTeam.lineup[state.awayTeam.currentBatterIndex] || { name: 'UNKNOWN', number: '00' }) : (state.awayTeam.pitcher || { name: 'UNKNOWN', stat: '0' });
     const homePlayer = !state.isTop ? (state.homeTeam.lineup[state.homeTeam.currentBatterIndex] || { name: 'UNKNOWN', number: '00' }) : (state.homeTeam.pitcher || { name: 'UNKNOWN', stat: '0' });
@@ -1324,7 +1344,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
               {/* Away Player Row (Top) */}
               {showAwayPlayer && (
                 <div 
-                  className="border-b-[3px] border-slate-700 px-2 flex items-center gap-1 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative"
+                  className="border-b-[3px] border-slate-700 px-2 flex items-center gap-2 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative"
                   style={{ height: `${state.meta.broadcastPlayerRowHeight ?? 50}px` }}
                 >
                   {/* Top Resizer */}
@@ -1355,9 +1375,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     />
                   )}
                   {isAwayBatter ? (
-                    <span className="shrink-0 text-slate-400 font-bold inline-block text-left">{state.awayTeam.currentBatterIndex + 1}.</span>
+                    <span className="shrink-0 text-slate-400 font-bold inline-block text-center w-[1.125rem]">{state.awayTeam.currentBatterIndex + 1}.</span>
                   ) : (
-                    <span className="shrink-0 text-slate-400 font-bold inline-block text-left">P</span>
+                    <span className="shrink-0 text-slate-400 font-bold inline-block text-center w-[1.125rem]">P</span>
                   )}
                   <AnimatePresence mode="wait">
                     <motion.div
@@ -1369,7 +1389,13 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                       className="flex-1 min-w-0 flex items-center h-full justify-between gap-2"
                     >
                       <div className="flex-1 min-w-0">
-                        <AutoScalingText text={`${awayPlayer.name} ${('number' in awayPlayer && awayPlayer.number) ? '#' + awayPlayer.number : ''}`} className="leading-tight py-0.5" style={{ fontSize: `${state.meta.broadcastPlayerNameSize ?? 20}px` }} align="left" />
+                        <AutoScalingText 
+                          text={getPlayerText(awayPlayer)} 
+                          content={getPlayerContent(awayPlayer)} 
+                          className="leading-tight py-0.5" 
+                          style={{ fontSize: `${state.meta.broadcastPlayerNameSize ?? 20}px` }} 
+                          align="left" 
+                        />
                       </div>
                       {isAwayBatter && state.showTimer && (showBroadcastTimer || state.isAdjustmentMode) && (
                         <div 
@@ -1562,7 +1588,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
               {/* Home Player Row (Bottom) */}
               {showHomePlayer && (
                 <div 
-                  className="px-2 flex items-center gap-1 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative"
+                  className="px-2 flex items-center gap-2 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative"
                   style={{ height: `${state.meta.broadcastPlayerRowHeight ?? 50}px` }}
                 >
                   {/* Bottom Resizer */}
@@ -1593,9 +1619,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     />
                   )}
                   {!isAwayBatter ? (
-                    <span className="shrink-0 text-slate-400 font-bold inline-block text-left">{state.homeTeam.currentBatterIndex + 1}.</span>
+                    <span className="shrink-0 text-slate-400 font-bold inline-block text-center w-[1.125rem]">{state.homeTeam.currentBatterIndex + 1}.</span>
                   ) : (
-                    <span className="shrink-0 text-slate-400 font-bold inline-block text-left">P</span>
+                    <span className="shrink-0 text-slate-400 font-bold inline-block text-center w-[1.125rem]">P</span>
                   )}
                   <AnimatePresence mode="wait">
                     <motion.div
@@ -1607,7 +1633,13 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                       className="flex-1 min-w-0 flex items-center h-full justify-between gap-2"
                     >
                       <div className="flex-1 min-w-0">
-                        <AutoScalingText text={`${homePlayer.name} ${('number' in homePlayer && homePlayer.number) ? '#' + homePlayer.number : ''}`} className="leading-tight py-0.5" style={{ fontSize: `${state.meta.broadcastPlayerNameSize ?? 20}px` }} align="left" />
+                        <AutoScalingText 
+                          text={getPlayerText(homePlayer)} 
+                          content={getPlayerContent(homePlayer)} 
+                          className="leading-tight py-0.5" 
+                          style={{ fontSize: `${state.meta.broadcastPlayerNameSize ?? 20}px` }} 
+                          align="left" 
+                        />
                       </div>
                       {!isAwayBatter && state.showTimer && (showBroadcastTimer || state.isAdjustmentMode) && (
                         <div 
