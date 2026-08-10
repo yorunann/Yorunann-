@@ -66,7 +66,7 @@ const AnimatedScore = ({ score, color, sizeClass, disableScale, style }: { score
 
     return (
         <div 
-          className={`flex items-center justify-center w-full h-full ${sizeClass || 'text-[6rem] sm:text-[12rem] lg:text-[16rem] xl:text-[22rem]'} font-bold text-center cursor-pointer select-none transition-all drop-shadow-lg leading-none rounded-lg ${animate ? (disableScale ? 'scale-110' : 'scale-150') + ' duration-150 z-50' : 'duration-300'}`}
+          className={`flex items-center justify-center w-full h-full ${sizeClass || 'text-[5rem] sm:text-[9rem] lg:text-[12rem] xl:text-[17rem]'} font-bold text-center cursor-pointer select-none transition-all drop-shadow-lg leading-none rounded-lg ${animate ? (disableScale ? 'scale-110' : 'scale-150') + ' duration-150 z-50' : 'duration-300'}`}
           style={{ 
              color: animate ? '#fde047' : 'white', // Yellow flash
              textShadow: animate ? `0 0 40px ${color || '#fde047'}` : 'none',
@@ -84,86 +84,71 @@ interface AnimatedIndicatorProps {
   colorClass: string;
   shadowClass: string;
   baseClass: string;
+  disableAnimation?: boolean;
+  disableGlow?: boolean;
 }
 
-const AnimatedIndicator: React.FC<AnimatedIndicatorProps> = ({ active, colorClass, shadowClass, baseClass }) => {
-    // Use a key to force re-render when active state changes to true, triggering animation
-    // We don't need complex state management for the animation itself, just CSS animation
-    
+
+const TeamLogo = ({ team, isActive }: { team: Team, isActive?: boolean }) => {
     return (
-        <div 
-            key={active ? 'active' : 'inactive'}
-            className={`${baseClass} ${active ? `${colorClass} ${shadowClass} border-transparent animate-pop-in` : 'bg-slate-900 border-slate-600'} transition-colors duration-200`} 
-        />
+        <div className="relative shrink-0 w-10 h-10 sm:w-16 sm:h-16 lg:w-20 lg:h-20">
+            {isActive && <div className="absolute inset-[-2px] rounded-full border-2 border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.6)] animate-[pulse_2s_ease-in-out_infinite] z-20 pointer-events-none"></div>}
+            <div className={`w-full h-full rounded-full bg-slate-800 flex items-center justify-center overflow-hidden border-2 z-10 shadow-lg ${isActive ? 'border-yellow-400' : 'border-slate-700 shadow-black/20'}`} style={{ backgroundColor: team.color }}>
+                {team.logoUrl ? (
+                    <img src={team.logoUrl} alt={team.name} className="w-full h-full object-cover" />
+                ) : (
+                    <span className="text-white font-bold text-xl sm:text-3xl drop-shadow-md">{team.name.charAt(0)}</span>
+                )}
+            </div>
+        </div>
     );
 };
 
-const TeamLogo = ({ team }: { team: Team }) => (
-  <div 
-      className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 rounded-full flex items-center justify-center shadow-lg border-2 border-white/20 relative z-10 shrink-0 overflow-hidden"
-      style={{ backgroundColor: team.color }}
-  >
-      {team.logoUrl ? (
-          <img src={team.logoUrl} alt={`${team.name} Logo`} className="w-full h-full object-cover" />
-      ) : (
-          <AutoScalingText text={team.name.substring(0, 1)} className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold text-white drop-shadow-md" align="center" />
-      )}
-  </div>
-);
+interface SortablePlayerItemProps { p: Player; idx: number; activeBatterId: string | undefined; isAway: boolean; isBench?: boolean; state?: any; dispatch?: any; }
+const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({ p, idx, activeBatterId, isAway, isBench }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: p.id });
 
-const SortablePlayerItem = ({ p, idx, activeBatterId, isAway, state, dispatch, isBench }: any) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging
-  } = useSortable({id: p.id});
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 50 : 0,
+        opacity: isDragging ? 0.5 : 1
+    };
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 100 : 1,
-    position: 'relative' as const,
-  };
-
-  const isActive = !isBench && p.id === activeBatterId;
-  const isLineupMode = state.displayMode === 'lineup';
-
-  return (
-    <div 
-        ref={setNodeRef}
-        style={style}
-        className={`flex items-center p-1 rounded min-h-[36px] transition-all ${isActive ? 'bg-yellow-500 text-black shadow-lg z-10 font-bold' : isBench ? 'text-slate-500 bg-white/5 hover:bg-white/10' : 'text-slate-400 bg-white/5 hover:bg-white/10'} ${isDragging ? 'opacity-50' : 'opacity-100'}`}
-    >
-        {!isLineupMode && (
-            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-white transition-colors">
-                <GripVertical size={16} />
-            </div>
-        )}
+    return (
         <div 
-            className="flex-1 flex items-center cursor-pointer min-w-0"
-            onClick={() => !isBench && dispatch({ type: 'SET_BATTER', team: isAway ? 'away' : 'home', index: idx })}
+            ref={setNodeRef} 
+            style={style} 
+            {...attributes} 
+            {...listeners} 
+            className={`flex justify-between items-center px-1.5 sm:px-2 py-1 rounded transition-colors cursor-grab active:cursor-grabbing ${activeBatterId === p.id && !isBench ? "bg-blue-600/30 ring-1 ring-blue-500" : "hover:bg-slate-700/50"}`}
         >
-            <span className={`w-6 text-center text-sm font-mono ${isActive ? 'text-black' : 'text-slate-500'}`}>{isBench ? 'B' : idx+1}</span>
-            <span className={`w-8 text-center text-xs font-bold uppercase ${isActive ? 'text-black/70' : 'text-slate-600'}`}>{p.position}</span>
-            <div className="flex-1 min-w-0">
-                <AutoScalingText text={p.name} className="text-sm px-1" align="left" />
+            <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
+                {!isBench && <span className="text-[10px] sm:text-xs text-slate-400 font-mono w-3 sm:w-4 shrink-0">{idx + 1}.</span>}
+                <span className={`text-[10px] sm:text-xs font-bold truncate ${activeBatterId === p.id && !isBench ? "text-white" : "text-slate-300"}`}>
+                    {p.name}
+                    {p.number && <span className="ml-1 text-[9px] sm:text-[10px] text-slate-500">#{p.number}</span>}
+                </span>
             </div>
-            {state.showPlayerStat && <span className={`text-xs ml-auto shrink-0 ${isActive ? 'text-black' : 'text-slate-500'}`}>{p.stat}</span>}
+            <span className="text-[9px] sm:text-[10px] font-mono text-slate-500 shrink-0 ml-2">{p.stat}</span>
         </div>
-        {!isLineupMode && (
-            <button 
-                onClick={() => dispatch({ type: isBench ? 'MOVE_TO_LINEUP' : 'MOVE_TO_BENCH', team: isAway ? 'away' : 'home', index: idx })}
-                className={`ml-1 p-1 transition-colors ${isBench ? 'text-slate-600 hover:text-green-400' : 'text-slate-600 hover:text-red-400'}`}
-                title={isBench ? "Move to Lineup" : "Move to Bench"}
-            >
-                {isBench ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
-            </button>
-        )}
-    </div>
-  );
+    );
+};
+
+const AnimatedIndicator: React.FC<AnimatedIndicatorProps> = ({ active, colorClass, shadowClass, baseClass, disableAnimation = false, disableGlow = false }) => {
+    return (
+        <div 
+            key={active ? "active" : "inactive"}
+            className={`${baseClass} ${active ? `${colorClass} ${disableGlow ? "" : shadowClass} border-transparent ${disableAnimation ? "" : "animate-pop-in"}` : "bg-slate-900 border-slate-600"} transition-colors duration-200`} 
+        />
+    );
 };
 
 const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: boolean, state: GameState, dispatch: React.Dispatch<ActionType> }) => {
@@ -506,15 +491,13 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
              <div className="absolute inset-0 opacity-20 transition-colors duration-500" style={{ backgroundColor: state.awayTeam.color }}></div>
             
             <div className="flex h-full relative z-10 p-2 sm:p-4 lg:p-5 flex-col justify-between">
-                <div className="flex justify-start items-start gap-2 sm:gap-4">
-                  <div className="shrink-0 relative">
-                     <TeamLogo team={state.awayTeam} />
-                     {state.isTop && <div className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 bg-yellow-400 rounded-full animate-pulse shadow-[0_0_12px_rgba(250,204,21,1)] border-2 border-slate-900 z-20" />}
+                <div className="flex justify-start items-stretch gap-2 sm:gap-3">
+                  <div className="shrink-0 relative flex items-center justify-center">
+                     <TeamLogo team={state.awayTeam} isActive={state.isTop} />
                   </div>
                   
-                  <div className="flex flex-col items-start min-w-0 pt-1 flex-1">
-                     <AutoScalingText text={state.awayTeam.name} className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-white tracking-tight drop-shadow-sm leading-none" align="left" />
-                     <AutoScalingText text={state.awayTeam.fullName} className="text-xs sm:text-sm lg:text-base text-slate-300 font-semibold tracking-wide uppercase pl-1" align="left" />
+                  <div className="flex flex-col items-start justify-center h-10 sm:h-16 lg:h-20 min-w-0 flex-1 py-1">
+                     <AutoScalingText text={state.awayTeam.name} className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-white tracking-tight drop-shadow-sm leading-tight" align="left" />
                   </div>
                 </div>
                 
@@ -723,15 +706,13 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
              <div className="absolute inset-0 opacity-20 transition-colors duration-500" style={{ backgroundColor: state.homeTeam.color }}></div>
 
              <div className="flex h-full p-2 sm:p-4 lg:p-5 flex-col justify-between text-right relative z-10">
-                <div className="flex justify-end items-start gap-2 sm:gap-4">
-                   <div className="flex flex-col items-end min-w-0 pt-1 flex-1">
-                      <AutoScalingText text={state.homeTeam.name} className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-white tracking-tight drop-shadow-sm leading-none" align="right" />
-                      <AutoScalingText text={state.homeTeam.fullName} className="text-xs sm:text-sm lg:text-base text-slate-300 font-semibold tracking-wide uppercase pr-1" align="right" />
+                <div className="flex justify-end items-stretch gap-2 sm:gap-3">
+                   <div className="flex flex-col items-end justify-center h-10 sm:h-16 lg:h-20 min-w-0 flex-1 py-1">
+                      <AutoScalingText text={state.homeTeam.name} className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-white tracking-tight drop-shadow-sm leading-tight" align="right" />
                    </div>
                    
-                   <div className="shrink-0 relative">
-                      <TeamLogo team={state.homeTeam} />
-                      {!state.isTop && <div className="absolute -bottom-1 -left-1 sm:-bottom-2 sm:-left-2 w-4 h-4 sm:w-5 sm:h-5 bg-yellow-400 rounded-full animate-pulse shadow-[0_0_12px_rgba(250,204,21,1)] border-2 border-slate-900 z-20" />}
+                   <div className="shrink-0 relative flex items-center justify-center">
+                      <TeamLogo team={state.homeTeam} isActive={!state.isTop} />
                    </div>
                 </div>
                 
@@ -1116,8 +1097,10 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
     const currentAwayKey = `${awayPlayer.name}-${'number' in awayPlayer ? awayPlayer.number : ''}`;
     const currentHomeKey = `${homePlayer.name}-${'number' in homePlayer ? homePlayer.number : ''}`;
 
-    const showAwayPlayer = isAwayBatter ? state.showBatterInfo : state.showPitcherInfo;
-    const showHomePlayer = !isAwayBatter ? state.showBatterInfo : state.showPitcherInfo;
+    const isAwayVisible = isAwayBatter ? state.showBatterInfo : state.showPitcherInfo;
+    const isHomeVisible = !isAwayBatter ? state.showBatterInfo : state.showPitcherInfo;
+    const showAwayPlayer = true;
+    const showHomePlayer = true;
 
     const pitcher = state.isTop ? (state.homeTeam.pitcher || { name: 'UNKNOWN', stat: '0' }) : (state.awayTeam.pitcher || { name: 'UNKNOWN', stat: '0' });
 
@@ -1380,6 +1363,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     <span className="shrink-0 text-slate-400 font-bold inline-block text-center w-[1.125rem]">P</span>
                   )}
                   <AnimatePresence mode="wait">
+                    {isAwayVisible && (
                     <motion.div
                       key={currentAwayKey}
                       initial={{ opacity: 0, y: 15 }}
@@ -1427,6 +1411,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         </div>
                       )}
                     </motion.div>
+                    )}
                   </AnimatePresence>
                 </div>
               )}
@@ -1442,8 +1427,20 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                   >
                     <div className="absolute inset-0 opacity-20" style={{ backgroundColor: state.awayTeam.color }}></div>
                     <div className="flex-1 px-2 flex items-center gap-3 min-w-0 relative z-10 h-full">
-                      <div className="w-10 h-10 rounded-full border-[3px] border-slate-700 overflow-hidden flex items-center justify-center bg-slate-800 shrink-0">
-                        {state.awayTeam.logoUrl ? <img src={state.awayTeam.logoUrl} alt="Away Logo" className="w-full h-full object-cover" /> : <div className="w-6 h-6 rounded-full" style={{backgroundColor: state.awayTeam.color}} />}
+                      <div 
+                        className="rounded-full border-[3px] border-slate-700 overflow-hidden flex items-center justify-center bg-slate-800 shrink-0 transition-all"
+                        style={{ width: `${state.meta.broadcastLogoSize ?? 40}px`, height: `${state.meta.broadcastLogoSize ?? 40}px` }}
+                      >
+                        {state.awayTeam.logoUrl ? (
+                          <img src={state.awayTeam.logoUrl} alt="Away Logo" className="w-full h-full object-cover" />
+                        ) : (
+                          <div 
+                            className="w-full h-full rounded-full flex items-center justify-center font-bold text-white uppercase" 
+                            style={{ backgroundColor: state.awayTeam.color, fontSize: `${(state.meta.broadcastLogoSize ?? 40) * 0.5}px` }}
+                          >
+                            {state.awayTeam.name.charAt(0)}
+                          </div>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <AutoScalingText text={state.awayTeam.name} className="font-bold tracking-wider uppercase leading-tight py-0.5" style={{ fontSize: `${state.meta.broadcastTeamNameSize ?? 24}px` }} align="left" />
@@ -1524,8 +1521,20 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     )}
                     <div className="absolute inset-0 opacity-20" style={{ backgroundColor: state.homeTeam.color }}></div>
                     <div className="flex-1 p-2 flex items-center gap-3 min-w-0 relative z-10">
-                      <div className="w-10 h-10 rounded-full border-[3px] border-slate-700 overflow-hidden flex items-center justify-center bg-slate-800 shrink-0">
-                        {state.homeTeam.logoUrl ? <img src={state.homeTeam.logoUrl} alt="Home Logo" className="w-full h-full object-cover" /> : <div className="w-6 h-6 rounded-full" style={{backgroundColor: state.homeTeam.color}} />}
+                      <div 
+                        className="rounded-full border-[3px] border-slate-700 overflow-hidden flex items-center justify-center bg-slate-800 shrink-0 transition-all"
+                        style={{ width: `${state.meta.broadcastLogoSize ?? 40}px`, height: `${state.meta.broadcastLogoSize ?? 40}px` }}
+                      >
+                        {state.homeTeam.logoUrl ? (
+                          <img src={state.homeTeam.logoUrl} alt="Home Logo" className="w-full h-full object-cover" />
+                        ) : (
+                          <div 
+                            className="w-full h-full rounded-full flex items-center justify-center font-bold text-white uppercase" 
+                            style={{ backgroundColor: state.homeTeam.color, fontSize: `${(state.meta.broadcastLogoSize ?? 40) * 0.5}px` }}
+                          >
+                            {state.homeTeam.name.charAt(0)}
+                          </div>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <AutoScalingText text={state.homeTeam.name} className="font-bold tracking-wider uppercase leading-tight py-0.5" style={{ fontSize: `${state.meta.broadcastTeamNameSize ?? 24}px` }} align="left" />
@@ -1624,6 +1633,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     <span className="shrink-0 text-slate-400 font-bold inline-block text-center w-[1.125rem]">P</span>
                   )}
                   <AnimatePresence mode="wait">
+                    {isHomeVisible && (
                     <motion.div
                       key={currentHomeKey}
                       initial={{ opacity: 0, y: 15 }}
@@ -1671,6 +1681,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         </div>
                       )}
                     </motion.div>
+                    )}
                   </AnimatePresence>
                 </div>
               )}
@@ -1748,7 +1759,10 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                   paddingTop: `${pitchInfoHeight}px`
                 }}
               >
-                  <div className="flex flex-col gap-0.5 justify-center my-auto">
+                  <div 
+                    className="flex flex-col justify-center items-start my-auto transition-all"
+                    style={{ gap: `${Math.max(0, state.meta.broadcastCountGap ?? 2)}px` }}
+                  >
                       {/* Balls */}
                       <div className="flex items-center gap-1.5 cursor-pointer group" onClick={handleBallClick}>
                           <span className="text-base sm:text-lg font-bold text-slate-500 group-hover:text-white transition-colors w-4 text-center leading-none">B</span>
@@ -1760,12 +1774,18 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                       colorClass="bg-led-green" 
                                       shadowClass="shadow-[0_0_10px_#00ff41]" 
                                       baseClass="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full border-2"
+                                      disableAnimation={true}
+                                      disableGlow={true}
                                   />
                               ))}
                           </div>
                       </div>
                       {/* Strikes */}
-                      <div className="flex items-center gap-1.5 cursor-pointer group" onClick={handleStrikeClick}>
+                      <div 
+                        className="flex items-center gap-1.5 cursor-pointer group" 
+                        style={{ marginTop: (state.meta.broadcastCountGap ?? 2) < 0 ? `${state.meta.broadcastCountGap}px` : undefined }}
+                        onClick={handleStrikeClick}
+                      >
                           <span className="text-base sm:text-lg font-bold text-slate-500 group-hover:text-white transition-colors w-4 text-center leading-none">S</span>
                           <div className="flex space-x-1 items-center">
                               {[0, 1].map(i => (
@@ -1775,12 +1795,18 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                       colorClass="bg-led-yellow" 
                                       shadowClass="shadow-[0_0_10px_#ffcc00]" 
                                       baseClass="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full border-2"
+                                      disableAnimation={true}
+                                      disableGlow={true}
                                   />
                               ))}
                           </div>
                       </div>
                       {/* Outs */}
-                      <div className="flex items-center gap-1.5 cursor-pointer group" onClick={handleOutClick}>
+                      <div 
+                        className="flex items-center gap-1.5 cursor-pointer group" 
+                        style={{ marginTop: (state.meta.broadcastCountGap ?? 2) < 0 ? `${state.meta.broadcastCountGap}px` : undefined }}
+                        onClick={handleOutClick}
+                      >
                           <span className="text-base sm:text-lg font-bold text-slate-500 group-hover:text-white transition-colors w-4 text-center leading-none">O</span>
                           <div className="flex space-x-1 items-center">
                               {[0, 1].map(i => (
@@ -1790,6 +1816,8 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                       colorClass="bg-led-red" 
                                       shadowClass="shadow-[0_0_10px_#ff3b30]" 
                                       baseClass="w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full border-2"
+                                      disableAnimation={true}
+                                      disableGlow={true}
                                   />
                               ))}
                           </div>

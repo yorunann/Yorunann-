@@ -37,7 +37,12 @@ const SortablePlayerRow = ({
   onMove, 
   onRemove,
   onSetPitcher,
-  language
+  language,
+  selectedPosId,
+  onPosClick,
+  onPosDoubleClick,
+  onPosBlur,
+  isPosEditing
 }: { 
   player: Player; 
   idx: number; 
@@ -49,6 +54,11 @@ const SortablePlayerRow = ({
   onSetPitcher: () => void;
   language: 'en' | 'zh' | 'ja';
   key?: any;
+  selectedPosId?: string | null;
+  onPosClick?: (id: string) => void;
+  onPosDoubleClick?: (id: string) => void;
+  onPosBlur?: () => void;
+  isPosEditing?: boolean;
 }) => {
   const {
     attributes,
@@ -69,52 +79,56 @@ const SortablePlayerRow = ({
     <div 
       ref={setNodeRef} 
       style={style} 
-      className={`flex items-center space-x-2 text-xs p-1 rounded border ${isDragging ? 'opacity-50 bg-blue-50 border-blue-200' : isCurrentBatter ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-transparent'}`}
+      className={`flex items-center gap-1 text-xs p-1 rounded border min-w-max ${isDragging ? 'opacity-50 bg-blue-50 border-blue-200' : isCurrentBatter ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-transparent'}`}
     >
-      <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 text-gray-500 hover:text-gray-800 transition-colors">
+      <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 text-gray-500 hover:text-gray-800 transition-colors shrink-0">
         <GripVertical size={14} />
       </div>
-      {!isLineup ? null : <span className="w-4 text-gray-400 font-mono text-[10px]">{idx + 1}</span>}
+      {!isLineup ? null : <span className="w-4 shrink-0 text-gray-400 font-mono text-[10px] text-right">{idx + 1}</span>}
       <input 
-        className="w-8 border rounded px-1 text-center font-bold text-slate-900 bg-white" 
+        className={`w-8 shrink-0 border rounded px-1 text-center font-bold text-slate-900 bg-white ${selectedPosId === player.id ? 'ring-2 ring-blue-500' : ''} ${!isPosEditing ? 'cursor-pointer select-none' : ''}`} 
         value={player.position || ''} 
         placeholder="Pos" 
-        onChange={(e) => onUpdate('position', e.target.value)} 
+        onChange={(e) => onUpdate('position', e.target.value)}
+        readOnly={!isPosEditing}
+        onClick={() => onPosClick?.(player.id)}
+        onDoubleClick={() => onPosDoubleClick?.(player.id)}
+        onBlur={() => onPosBlur?.()}
       />
       <input 
-        className="w-8 border rounded px-1 text-slate-900 bg-white" 
+        className="w-8 shrink-0 border rounded px-1 text-center text-slate-900 bg-white" 
         value={player.number} 
         placeholder="#" 
         onChange={(e) => onUpdate('number', e.target.value)} 
       />
       <input 
-        className="flex-1 border rounded px-1 text-slate-900 bg-white" 
+        className="w-24 shrink-0 border rounded px-1 text-slate-900 bg-white" 
         value={player.name} 
         placeholder="Name" 
         onChange={(e) => onUpdate('name', e.target.value)} 
       />
       <input 
-        className="w-12 border rounded px-1 text-slate-900 bg-white" 
+        className="w-12 shrink-0 border rounded px-1 text-center text-slate-900 bg-white" 
         value={player.stat} 
         placeholder="Avg" 
         onChange={(e) => onUpdate('stat', e.target.value)} 
       />
       <button 
         onClick={onMove} 
-        className={`${isLineup ? 'text-blue-400 hover:text-blue-600' : 'text-green-600 hover:text-green-700'}`} 
+        className={`shrink-0 p-1 ${isLineup ? 'text-blue-400 hover:text-blue-600' : 'text-green-600 hover:text-green-700'}`} 
         title={isLineup ? (language === 'zh' ? "移至板凳" : language === 'en' ? "To Bench" : "ベンチへ") : (language === 'zh' ? "移至打線" : language === 'en' ? "To Lineup" : "打順へ")}
       >
-        {isLineup ? <ArrowDown size={12} /> : <ArrowUp size={12} />}
+        {isLineup ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
       </button>
       <button 
         onClick={onSetPitcher} 
-        className="text-purple-400 hover:text-purple-600" 
+        className="shrink-0 p-1 text-purple-400 hover:text-purple-600" 
         title={language === 'en' ? 'Set as Pitcher' : language === 'zh' ? '設為投手' : '投手に設定'}
       >
-        <CircleDot size={12} />
+        <CircleDot size={14} />
       </button>
-      <button onClick={onRemove} className="text-red-400 hover:text-red-600" title={language === 'zh' ? '移除' : language === 'ja' ? '削除' : 'Remove'}>
-        <Trash2 size={12} />
+      <button onClick={onRemove} className="shrink-0 p-1 text-red-400 hover:text-red-600" title={language === 'zh' ? '移除' : language === 'ja' ? '削除' : 'Remove'}>
+        <Trash2 size={14} />
       </button>
     </div>
   );
@@ -125,6 +139,44 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
   const [draft, setDraft] = React.useState<Team>(globalTeam);
   const [cropModalOpen, setCropModalOpen] = useState(false);
   const [tempImageSrc, setTempImageSrc] = useState('');
+  
+  const [selectedPosId, setSelectedPosId] = useState<string | null>(null);
+  const [editingPosId, setEditingPosId] = useState<string | null>(null);
+
+  const handlePosClick = (id: string) => {
+    if (editingPosId === id) return;
+    if (selectedPosId && selectedPosId !== id) {
+      const getPlayerLoc = (pid: string) => {
+        let idx = draft.lineup.findIndex(p => p.id === pid);
+        if (idx >= 0) return { list: 'lineup' as const, idx };
+        idx = draft.bench.findIndex(p => p.id === pid);
+        if (idx >= 0) return { list: 'bench' as const, idx };
+        return null;
+      };
+
+      const loc1 = getPlayerLoc(selectedPosId);
+      const loc2 = getPlayerLoc(id);
+
+      if (loc1 && loc2) {
+        const newDraft = { ...draft, lineup: [...draft.lineup], bench: [...draft.bench] };
+        const p1Pos = newDraft[loc1.list][loc1.idx].position;
+        const p2Pos = newDraft[loc2.list][loc2.idx].position;
+        
+        newDraft[loc1.list][loc1.idx] = { ...newDraft[loc1.list][loc1.idx], position: p2Pos };
+        newDraft[loc2.list][loc2.idx] = { ...newDraft[loc2.list][loc2.idx], position: p1Pos };
+        
+        setDraft(newDraft);
+      }
+      setSelectedPosId(null);
+    } else {
+      setSelectedPosId(selectedPosId === id ? null : id);
+    }
+  };
+
+  const handlePosDoubleClick = (id: string) => {
+    setSelectedPosId(null);
+    setEditingPosId(id);
+  };
 
   React.useEffect(() => {
     setDraft(globalTeam);
@@ -289,10 +341,10 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
 
   return (
     <div 
-      className={`p-3 rounded border ${teamKey === 'away' ? 'bg-blue-50/50 border-blue-200' : 'bg-red-50/50 border-red-200'}`}
+      className={`p-3 rounded border min-w-0 overflow-hidden box-border ${teamKey === 'away' ? 'bg-blue-50/50 border-blue-200' : 'bg-red-50/50 border-red-200'}`}
     >
-      <div className="flex flex-col gap-2 mb-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-col gap-2 mb-2 min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
            <div className="flex items-center gap-1 shrink-0">
              <div className="flex flex-col gap-1">
                <div className="flex items-center gap-1" title={language === 'en' ? 'Team Color' : language === 'zh' ? '隊伍色' : 'チーム色'}>
@@ -310,13 +362,13 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
              </label>
            </div>
            
-           <div className="flex flex-col gap-1 flex-1 min-w-[110px]">
+           <div className="flex flex-col gap-1 flex-1 min-w-[100px]">
                <div className="flex items-center justify-between border-2 border-slate-400 bg-white rounded text-black overflow-hidden shadow-sm">
                   <button className="px-2 py-1 hover:bg-gray-100 text-black font-bold border-r-2 border-slate-200 flex-1" onClick={() => dispatch({type: 'ADD_SCORE', team: teamKey, amount: -1})}>-</button>
-                  <span className="font-mono font-bold text-black text-base min-w-[1.5rem] text-center">{globalTeam.score}</span>
+                  <span className="font-mono font-bold text-black text-base min-w-[1.2rem] text-center px-1">{globalTeam.score}</span>
                   <button className="px-2 py-1 hover:bg-gray-100 text-black font-bold border-l-2 border-slate-200 flex-1" onClick={() => dispatch({type: 'ADD_SCORE', team: teamKey, amount: 1})}>+</button>
                </div>
-               <div className="flex gap-1 w-full">
+               <div className="flex gap-1 w-full min-w-0">
                  <button 
                    onClick={() => {
                      if (confirm(language === 'en' ? 'Reset this team?' : language === 'zh' ? '確定要重置此隊伍的陣容與設定嗎？' : 'このチームのラインナップと設定をリセットしますか？')) {
@@ -328,22 +380,22 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
                  >
                    <RotateCcw size={12} />
                  </button>
-                 <button onClick={handleSubmit} className="bg-green-600 hover:bg-green-700 text-white text-[11px] font-bold py-1 px-1 rounded shadow flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-center">
+                 <button onClick={handleSubmit} className="bg-green-600 hover:bg-green-700 text-white text-[11px] font-bold py-1 px-1 rounded shadow flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-center min-w-0">
                    {language === 'en' ? 'Update Info' : language === 'zh' ? '更新資訊' : '情報更新'}
                  </button>
                </div>
            </div>
         </div>
         
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 min-w-0 w-full">
             <input 
-              className="w-full border-2 border-slate-300 p-1.5 rounded text-sm font-bold text-black bg-white" 
+              className="w-full border-2 border-slate-300 p-1.5 rounded text-sm font-bold text-black bg-white box-border min-w-0" 
               value={draft.name}
               onChange={(e) => updateDraft('name', e.target.value)}
               placeholder="Team (Abbr)"
             />
              <input 
-              className="w-full border-2 border-slate-300 p-1.5 rounded text-xs text-black bg-white" 
+              className="w-full border-2 border-slate-300 p-1.5 rounded text-xs text-black bg-white box-border min-w-0" 
               value={draft.fullName}
               onChange={(e) => updateDraft('fullName', e.target.value)}
               placeholder="Team Full Name"
@@ -352,27 +404,27 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
       </div>
       
       {/* RHE & Inning Scores Editor */}
-      <div className="bg-white p-2 rounded border shadow-sm mt-2">
+      <div className="bg-white p-2 rounded border shadow-sm mt-2 min-w-0 overflow-hidden">
         <div className="flex justify-between items-center mb-1">
           <h4 className="font-bold text-xs text-gray-700">{language === 'en' ? 'RHE & Innings' : language === 'zh' ? 'RHE 與局數分數' : 'RHEとイニングスコア'}</h4>
         </div>
-        <div className="flex items-center gap-2 mb-2">
-          <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2 mb-2 flex-wrap min-w-0">
+          <div className="flex items-center gap-1 shrink-0">
             <span className="text-xs font-bold w-3 text-slate-700">H</span>
-            <input type="number" className="w-10 border rounded px-1 text-sm text-slate-900 bg-white" value={draft.hits} onChange={(e) => updateDraft('hits', parseInt(e.target.value) || 0)} />
+            <input type="number" className="w-10 border rounded px-1 text-sm text-slate-900 bg-white min-w-0" value={draft.hits} onChange={(e) => updateDraft('hits', parseInt(e.target.value) || 0)} />
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <span className="text-xs font-bold w-3 text-slate-700">E</span>
-            <input type="number" className="w-10 border rounded px-1 text-sm text-slate-900 bg-white" value={draft.errors} onChange={(e) => updateDraft('errors', parseInt(e.target.value) || 0)} />
+            <input type="number" className="w-10 border rounded px-1 text-sm text-slate-900 bg-white min-w-0" value={draft.errors} onChange={(e) => updateDraft('errors', parseInt(e.target.value) || 0)} />
           </div>
         </div>
-        <div className="flex gap-1 overflow-x-auto pb-1">
+        <div className="flex gap-1 overflow-x-auto pb-1 min-w-0 max-w-full">
           {draft.inningScores.map((score, idx) => (
-            <div key={idx} className="flex flex-col items-center min-w-[28px]">
+            <div key={idx} className="flex flex-col items-center">
               <span className="text-[10px] text-gray-500">{idx + 1}</span>
               <input 
                 type="text" 
-                className="w-full border rounded px-1 text-center text-xs text-slate-900 bg-white" 
+                className="w-8 border rounded px-1 text-center text-xs text-slate-900 bg-white" 
                 value={score === null ? '' : score}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -385,7 +437,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
           ))}
           <button 
             onClick={() => updateDraft('inningScores', [...draft.inningScores, null])}
-            className="min-w-[28px] flex items-center justify-center border border-dashed rounded text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+            className="w-8 h-[22px] mt-[15px] flex items-center justify-center border border-dashed rounded text-gray-400 hover:text-gray-600 hover:bg-gray-50 shrink-0"
           >
             <Plus size={12} />
           </button>
@@ -393,12 +445,14 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
       </div>
 
       {/* Pitcher Editor */}
-      <div className="bg-orange-50 p-2 rounded border border-orange-200 mt-2">
+      <div className="bg-orange-50 p-2 rounded border border-orange-200 mt-2 min-w-0 overflow-hidden">
           <h4 className="font-bold text-xs text-orange-800 mb-1 flex items-center gap-1"><PenTool size={12}/> Active Pitcher</h4>
-          <div className="flex items-center space-x-1">
-              <input className="w-10 border rounded px-1 text-sm text-slate-900 bg-white" value={draft.pitcher.number} onChange={(e) => updatePitcher('number', e.target.value)} placeholder="#" />
-              <input className="flex-1 border rounded px-1 text-sm text-slate-900 bg-white" value={draft.pitcher.name} onChange={(e) => updatePitcher('name', e.target.value)} placeholder="Name" />
-              <input className="w-16 border rounded px-1 text-sm text-slate-900 bg-white" value={draft.pitcher.stat} onChange={(e) => updatePitcher('stat', e.target.value)} placeholder="P: 0" />
+          <div className="flex items-center gap-1 min-w-0 w-full overflow-x-auto">
+              <div className="flex items-center gap-1 min-w-max">
+                  <input className="w-12 border rounded px-1 text-sm text-slate-900 bg-white shrink-0" value={draft.pitcher.number} onChange={(e) => updatePitcher('number', e.target.value)} placeholder="#" />
+                  <input className="w-32 border rounded px-1 text-sm text-slate-900 bg-white shrink-0" value={draft.pitcher.name} onChange={(e) => updatePitcher('name', e.target.value)} placeholder="Name" />
+                  <input className="w-16 border rounded px-1 text-sm text-slate-900 bg-white shrink-0" value={draft.pitcher.stat} onChange={(e) => updatePitcher('stat', e.target.value)} placeholder="P: 0" />
+              </div>
           </div>
       </div>
 
@@ -419,7 +473,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
           onDragEnd={handleDragEnd}
           modifiers={[restrictToVerticalAxis]}
         >
-          <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+          <div className="space-y-1 max-h-48 overflow-y-auto overflow-x-auto pr-1">
             <SortableContext items={draft.lineup.map(p => p.id)} strategy={verticalListSortingStrategy}>
               {draft.lineup.map((player, idx) => (
                 <SortablePlayerRow 
@@ -433,6 +487,11 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
                   onMove={() => moveToBench(idx)}
                   onRemove={() => removeLineupPlayer(idx)}
                   onSetPitcher={() => setAsPitcher(player)}
+                  selectedPosId={selectedPosId}
+                  onPosClick={handlePosClick}
+                  onPosDoubleClick={handlePosDoubleClick}
+                  onPosBlur={() => setEditingPosId(null)}
+                  isPosEditing={editingPosId === player.id}
                 />
               ))}
             </SortableContext>
@@ -454,7 +513,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
           onDragEnd={handleDragEnd}
           modifiers={[restrictToVerticalAxis]}
         >
-          <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+          <div className="space-y-1 max-h-40 overflow-y-auto overflow-x-auto pr-1">
             <SortableContext items={draft.bench.map(p => p.id)} strategy={verticalListSortingStrategy}>
               {draft.bench.map((player, idx) => (
                 <SortablePlayerRow 
@@ -468,6 +527,11 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
                   onMove={() => moveToLineup(idx)}
                   onRemove={() => removeBenchPlayer(idx)}
                   onSetPitcher={() => setAsPitcher(player)}
+                  selectedPosId={selectedPosId}
+                  onPosClick={handlePosClick}
+                  onPosDoubleClick={handlePosDoubleClick}
+                  onPosBlur={() => setEditingPosId(null)}
+                  isPosEditing={editingPosId === player.id}
                 />
               ))}
             </SortableContext>
@@ -497,6 +561,53 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
   const hrTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const hrLockTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const hrBubbleIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const activeBatterTeam = state.isTop ? 'away' : 'home';
+  const activePitcherTeam = state.isTop ? 'home' : 'away';
+  const activeBatterTeamObj = state.isTop ? state.awayTeam : state.homeTeam;
+  const activePitcherTeamObj = state.isTop ? state.homeTeam : state.awayTeam;
+  
+  const activeBatter = activeBatterTeamObj.lineup[activeBatterTeamObj.currentBatterIndex] || null;
+  const activePitcher = activePitcherTeamObj.pitcher;
+
+  const [matchupDraft, setMatchupDraft] = useState({ batter: activeBatter, pitcher: activePitcher });
+
+  React.useEffect(() => {
+    setMatchupDraft({ batter: activeBatter, pitcher: activePitcher });
+  }, [activeBatter, activePitcher]);
+
+  const handleUpdateMatchup = () => {
+    if (matchupDraft.batter && activeBatter) {
+      if (matchupDraft.batter.number !== activeBatter.number) dispatch({ type: 'UPDATE_LINEUP_PLAYER', team: activeBatterTeam, index: activeBatterTeamObj.currentBatterIndex, field: 'number', value: matchupDraft.batter.number });
+      if (matchupDraft.batter.name !== activeBatter.name) dispatch({ type: 'UPDATE_LINEUP_PLAYER', team: activeBatterTeam, index: activeBatterTeamObj.currentBatterIndex, field: 'name', value: matchupDraft.batter.name });
+    }
+    if (matchupDraft.pitcher && activePitcher) {
+      if (matchupDraft.pitcher.number !== activePitcher.number || matchupDraft.pitcher.name !== activePitcher.name) {
+        dispatch({ type: 'UPDATE_TEAM', team: activePitcherTeam, field: 'pitcher', value: { ...activePitcher, number: matchupDraft.pitcher.number, name: matchupDraft.pitcher.name } });
+      }
+    }
+  };
+
+  const updateMatchupDraft = (role: 'batter' | 'pitcher', field: keyof Player, value: string) => {
+    setMatchupDraft(prev => ({
+      ...prev,
+      [role]: prev[role] ? { ...prev[role], [field]: value } : null
+    }));
+  };
+
+  const handleSelectBench = (role: 'batter' | 'pitcher', e: React.ChangeEvent<HTMLSelectElement>) => {
+    const playerId = e.target.value;
+    if (!playerId) return;
+    const teamObj = role === 'batter' ? activeBatterTeamObj : activePitcherTeamObj;
+    const player = teamObj.bench.find(p => p.id === playerId);
+    if (player) {
+      setMatchupDraft(prev => ({
+        ...prev,
+        [role]: prev[role] ? { ...prev[role], number: player.number, name: player.name } : null
+      }));
+    }
+    e.target.value = ''; // Reset select
+  };
 
   React.useEffect(() => {
      if (!state.animation && hrState !== 'idle') {
@@ -626,9 +737,7 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
           <div className="flex flex-col gap-6">
            {/* Game State Actions */}
           <div className="space-y-3">
-            <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide border-b pb-1">{language === 'en' ? 'Umpire Controls' : language === 'zh' ? 'Umpire Controls 裁判控制' : '審判コントロール'}</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide border-b pb-1">{language === 'en' ? 'Umpire Controls' : language === 'zh' ? 'Umpire Controls 裁判控制' : '審判コントロール'}</h3>            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* Left Column (Count Controls) */}
             <div className="flex flex-col gap-2 h-full">
@@ -818,6 +927,62 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
               </div>
             </div>
           </div>
+
+            
+            {/* Quick Matchup Editor */}
+            <div className="bg-slate-100 p-2 rounded border border-slate-200 space-y-2">
+              <h4 className="text-xs font-bold text-slate-600 flex items-center gap-1"><User size={12} /> {language === 'zh' ? '目前對決 (Current Matchup)' : language === 'en' ? 'Current Matchup' : '現在の対戦'}</h4>
+              <div className="flex flex-col gap-2">
+                {/* Active Batter */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-green-700 w-8 shrink-0">{language === 'zh' ? '打者' : language === 'en' ? 'BAT' : '打者'}</span>
+                  <input 
+                    className="w-10 border rounded px-1 text-sm bg-white text-black" 
+                    value={matchupDraft.batter?.number || ''} 
+                    onChange={(e) => updateMatchupDraft('batter', 'number', e.target.value)} 
+                    placeholder="#" 
+                  />
+                  <input 
+                    className="flex-1 min-w-0 border rounded px-1 text-sm bg-white text-black" 
+                    value={matchupDraft.batter?.name || ''} 
+                    onChange={(e) => updateMatchupDraft('batter', 'name', e.target.value)} 
+                    placeholder="Name" 
+                  />
+                  <select className="w-16 border rounded text-xs bg-white text-black shrink-0 outline-none" onChange={(e) => handleSelectBench('batter', e)} defaultValue="">
+                    <option value="" disabled>{language === 'zh' ? '找板凳' : 'Bench'}</option>
+                    {activeBatterTeamObj.bench.map(p => (
+                      <option key={p.id} value={p.id}>{p.number} {p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                {/* Active Pitcher */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-red-700 w-8 shrink-0">{language === 'zh' ? '投手' : language === 'en' ? 'PIT' : '投手'}</span>
+                  <input 
+                    className="w-10 border rounded px-1 text-sm bg-white text-black" 
+                    value={matchupDraft.pitcher?.number || ''} 
+                    onChange={(e) => updateMatchupDraft('pitcher', 'number', e.target.value)} 
+                    placeholder="#" 
+                  />
+                  <input 
+                    className="flex-1 min-w-0 border rounded px-1 text-sm bg-white text-black" 
+                    value={matchupDraft.pitcher?.name || ''} 
+                    onChange={(e) => updateMatchupDraft('pitcher', 'name', e.target.value)} 
+                    placeholder="Name" 
+                  />
+                  <select className="w-16 border rounded text-xs bg-white text-black shrink-0 outline-none" onChange={(e) => handleSelectBench('pitcher', e)} defaultValue="">
+                    <option value="" disabled>{language === 'zh' ? '找板凳' : 'Bench'}</option>
+                    {activePitcherTeamObj.bench.map(p => (
+                      <option key={p.id} value={p.id}>{p.number} {p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                </div>
+              <button onClick={handleUpdateMatchup} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 rounded text-sm shadow transition-transform active:scale-95">
+                {language === 'zh' ? '更新資訊' : language === 'en' ? 'Update Info' : '情報更新'}
+              </button>
+            </div>
+
       {/* Settings & Timer */}
           <div className="space-y-3">
              <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide border-b pb-1">{language === 'en' ? 'Settings & Timer' : language === 'zh' ? 'Settings & Timer 設定與計時器' : '設定とタイマー'}</h3>
@@ -952,13 +1117,47 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                             dispatch({ type: "UPDATE_META", field: "broadcastScoreSize", value: 30 });
                             dispatch({ type: "UPDATE_META", field: "broadcastTimerSize", value: 24 });
                             dispatch({ type: "UPDATE_META", field: "broadcastInningSize", value: 24 });
+                            dispatch({ type: "UPDATE_META", field: "broadcastLogoSize", value: 40 });
+                            dispatch({ type: "UPDATE_META", field: "broadcastCountGap", value: 2 });
                           }}
                           className="px-1.5 py-0.5 text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 rounded flex items-center gap-1 transition-colors"
-                          title={language === "en" ? "Reset all font sizes to default" : language === "zh" ? "重置全部字體大小為默認" : "所有的フォントサイズをデフォルトに戻す"}
+                          title={language === "en" ? "Reset all font sizes to default" : language === "zh" ? "重置全部字體與元件大小為默認" : "所有的フォントサイズをデフォルトに戻す"}
                         >
                           <RotateCcw size={10} />
                           <span>{language === "en" ? "Reset All" : language === "zh" ? "重置全部" : "全重置"}</span>
                         </button>
+                     </div>
+
+                     <div className="flex items-center justify-between gap-1.5">
+                        <span className="text-slate-600 whitespace-nowrap min-w-[60px]">{language === "en" ? "Logo Size" : language === "zh" ? "隊徽大小" : "ロゴサイズ"}</span>
+                        <div className="flex items-center gap-1 flex-1 justify-end">
+                          <input type="range" min="16" max="80" value={state.meta.broadcastLogoSize ?? 40} onChange={(e) => dispatch({ type: "UPDATE_META", field: "broadcastLogoSize", value: parseInt(e.target.value) })} className="w-16 sm:w-20 accent-blue-600" />
+                          <span className="w-5 text-right font-mono text-[11px] text-slate-500 shrink-0">{state.meta.broadcastLogoSize ?? 40}</span>
+                          <button
+                            onClick={() => dispatch({ type: "UPDATE_META", field: "broadcastLogoSize", value: 40 })}
+                            className="px-1.5 py-0.5 text-[10px] bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 rounded flex items-center gap-0.5 shrink-0 transition-colors"
+                            title={language === "en" ? "Reset to default (40)" : language === "zh" ? "重置為默認 (40)" : "默認に戻す (40)"}
+                          >
+                            <RotateCcw size={9} />
+                            <span>{language === "en" ? "Reset" : language === "zh" ? "重置為默認" : "デフォルト"}</span>
+                          </button>
+                        </div>
+                     </div>
+
+                     <div className="flex items-center justify-between gap-1.5">
+                        <span className="text-slate-600 whitespace-nowrap min-w-[60px]">{language === "en" ? "Count Spacing" : language === "zh" ? "球數間距" : "カウント間隔"}</span>
+                        <div className="flex items-center gap-1 flex-1 justify-end">
+                          <input type="range" min="-12" max="24" value={state.meta.broadcastCountGap ?? 2} onChange={(e) => dispatch({ type: "UPDATE_META", field: "broadcastCountGap", value: parseInt(e.target.value) })} className="w-16 sm:w-20 accent-blue-600" />
+                          <span className="w-5 text-right font-mono text-[11px] text-slate-500 shrink-0">{state.meta.broadcastCountGap ?? 2}</span>
+                          <button
+                            onClick={() => dispatch({ type: "UPDATE_META", field: "broadcastCountGap", value: 2 })}
+                            className="px-1.5 py-0.5 text-[10px] bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 rounded flex items-center gap-0.5 shrink-0 transition-colors"
+                            title={language === "en" ? "Reset to default (2)" : language === "zh" ? "重置為默認 (2)" : "默認に戻す (2)"}
+                          >
+                            <RotateCcw size={9} />
+                            <span>{language === "en" ? "Reset" : language === "zh" ? "重置為默認" : "デフォルト"}</span>
+                          </button>
+                        </div>
                      </div>
 
                      <div className="flex items-center justify-between gap-1.5">
@@ -1061,89 +1260,85 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
         )}
 
         {activeTab === 'info' && (
-          <>
-          {/* Game Info Section */}
-          <div className="space-y-3">
-           
-           <div className="mt-4">
-             <h4 className="font-semibold text-gray-600 text-xs uppercase mb-2 flex items-center gap-2"><Tv size={14}/> {language === 'en' ? 'Game Info' : language === 'zh' ? 'Game Info 比賽資訊' : '試合情報'}</h4>
-             <div className="flex flex-wrap gap-2">
-               {(state.meta.gameInfos || []).map((info, idx) => (
-                 <div key={idx} className="flex items-center gap-1 bg-gray-100 rounded border p-1">
-                   <input 
-                     className="bg-transparent text-sm text-slate-900 w-24 outline-none px-1" 
-                     value={info} 
-                     onChange={(e) => {
-                       const newInfos = [...(state.meta.gameInfos || [])];
-                       newInfos[idx] = e.target.value;
-                       updateMeta('gameInfos', newInfos);
-                     }}
-                   />
-                   <button 
-                     onClick={() => {
-                       const newInfos = [...(state.meta.gameInfos || [])];
-                       newInfos.splice(idx, 1);
-                       updateMeta('gameInfos', newInfos);
-                     }}
-                     className="text-red-500 hover:text-red-700 p-1"
-                   >
-                     <Trash2 size={14} />
-                   </button>
-                 </div>
-               ))}
-               <button 
-                 onClick={() => {
-                   const newInfos = [...(state.meta.gameInfos || []), 'New Info'];
-                   updateMeta('gameInfos', newInfos);
-                 }}
-                 className="flex items-center gap-1 text-sm bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-200 hover:bg-blue-100"
-               >
-                 <Plus size={14} /> Add Info
-               </button>
-             </div>
-           </div>
+          <div className="flex flex-col gap-6">
+            {/* Bottom: Team & Lineup Config */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center border-b pb-1">
+                <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Team Configuration</h3>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => dispatch({ type: 'SWAP_TEAMS' })}
+                    className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold py-1 px-2 rounded shadow transition-colors"
+                  >
+                    <RefreshCw size={12} /> {language === 'en' ? 'Swap Teams' : language === 'zh' ? '主客隊交換' : '攻守交替'}
+                  </button>
+                  <button 
+                    onClick={() => dispatch({ type: 'RESET_TEAM_SETTINGS' })}
+                    className="flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold py-1 px-2 rounded shadow transition-colors"
+                  >
+                    <RotateCcw size={12} /> {language === 'en' ? 'Reset Teams' : language === 'zh' ? '重置隊伍設定' : 'チーム設定リセット'}
+                  </button>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {state.meta.swapSides ? (
+                  <>
+                    <TeamEditor key="home" teamKey="home" state={state} dispatch={dispatch} language={language as 'en' | 'zh' | 'ja'} />
+                    <TeamEditor key="away" teamKey="away" state={state} dispatch={dispatch} language={language as 'en' | 'zh' | 'ja'} />
+                  </>
+                ) : (
+                  <>
+                    <TeamEditor key="away" teamKey="away" state={state} dispatch={dispatch} language={language as 'en' | 'zh' | 'ja'} />
+                    <TeamEditor key="home" teamKey="home" state={state} dispatch={dispatch} language={language as 'en' | 'zh' | 'ja'} />
+                  </>
+                )}
+              </div>
+            </div>
 
-
-        </div>
-
-
-        {/* Bottom: Team & Lineup Config */}
-        <div className="space-y-3">
-           <div className="flex justify-between items-center border-b pb-1">
-             <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">Team Configuration</h3>
-             <div className="flex gap-2">
-                <button 
-                  onClick={() => dispatch({ type: 'SWAP_TEAMS' })}
-                  className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold py-1 px-2 rounded shadow transition-colors"
-                >
-                  <RefreshCw size={12} /> {language === 'en' ? 'Swap Teams' : language === 'zh' ? '主客隊交換' : '攻守交替'}
-                </button>
-                <button 
-                  onClick={() => dispatch({ type: 'RESET_TEAM_SETTINGS' })}
-                  className="flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold py-1 px-2 rounded shadow transition-colors"
-                >
-                  <RotateCcw size={12} /> {language === 'en' ? 'Reset Teams' : language === 'zh' ? '重置隊伍設定' : 'チーム設定リセット'}
-                </button>
-             </div>
-           </div>
-           
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {state.meta.swapSides ? (
-                <>
-                  <TeamEditor key="home" teamKey="home" state={state} dispatch={dispatch} language={language as 'en' | 'zh' | 'ja'} />
-                  <TeamEditor key="away" teamKey="away" state={state} dispatch={dispatch} language={language as 'en' | 'zh' | 'ja'} />
-                </>
-              ) : (
-                <>
-                  <TeamEditor key="away" teamKey="away" state={state} dispatch={dispatch} language={language as 'en' | 'zh' | 'ja'} />
-                  <TeamEditor key="home" teamKey="home" state={state} dispatch={dispatch} language={language as 'en' | 'zh' | 'ja'} />
-                </>
-              )}
-           </div>
-        </div>
-        </>
+            {/* Game Info Section */}
+            <div className="space-y-3">
+              <div className="mt-4">
+                <h4 className="font-semibold text-gray-600 text-xs uppercase mb-2 flex items-center gap-2"><Tv size={14}/> {language === 'en' ? 'Game Info' : language === 'zh' ? 'Game Info 比賽資訊' : '試合情報'}</h4>
+                <div className="flex flex-col gap-2">
+                  {(state.meta.gameInfos || []).map((info, idx) => (
+                    <div key={idx} className="flex items-center gap-1 bg-gray-100 rounded border p-1 w-full">
+                      <input 
+                        className="bg-transparent text-sm text-slate-900 flex-1 outline-none px-2 min-w-0" 
+                        value={info}
+                        onChange={(e) => {
+                          const newInfos = [...(state.meta.gameInfos || [])];
+                          newInfos[idx] = e.target.value;
+                          updateMeta('gameInfos', newInfos);
+                        }}
+                        placeholder={language === 'en' ? 'e.g. Bottom 9th, 2 Outs' : language === 'zh' ? '例如：九局下, 2出局' : '例：9回裏, 2アウト'}
+                      />
+                      <button 
+                        onClick={() => {
+                          const newInfos = [...(state.meta.gameInfos || [])];
+                          newInfos.splice(idx, 1);
+                          updateMeta('gameInfos', newInfos);
+                        }}
+                        className="text-red-500 hover:text-red-700 p-1 shrink-0"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  <button 
+                    onClick={() => {
+                      const newInfos = [...(state.meta.gameInfos || []), 'New Info'];
+                      updateMeta('gameInfos', newInfos);
+                    }}
+                    className="flex items-center justify-center gap-1 text-sm bg-blue-50 text-blue-600 px-2 py-1.5 rounded border border-blue-200 hover:bg-blue-100 border-dashed"
+                  >
+                    <Plus size={14} /> Add Info
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
-        
         </div>
       </div>
     </div>
