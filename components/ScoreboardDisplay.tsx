@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GameState, ActionType, Team, Player } from '../types';
 import { Diamond } from './Diamond';
-import { Timer, Plus, Minus, GripVertical, ArrowDown, ArrowUp } from 'lucide-react';
+import { Timer, Plus, Minus, GripVertical, ArrowDown, ArrowUp, RotateCcw } from 'lucide-react';
 import { AutoScalingText } from './AutoScalingText';
 import {
   DndContext, 
@@ -329,6 +329,38 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
   const [showScoreControlsHome, setShowScoreControlsHome] = useState(false);
   const [showScoreControlsAway, setShowScoreControlsAway] = useState(false);
   const [showKAnimation, setShowKAnimation] = useState(false);
+  const [showUmpireControls, setShowUmpireControls] = useState(false);
+  const umpireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ignoreUmpireClickRef = useRef(false);
+
+  const handleInningMouseDown = () => {
+    ignoreUmpireClickRef.current = false;
+    umpireTimerRef.current = setTimeout(() => {
+        setShowUmpireControls(true);
+        setShowInningControls(false);
+        ignoreUmpireClickRef.current = true;
+    }, 600);
+  };
+
+  const handleInningMouseUp = () => {
+    if (umpireTimerRef.current) clearTimeout(umpireTimerRef.current);
+  };
+
+  const handleInningClick = (e: React.MouseEvent | React.TouchEvent) => {
+      e.stopPropagation();
+      if (ignoreUmpireClickRef.current) return;
+      if (showUmpireControls) {
+          setShowUmpireControls(false);
+          return;
+      }
+      setShowInningControls(!showInningControls);
+      setShowScoreControlsHome(false);
+      setShowScoreControlsAway(false);
+      if (!showInningControls) {
+          dispatch({type: 'NEXT_INNING'});
+      }
+  };
+
   
   const prevStrikeoutTriggerRef = useRef(state.strikeoutAnimationTrigger || 0);
 
@@ -560,13 +592,12 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
             <div className="h-14 sm:h-20 lg:h-24 border-b border-slate-600 flex items-center justify-between px-3 bg-slate-800/80 shrink-0">
                <div 
                   className="relative flex items-center space-x-3 cursor-pointer hover:bg-slate-700/50 px-2 py-1 rounded transition-colors group" 
-                  onClick={(e) => {
-                      e.stopPropagation();
-                      setShowInningControls(true);
-                      setShowScoreControlsHome(false);
-                      setShowScoreControlsAway(false);
-                      dispatch({type: 'NEXT_INNING'});
-                  }}
+                  onMouseDown={handleInningMouseDown}
+                  onMouseUp={handleInningMouseUp}
+                  onMouseLeave={handleInningMouseUp}
+                  onTouchStart={handleInningMouseDown}
+                  onTouchEnd={handleInningMouseUp}
+                  onClick={handleInningClick}
                >
                  <div className="flex flex-col gap-1.5">
                     <div className={`w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent ${state.isTop ? 'border-b-[12px] border-b-yellow-400' : 'border-b-[12px] border-b-slate-700'}`}></div>
@@ -580,6 +611,17 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     <div className="absolute top-1/2 left-full ml-2 transform -translate-y-1/2 flex flex-col gap-1 bg-slate-900 p-1 rounded border-2 border-slate-600 shadow-xl z-50">
                         <button className="p-1 hover:bg-white/20 rounded" onClick={(e) => { e.stopPropagation(); dispatch({type: 'NEXT_INNING'}) }}><Plus size={16}/></button>
                         <button className="p-1 hover:bg-white/20 rounded" onClick={(e) => { e.stopPropagation(); dispatch({type: 'PREVIOUS_HALF_INNING'}) }}><Minus size={16}/></button>
+                    </div>
+                 )}
+                 {showUmpireControls && (
+                    <div className="absolute top-full left-0 mt-2 grid grid-cols-2 gap-2 bg-slate-900 p-3 rounded-lg border-2 border-slate-600 shadow-2xl z-50 w-64 animate-in zoom-in-95 duration-200">
+                        <button className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-2 rounded shadow text-sm" onClick={(e) => { e.stopPropagation(); dispatch({type: 'BATTER_OUT'}); setShowUmpireControls(false); }}>OUT</button>
+                        <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2 rounded shadow text-sm" onClick={(e) => { e.stopPropagation(); dispatch({type: 'SINGLE'}); setShowUmpireControls(false); }}>1B</button>
+                        <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2 rounded shadow text-sm" onClick={(e) => { e.stopPropagation(); dispatch({type: 'DOUBLE'}); setShowUmpireControls(false); }}>2B</button>
+                        <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2 rounded shadow text-sm" onClick={(e) => { e.stopPropagation(); dispatch({type: 'TRIPLE'}); setShowUmpireControls(false); }}>3B</button>
+                        <button className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-2 rounded shadow text-sm" onClick={(e) => { e.stopPropagation(); dispatch({type: 'WALK'}); setShowUmpireControls(false); }}>BB</button>
+                        <button className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-2 rounded shadow text-sm" onClick={(e) => { e.stopPropagation(); dispatch({type: 'HOME_RUN'}); setShowUmpireControls(false); }}>HR</button>
+                        <button className="col-span-2 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-2 rounded shadow text-sm flex justify-center items-center gap-1 mt-1" onClick={(e) => { e.stopPropagation(); dispatch({type: 'UNDO'}); setShowUmpireControls(false); }}><RotateCcw size={14}/> Undo</button>
                     </div>
                  )}
                </div>
@@ -1165,7 +1207,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
     return (
       <div className="w-full h-full relative pointer-events-none animate-in slide-in-from-left duration-500 overflow-hidden">
         <div 
-          className={`absolute bg-slate-900/90 backdrop-blur-md border-[4px] border-slate-700 text-white font-display shadow-2xl pointer-events-auto overflow-hidden flex flex-col origin-bottom-left ${state.isAdjustmentMode ? 'cursor-move ring-4 ring-blue-500 ring-offset-4 ring-offset-transparent' : ''}`} 
+          className={`absolute bg-slate-900/90 backdrop-blur-md border-[4px] border-slate-700 text-white font-display shadow-2xl pointer-events-auto overflow-hidden flex flex-col origin-top-left ${state.isAdjustmentMode ? 'cursor-move ring-4 ring-blue-500 ring-offset-4 ring-offset-transparent' : ''}`} 
           style={{ 
             width: `${state.meta.broadcastWidth ?? 450}px`,
             left: `${state.meta.broadcastMarginX ?? 20}px`,
