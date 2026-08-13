@@ -512,15 +512,29 @@ function baseReducer(state: GameState, action: ActionType): GameState {
     case 'SET_ANIMATION':
       return { ...state, animation: action.animation };
 
-    case 'NEXT_INNING':
+    case 'NEXT_INNING': {
+      const currentTeamKey = state.isTop ? 'awayTeam' : 'homeTeam';
+      const currentTeamObj = state[currentTeamKey];
+      const currentInningIdx = state.inning - 1;
+      
+      const newInningScores = [...currentTeamObj.inningScores];
+      if (newInningScores[currentInningIdx] === null || newInningScores[currentInningIdx] === undefined) {
+         newInningScores[currentInningIdx] = 0;
+      }
+      
       return { 
         ...state, 
+        [currentTeamKey]: {
+          ...currentTeamObj,
+          inningScores: newInningScores
+        },
         isTop: !state.isTop, 
         inning: state.isTop ? state.inning : state.inning + 1,
         balls: 0, strikes: 0, outs: 0, bases: [false, false, false],
         isTimerRunning: false,
-        timer: 20
+        timer: state.initialTimer || 20
       };
+    }
 
     case 'PREVIOUS_HALF_INNING':
       return {
@@ -668,7 +682,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
 
     case 'ADD_PLAYER_TO_LINEUP': {
       const tKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
-      const newPlayer: Player = { id: generateId(), name: 'New Player', number: '00', stat: '.000' };
+      const newPlayer: Player = { id: generateId(), name: 'NAME', number: '00', stat: '.000', position: 'DH' };
       return {
         ...state,
         [tKey]: { ...state[tKey], lineup: [...state[tKey].lineup, newPlayer] }
