@@ -134,7 +134,8 @@ export const useShortcuts = (
         switch (matchedAction) {
           case 'HOME_RUN': {
             const team = stateRef.current.isTop ? stateRef.current.awayTeam : stateRef.current.homeTeam;
-            const batter = team.lineup[team.currentBatterIndex] || { name: 'Unknown' };
+            const batter = team.lineup[team.currentBatterIndex];
+            const playerName = batter ? (batter.number ? `${batter.name} #${batter.number}` : batter.name) : 'Unknown';
             const runnersOnBase = stateRef.current.bases.filter(Boolean).length;
             let animationType: 'homerun' | '2-run-homer' | '3-run-homer' | 'grand-slam' = 'homerun';
             if (runnersOnBase === 1) animationType = '2-run-homer';
@@ -145,7 +146,7 @@ export const useShortcuts = (
               type: 'SET_ANIMATION', 
               animation: {
                 type: animationType,
-                playerName: batter.name,
+                playerName,
                 teamName: team.name,
                 teamColor: team.color
               }

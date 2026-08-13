@@ -735,7 +735,8 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
 
     setHrState('playing');
     const team = state.isTop ? state.awayTeam : state.homeTeam;
-    const batter = team.lineup[team.currentBatterIndex] || { name: 'Unknown' };
+    const batter = team.lineup[team.currentBatterIndex];
+    const playerName = batter ? (batter.number ? `${batter.name} #${batter.number}` : batter.name) : (language === 'zh' ? '未知打者' : 'Unknown Batter');
     const runnersOnBase = state.bases.filter(Boolean).length;
     let animationType: 'homerun' | '2-run-homer' | '3-run-homer' | 'grand-slam' = 'homerun';
     if (runnersOnBase === 1) animationType = '2-run-homer';
@@ -746,7 +747,7 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
       type: 'SET_ANIMATION', 
       animation: {
         type: animationType,
-        playerName: batter.name,
+        playerName,
         teamName: team.name,
         teamColor: team.color
       }

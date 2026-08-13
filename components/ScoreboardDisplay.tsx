@@ -635,7 +635,26 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2 rounded shadow text-sm" onClick={(e) => { e.stopPropagation(); dispatch({type: 'DOUBLE'}); setShowUmpireControls(false); }}>2B</button>
                         <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2 rounded shadow text-sm" onClick={(e) => { e.stopPropagation(); dispatch({type: 'TRIPLE'}); setShowUmpireControls(false); }}>3B</button>
                         <button className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-2 rounded shadow text-sm" onClick={(e) => { e.stopPropagation(); dispatch({type: 'WALK'}); setShowUmpireControls(false); }}>BB</button>
-                        <button className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-2 rounded shadow text-sm" onClick={(e) => { e.stopPropagation(); dispatch({ type: 'SET_ANIMATION', animation: { type: 'homerun', team: state.isTop ? 'away' : 'home', text: 'HOME RUN', isLocked: false, isExiting: false } }); dispatch({type: 'HOME_RUN'}); setShowUmpireControls(false); setTimeout(() => { dispatch({ type: 'SET_ANIMATION', animation: null }) }, 5000); }}>HR</button>
+                        <button className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-2 rounded shadow text-sm" onClick={(e) => {
+                          e.stopPropagation();
+                          const team = state.isTop ? state.awayTeam : state.homeTeam;
+                          const batter = team.lineup[team.currentBatterIndex];
+                          const pName = batter ? (batter.number ? `${batter.name} #${batter.number}` : batter.name) : '';
+                          dispatch({ 
+                            type: 'SET_ANIMATION', 
+                            animation: { 
+                              type: 'homerun', 
+                              playerName: pName,
+                              teamName: team.name,
+                              teamColor: team.color,
+                              isLocked: false, 
+                              isExiting: false 
+                            } 
+                          }); 
+                          dispatch({type: 'HOME_RUN'}); 
+                          setShowUmpireControls(false); 
+                          setTimeout(() => { dispatch({ type: 'SET_ANIMATION', animation: null }) }, 5000); 
+                        }}>HR</button>
                         <button className="col-span-2 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-2 rounded shadow text-sm flex justify-center items-center gap-1 mt-1" onClick={(e) => { e.stopPropagation(); dispatch({type: 'UNDO'}); setShowUmpireControls(false); }}><RotateCcw size={14}/> Undo</button>
                     </div>
                  )}
@@ -1384,22 +1403,22 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                 <div 
                   className="absolute rounded-full mix-blend-screen"
                   style={{
-                    backgroundColor: state.animation.teamColor || '#fff',
+                    backgroundColor: animTeamColor,
                     animation: 'expandCircle 1s cubic-bezier(0.1, 0.8, 0.3, 1) forwards'
                   }}
                 />
                 <div className="relative z-10 flex flex-col items-center gap-1 w-full px-4">
-                  <div className="overflow-hidden">
+                  <div className="overflow-hidden w-full max-w-xl">
                     <div 
-                      className="flex items-center justify-center gap-4 text-xl font-bold text-white/80 uppercase w-full px-4"
-                      style={{ animation: 'slideRightOut 0.6s cubic-bezier(0.16, 1, 0.3, 1) 1.0s both' }}
+                      className="flex items-center justify-center gap-4 text-xl font-bold text-white/90 uppercase w-full px-4"
+                      style={{ animation: 'revealUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both' }}
                     >
                       <div className="flex-1 min-w-0">
-                        <AutoScalingText text={state.animation.teamName} align="right" />
+                        <AutoScalingText text={animTeamName} align="right" />
                       </div>
-                      <span className="opacity-50 font-light">|</span>
+                      <span className="opacity-50 font-light shrink-0">|</span>
                       <div className="flex-1 min-w-0">
-                        <AutoScalingText text={state.animation.playerName} align="left" />
+                        <AutoScalingText text={animPlayerName} align="left" />
                       </div>
                     </div>
                   </div>
@@ -1960,6 +1979,17 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
     );
   };
 
+  const activeAnimation = state.animation;
+  const currentTeamForAnim = state.isTop ? state.awayTeam : state.homeTeam;
+  const currentBatterForAnim = currentTeamForAnim.lineup[currentTeamForAnim.currentBatterIndex];
+  const defaultPlayerNameForAnim = currentBatterForAnim 
+    ? (currentBatterForAnim.number ? `${currentBatterForAnim.name} #${currentBatterForAnim.number}` : currentBatterForAnim.name)
+    : (language === 'zh' ? '當前打者' : 'Current Batter');
+
+  const animTeamName = activeAnimation?.teamName || currentTeamForAnim.name || '';
+  const animPlayerName = activeAnimation?.playerName || defaultPlayerNameForAnim;
+  const animTeamColor = activeAnimation?.teamColor || currentTeamForAnim.color || '#3b82f6';
+
   return (
     <div ref={ref} className="w-full h-full relative">
         {state.displayMode === 'lineup' ? renderLineupView() : 
@@ -1982,23 +2012,23 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                 key={`bubble-local-${state.animation.bubbleKey || 0}`}
                 className="absolute rounded-full mix-blend-screen"
                 style={{
-                  backgroundColor: state.animation.teamColor || '#fff',
+                  backgroundColor: animTeamColor,
                   animation: 'expandCircle 1s cubic-bezier(0.1, 0.8, 0.3, 1) forwards'
                 }}
               />
               
-              <div className="relative z-10 flex flex-col items-center gap-2">
-                <div className="overflow-hidden">
+              <div className="relative z-10 flex flex-col items-center gap-2 w-full max-w-4xl px-6">
+                <div className="overflow-hidden w-full">
                   <div 
-                    className="flex items-center justify-center gap-6 text-3xl md:text-5xl font-bold text-white/80 uppercase w-full px-10"
-                    style={{ animation: 'slideRightOut 0.6s cubic-bezier(0.16, 1, 0.3, 1) 1.0s both' }}
+                    className="flex items-center justify-center gap-6 text-3xl md:text-5xl font-bold text-white/90 uppercase w-full px-4"
+                    style={{ animation: 'revealUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both' }}
                   >
                     <div className="flex-1 min-w-0">
-                      <AutoScalingText text={state.animation.teamName} align="right" />
+                      <AutoScalingText text={animTeamName} align="right" />
                     </div>
-                    <span className="opacity-50 font-light">|</span>
+                    <span className="opacity-50 font-light shrink-0">|</span>
                     <div className="flex-1 min-w-0">
-                      <AutoScalingText text={state.animation.playerName} align="left" />
+                      <AutoScalingText text={animPlayerName} align="left" />
                     </div>
                   </div>
                 </div>
