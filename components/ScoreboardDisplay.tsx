@@ -314,27 +314,6 @@ const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: b
                     )}
                 </div>
             </DndContext>
-
-            {/* Pitcher Slot (Bottom) */}
-            <div className="p-2 border-t-2 border-slate-800 bg-slate-900 mt-auto shrink-0">
-                {isTeamPitching ? (
-                    <div className="flex items-center justify-between bg-red-900/20 border-2 border-red-900/50 p-2 rounded">
-                        <div className="flex flex-col min-w-0 flex-1">
-                            <span className="text-[10px] text-red-400 font-bold uppercase tracking-widest">Pitching</span>
-                            <AutoScalingText text={`${team.pitcher.name} #${team.pitcher.number}`} className="text-white font-bold" align="left" />
-                        </div>
-                        {state?.showPlayerStat && <span className="text-xl text-yellow-500 font-display ml-2">{team.pitcher.stat}</span>}
-                    </div>
-                ) : (
-                     <div className="flex items-center justify-between bg-blue-900/20 border-2 border-blue-900/50 p-2 rounded cursor-pointer hover:bg-blue-900/30 transition-colors" onClick={() => dispatch({ type: 'NEXT_BATTER' })}>
-                        <div className="flex flex-col min-w-0 flex-1">
-                            <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest">Batting</span>
-                            <AutoScalingText text={`${team.lineup[team.currentBatterIndex]?.name} #${team.lineup[team.currentBatterIndex]?.number}`} className="text-white font-bold" align="left" />
-                        </div>
-                        {state?.showPlayerStat && <span className="text-xl text-yellow-500 font-display ml-2">{team.lineup[team.currentBatterIndex]?.stat}</span>}
-                     </div>
-                )}
-            </div>
         </div>
     );
 };
@@ -869,12 +848,12 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
         <div className="w-full h-full bg-slate-900 border-2 border-slate-700 rounded-xl overflow-hidden shadow-2xl flex flex-col sm:flex-row font-display text-white">
             
             {/* Left: Away Lineup */}
-            <div className="flex-1 sm:flex-none w-full sm:w-[20%] shrink-0 sm:h-full min-w-0 border-b-2 sm:border-b-0 sm:border-r-2 border-slate-700 order-2 sm:order-1">
+            <div className="flex-1 sm:flex-none w-full sm:w-[26%] shrink-0 sm:h-full min-w-0 border-b-2 sm:border-b-0 sm:border-r-2 border-slate-700 order-2 sm:order-1">
                 <LineupColumn team={state.awayTeam} isAway={true} state={state} dispatch={dispatch} />
             </div>
 
             {/* Center: Simplified Scoreboard */}
-            <div className="flex-1 sm:flex-none w-full sm:w-[60%] shrink-0 sm:h-full flex flex-col bg-slate-800 min-w-0 border-x-0 sm:border-x-2 border-slate-900 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] order-1 sm:order-2">
+            <div className="flex-1 sm:flex-none w-full sm:w-[48%] shrink-0 sm:h-full flex flex-col bg-slate-800 min-w-0 border-x-0 sm:border-x-2 border-slate-900 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] order-1 sm:order-2">
                 {/* Score Strip */}
                 <div className="h-[72px] sm:h-[88px] lg:h-[104px] bg-slate-950 flex border-b-2 border-slate-600 shrink-0">
                     {/* Away Score */}
@@ -1092,7 +1071,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
             </div>
 
             {/* Right: Home Lineup */}
-            <div className="flex-1 sm:flex-none w-full sm:w-[20%] shrink-0 sm:h-full min-w-0 border-t-2 sm:border-t-0 sm:border-l-2 border-slate-700 order-3">
+            <div className="flex-1 sm:flex-none w-full sm:w-[26%] shrink-0 sm:h-full min-w-0 border-t-2 sm:border-t-0 sm:border-l-2 border-slate-700 order-3">
                 <LineupColumn team={state.homeTeam} isAway={false} state={state} dispatch={dispatch} />
             </div>
 

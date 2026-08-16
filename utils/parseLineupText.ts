@@ -132,7 +132,7 @@ export function parseLineupText(text: string) {
 
         if (!number) {
             if (allNums.length === 1) {
-                // If only 1 number in line (e.g. "99 王仁", "77 PO", "LIKEY 22")
+                // If only 1 number in line (e.g. "99 張育成", "77 Peter", "LIKEY 22")
                 number = allNums[0].val;
                 s = s.substring(0, allNums[0].index) + ' ' + s.substring(allNums[0].index + allNums[0].val.length);
             } else if (allNums.length >= 2) {

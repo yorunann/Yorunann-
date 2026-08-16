@@ -93,7 +93,7 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
           <div className="flex flex-col gap-2 shrink-0">
             <div className="flex justify-between items-center">
               <label className="text-sm font-semibold text-slate-200 flex items-center gap-1.5">
-                <span>{language === 'en' ? 'Paste Lineup Text (Auto-parsing)' : language === 'zh' ? '貼上打線文字 (高容錯自動解析)' : 'ラインナップテキストを貼り付ける'}</span>
+                <span>{language === 'en' ? 'Paste Lineup Text' : language === 'zh' ? '貼上打線文字' : 'ラインナップテキストを貼り付ける'}</span>
               </label>
               {text && (
                 <button 
@@ -110,17 +110,17 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
               className="w-full h-32 sm:h-36 bg-slate-900 border border-slate-700 rounded-lg p-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-sm resize-none shadow-inner transition-colors"
               placeholder={
                 language === 'en' 
-                  ? "Paste any format, for example:\n1. CF #24 Player Name .305\n99 Player C\n77 PO SS\n二 LIKEY 22" 
+                  ? "1.DH Ohtani 17 0.310\n2 RF 99 Judge .331\nSS Jeter #2" 
                   : language === 'zh' 
-                  ? "支援各種格式，每行一位球員，例如：\n1. CF #24 王柏融 .305\n99 王仁 C\n77 PO SS\n二 LIKEY 22\n1棒 游擊手 6 葉子霆 0.250" 
-                  : "任意の形式を貼り付け（例）：\n1. CF #24 選手名 .305\n1番 ショート 6 選手名"
+                  ? "1. 1B 彭政閔 23 0.391\n2 CF 24 陳傑憲 .362\nDH 張育成 99\n遊 江坤宇 #90" 
+                  : "1. DH 大谷 16 0.310\n2 右 イチロー 51 .372\nサード 長嶋 3\nPH 村上 #55\nP 11 ダルビッシュ"
               }
               value={text}
               onChange={(e) => handleTextChange(e.target.value)}
             />
             
             <div className="flex justify-between items-center text-xs text-slate-400">
-              <span>{language === 'en' ? 'Supports all formats: Chinese / English positions, numbers, names, batting averages.' : language === 'zh' ? '支援自動識別：中英文守備位置、背號、姓名、打擊率等任意排列' : '中英表記の守備位置、背番号、選手名、打率の自動判別に対応'}</span>
+              <span>{language === 'en' ? 'Supports all formats: Chinese / English positions, numbers, names, batting averages.' : language === 'zh' ? '支援自動識別：中英文守備位置、背號、姓名、打擊率等任意排列' : '漢英表記の守備位置、背番号、選手名、打率の自動判別に対応'}</span>
               <button 
                 onClick={handleParse}
                 className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-1.5 rounded text-xs transition-colors shrink-0 ml-2"
