@@ -855,6 +855,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
     const awayPitcher = state.awayTeam.pitcher || { name: '---', number: '', stat: '---' };
     const homePitcher = state.homeTeam.pitcher || { name: '---', number: '', stat: '---' };
 
+    const batterIndex = state.isTop ? state.awayTeam.currentBatterIndex : state.homeTeam.currentBatterIndex;
     const batter = state.isTop ? awayBatter : homeBatter;
     const pitcher = state.isTop ? homePitcher : awayPitcher;
     const activeBaseColor = state.isTop ? state.awayTeam.color : state.homeTeam.color;
@@ -966,7 +967,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                             <span className="font-bold tracking-widest text-white/50 text-[10px] sm:text-xs">AT BAT</span>
                             <div className="flex items-baseline gap-2 truncate">
                                 <span className="text-xl sm:text-2xl font-bold truncate">{batter.name}</span>
-                                {batter.number && <span className="text-sm text-slate-400">{batterIndex + 1}.</span>}
+                                <span className="text-sm text-slate-400">{batterIndex + 1}. {batter.number ? `#${batter.number}` : ''}</span>
                             </div>
                         </div>
                         {(state?.showPlayerStat ?? true) && (
