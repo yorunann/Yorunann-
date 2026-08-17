@@ -1497,14 +1497,13 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                       transition={{ duration: 0.3 }}
                       className="flex-1 min-w-0 flex items-center h-full justify-between gap-2"
                     >
-                      <div className="flex-1 min-w-0">
-                        <AutoScalingText 
-                          text={getPlayerText(awayPlayer)} 
-                          content={getPlayerContent(awayPlayer)} 
-                          className="leading-tight py-0.5" 
+                      <div className="flex-1 min-w-0 overflow-hidden flex items-center">
+                        <span 
+                          className="leading-tight py-0.5 whitespace-nowrap truncate font-bold inline-block" 
                           style={{ fontSize: `${state.meta.broadcastPlayerNameSize ?? 20}px` }} 
-                          align="left" 
-                        />
+                        >
+                          {getPlayerContent(awayPlayer)}
+                        </span>
                       </div>
                       {isAwayBatter && state.showTimer && (showBroadcastTimer || state.isAdjustmentMode) && (
                         <div 
@@ -1567,8 +1566,13 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                           </div>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <AutoScalingText text={state.awayTeam.name} className="font-bold tracking-wider uppercase leading-tight py-0.5" style={{ fontSize: `${state.meta.broadcastTeamNameSize ?? 24}px` }} align="left" />
+                      <div className="flex-1 min-w-0 overflow-hidden flex items-center">
+                        <span 
+                          className="font-bold tracking-wider uppercase leading-tight py-0.5 whitespace-nowrap truncate inline-block" 
+                          style={{ fontSize: `${state.meta.broadcastTeamNameSize ?? 24}px` }}
+                        >
+                          {state.awayTeam.name}
+                        </span>
                       </div>
                     </div>
                     <div 
@@ -1661,8 +1665,13 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                           </div>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <AutoScalingText text={state.homeTeam.name} className="font-bold tracking-wider uppercase leading-tight py-0.5" style={{ fontSize: `${state.meta.broadcastTeamNameSize ?? 24}px` }} align="left" />
+                      <div className="flex-1 min-w-0 overflow-hidden flex items-center">
+                        <span 
+                          className="font-bold tracking-wider uppercase leading-tight py-0.5 whitespace-nowrap truncate inline-block" 
+                          style={{ fontSize: `${state.meta.broadcastTeamNameSize ?? 24}px` }}
+                        >
+                          {state.homeTeam.name}
+                        </span>
                       </div>
                     </div>
                     <div 
@@ -1767,14 +1776,13 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                       transition={{ duration: 0.3 }}
                       className="flex-1 min-w-0 flex items-center h-full justify-between gap-2"
                     >
-                      <div className="flex-1 min-w-0">
-                        <AutoScalingText 
-                          text={getPlayerText(homePlayer)} 
-                          content={getPlayerContent(homePlayer)} 
-                          className="leading-tight py-0.5" 
+                      <div className="flex-1 min-w-0 overflow-hidden flex items-center">
+                        <span 
+                          className="leading-tight py-0.5 whitespace-nowrap truncate font-bold inline-block" 
                           style={{ fontSize: `${state.meta.broadcastPlayerNameSize ?? 20}px` }} 
-                          align="left" 
-                        />
+                        >
+                          {getPlayerContent(homePlayer)}
+                        </span>
                       </div>
                       {!isAwayBatter && state.showTimer && (showBroadcastTimer || state.isAdjustmentMode) && (
                         <div 
