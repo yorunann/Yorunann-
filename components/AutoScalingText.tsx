@@ -28,9 +28,23 @@ export const AutoScalingText: React.FC<AutoScalingTextProps> = ({ text, content,
     };
 
     updateScale();
+    const rafId = requestAnimationFrame(updateScale);
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+      ro = new ResizeObserver(() => {
+        updateScale();
+      });
+      ro.observe(containerRef.current);
+    }
+
     window.addEventListener('resize', updateScale);
-    return () => window.removeEventListener('resize', updateScale);
-  }, [text]);
+    return () => {
+      cancelAnimationFrame(rafId);
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', updateScale);
+    };
+  }, [text, content, className]);
 
   const origin = align === 'left' ? 'left' : align === 'right' ? 'right' : 'center';
   const justify = align === 'left' ? 'justify-start' : align === 'right' ? 'justify-end' : 'justify-center';

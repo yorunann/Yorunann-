@@ -552,7 +552,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     className="mt-auto text-sm text-slate-300 border-t border-white/20 pt-2 sm:pt-3 flex justify-between items-end cursor-pointer hover:bg-white/5 rounded px-2 transition-colors overflow-hidden min-h-[60px] sm:min-h-[72px]"
                     onClick={awayRole === 'AT BAT' ? handleBatterClick : handlePitcherStatClick}
                 >
-                   <div className="flex flex-col overflow-hidden h-full justify-between">
+                   <div className="flex flex-col overflow-hidden h-full justify-between flex-1 min-w-0 mr-2">
                       <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-widest ${awayRole === 'AT BAT' ? 'text-green-400' : 'text-red-400'}`}>{awayRole}</span>
                       <AnimatePresence mode="wait">
                         {isAwayVisible && (
@@ -563,7 +563,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                             exit={{ x: -100, opacity: 0 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                             onAnimationComplete={() => { if (isAwayVisible) setAwaySettledKey(currentAwayKey); }}
-                            className="flex flex-col overflow-hidden flex-1 justify-end"
+                            className="flex flex-col overflow-hidden flex-1 justify-end w-full min-w-0"
                           >
                              <AutoScalingText text={`${state.isTop ? state.awayTeam.currentBatterIndex + 1 + '. ' : ''}${awayPlayer.name} #${awayPlayer.number}`} className="text-2xl sm:text-3xl lg:text-4xl text-white font-semibold font-display leading-none" align="left" />
                           </motion.div>
@@ -571,7 +571,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                       </AnimatePresence>
                    </div>
                    {isAwayVisible && isAwayNameSettled && (awayRole === 'AT BAT' ? state?.showPlayerStat : state.showCount) && (
-                     <span className="text-2xl sm:text-3xl lg:text-4xl font-display text-yellow-500 leading-none">
+                     <span className="text-2xl sm:text-3xl lg:text-4xl font-display text-yellow-500 leading-none shrink-0 ml-1">
                        {awayPlayer.stat}
                      </span>
                    )}
@@ -795,18 +795,18 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     className="mt-auto text-sm text-slate-300 border-t border-white/20 pt-2 sm:pt-3 flex justify-between items-end flex-row-reverse cursor-pointer hover:bg-white/5 rounded px-2 transition-colors overflow-hidden min-h-[60px] sm:min-h-[72px]"
                     onClick={homeRole === 'AT BAT' ? handleBatterClick : handlePitcherStatClick}
                  >
-                   <div className="flex flex-col items-end overflow-hidden h-full justify-between">
-                      <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-widest ${homeRole === 'AT BAT' ? 'text-green-400' : 'text-red-400'}`}>{homeRole}</span>
+                   <div className="flex flex-col overflow-hidden h-full justify-between flex-1 min-w-0 ml-2">
+                      <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-widest text-right ${homeRole === 'AT BAT' ? 'text-green-400' : 'text-red-400'}`}>{homeRole}</span>
                       <AnimatePresence mode="wait">
                         {isHomeVisible && (
                           <motion.div 
                             key={`${homePlayer.name}-${homePlayer.number}`}
-                            initial={{ x: -100, opacity: 0 }}
+                            initial={{ x: 100, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
-                            exit={{ x: -100, opacity: 0 }}
+                            exit={{ x: 100, opacity: 0 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                             onAnimationComplete={() => { if (isHomeVisible) setHomeSettledKey(currentHomeKey); }}
-                            className="flex flex-col items-end overflow-hidden flex-1 justify-end"
+                            className="flex flex-col overflow-hidden flex-1 justify-end w-full min-w-0"
                           >
                              <AutoScalingText text={`${!state.isTop ? state.homeTeam.currentBatterIndex + 1 + '. ' : ''}${homePlayer.name} #${homePlayer.number}`} className="text-2xl sm:text-3xl lg:text-4xl text-white font-semibold font-display leading-none" align="right" />
                           </motion.div>
@@ -814,7 +814,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                       </AnimatePresence>
                    </div>
                    {isHomeVisible && isHomeNameSettled && (homeRole === 'AT BAT' ? state?.showPlayerStat : state.showCount) && (
-                     <span className="text-2xl sm:text-3xl lg:text-4xl font-display text-yellow-500 leading-none">
+                     <span className="text-2xl sm:text-3xl lg:text-4xl font-display text-yellow-500 leading-none shrink-0 mr-1">
                        {homePlayer.stat}
                      </span>
                    )}
