@@ -1390,49 +1390,79 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                 <div className="relative z-10 flex flex-col items-center gap-1 w-full px-4">
                   <div className="overflow-hidden w-full max-w-xl">
                     <div 
-                      className="flex items-center justify-center gap-4 text-xl font-bold text-white/90 uppercase w-full px-4"
+                      className="w-full px-4"
                       style={{ animation: 'revealUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both' }}
                     >
-                      <div className="flex-1 min-w-0">
-                        <AutoScalingText text={animTeamName} align="right" />
-                      </div>
-                      <span className="opacity-50 font-light shrink-0">|</span>
-                      <div className="flex-1 min-w-0">
-                        <AutoScalingText text={animPlayerName} align="left" />
-                      </div>
+                      <AutoScalingText 
+                        text={animTeamName && animPlayerName ? `${animTeamName} | ${animPlayerName}` : (animTeamName || animPlayerName)}
+                        content={
+                          <span className="inline-flex items-center justify-center gap-2.5 text-xl font-bold text-white/90 uppercase tracking-wide">
+                            {animTeamName && <span>{animTeamName}</span>}
+                            {animTeamName && animPlayerName && <span className="opacity-50 font-light shrink-0">|</span>}
+                            {animPlayerName && <span>{animPlayerName}</span>}
+                          </span>
+                        }
+                        align="center"
+                      />
                     </div>
                   </div>
                   
                   <div 
-                    className="flex flex-col items-center uppercase tracking-tighter text-center"
+                    className="flex flex-col items-center uppercase tracking-tighter text-center w-full"
                     style={{
                       fontFamily: '"LINE Seed JP", sans-serif',
                       fontWeight: 800,
                       animation: 'popScale 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both'
                     }}
                   >
-                    <div className={`text-4xl whitespace-nowrap leading-none ${
-                      state.animation.type === 'homerun' ? 'text-white drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]' :
-                      state.animation.type === '2-run-homer' ? 'text-yellow-200 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]' :
-                      state.animation.type === '3-run-homer' ? 'text-orange-400 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]' :
-                      'text-transparent bg-clip-text bg-gradient-to-b from-red-600 via-red-500 to-yellow-400 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]'
-                    }`}>
-                      {state.animation.type === 'homerun' && (language === 'zh' ? '陽春砲' : language === 'ja' ? <span className="flex flex-col items-center justify-center leading-tight"><span>ソロ</span><span>ホームラン</span></span> : 'HOMERUN!')}
-                      {state.animation.type === '2-run-homer' && (language === 'zh' ? '兩分砲' : language === 'ja' ? <span className="flex flex-col items-center justify-center leading-tight"><span>2ラン</span><span>ホームラン</span></span> : '2-RUN HOMER!')}
-                      {state.animation.type === '3-run-homer' && (language === 'zh' ? '三分砲' : language === 'ja' ? <span className="flex flex-col items-center justify-center leading-tight"><span>3ラン</span><span>ホームラン</span></span> : '3-RUN HOMER!')}
-                      {state.animation.type === 'grand-slam' && (language === 'zh' ? '滿貫砲' : language === 'ja' ? '満塁ホームラン' : 'GRAND SLAM!')}
+                    <div className="w-full max-w-lg px-2">
+                      <AutoScalingText
+                        text={
+                          state.animation.type === 'homerun' ? (language === 'zh' ? '陽春砲' : language === 'ja' ? 'ソロホームラン' : 'HOMERUN!') :
+                          state.animation.type === '2-run-homer' ? (language === 'zh' ? '兩分砲' : language === 'ja' ? '2ランホームラン' : '2-RUN HOMER!') :
+                          state.animation.type === '3-run-homer' ? (language === 'zh' ? '三分砲' : language === 'ja' ? '3ランホームラン' : '3-RUN HOMER!') :
+                          (language === 'zh' ? '滿貫砲' : language === 'ja' ? '満塁ホームラン' : 'GRAND SLAM!')
+                        }
+                        content={
+                          <span className={`text-4xl whitespace-nowrap break-keep leading-none select-none inline-block ${
+                            state.animation.type === 'homerun' ? 'text-white drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]' :
+                            state.animation.type === '2-run-homer' ? 'text-yellow-200 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]' :
+                            state.animation.type === '3-run-homer' ? 'text-orange-400 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]' :
+                            'text-transparent bg-clip-text bg-gradient-to-b from-red-600 via-red-500 to-yellow-400 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]'
+                          }`}>
+                            {state.animation.type === 'homerun' && (language === 'zh' ? '陽春砲' : language === 'ja' ? 'ソロホームラン' : 'HOMERUN!')}
+                            {state.animation.type === '2-run-homer' && (language === 'zh' ? '兩分砲' : language === 'ja' ? '2ランホームラン' : '2-RUN HOMER!')}
+                            {state.animation.type === '3-run-homer' && (language === 'zh' ? '三分砲' : language === 'ja' ? '3ランホームラン' : '3-RUN HOMER!')}
+                            {state.animation.type === 'grand-slam' && (language === 'zh' ? '滿貫砲' : language === 'ja' ? '満塁ホームラン' : 'GRAND SLAM!')}
+                          </span>
+                        }
+                        align="center"
+                      />
                     </div>
                     {(language === 'zh' || language === 'ja') && (
-                      <div className={`text-lg mt-1 tracking-widest opacity-90 ${
-                        state.animation.type === 'homerun' ? 'text-white' :
-                        state.animation.type === '2-run-homer' ? 'text-yellow-200' :
-                        state.animation.type === '3-run-homer' ? 'text-orange-400' :
-                        'text-transparent bg-clip-text bg-gradient-to-b from-red-600 via-red-500 to-yellow-400'
-                      }`}>
-                        {state.animation.type === 'homerun' && 'SOLO HOME RUN'}
-                        {state.animation.type === '2-run-homer' && '2-RUN HOME RUN'}
-                        {state.animation.type === '3-run-homer' && '3-RUN HOME RUN'}
-                        {state.animation.type === 'grand-slam' && 'GRAND SLAM'}
+                      <div className="w-full max-w-xs px-2 mt-1">
+                        <AutoScalingText
+                          text={
+                            state.animation.type === 'homerun' ? 'SOLO HOME RUN' :
+                            state.animation.type === '2-run-homer' ? '2-RUN HOME RUN' :
+                            state.animation.type === '3-run-homer' ? '3-RUN HOME RUN' :
+                            'GRAND SLAM'
+                          }
+                          content={
+                            <span className={`text-lg tracking-widest opacity-90 whitespace-nowrap break-keep select-none inline-block ${
+                              state.animation.type === 'homerun' ? 'text-white' :
+                              state.animation.type === '2-run-homer' ? 'text-yellow-200' :
+                              state.animation.type === '3-run-homer' ? 'text-orange-400' :
+                              'text-transparent bg-clip-text bg-gradient-to-b from-red-600 via-red-500 to-yellow-400'
+                            }`}>
+                              {state.animation.type === 'homerun' && 'SOLO HOME RUN'}
+                              {state.animation.type === '2-run-homer' && '2-RUN HOME RUN'}
+                              {state.animation.type === '3-run-homer' && '3-RUN HOME RUN'}
+                              {state.animation.type === 'grand-slam' && 'GRAND SLAM'}
+                            </span>
+                          }
+                          align="center"
+                        />
                       </div>
                     )}
                   </div>
@@ -2008,49 +2038,79 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
               <div className="relative z-10 flex flex-col items-center gap-2 w-full max-w-4xl px-6">
                 <div className="overflow-hidden w-full">
                   <div 
-                    className="flex items-center justify-center gap-6 text-3xl md:text-5xl font-bold text-white/90 uppercase w-full px-4"
+                    className="w-full px-4"
                     style={{ animation: 'revealUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both' }}
                   >
-                    <div className="flex-1 min-w-0">
-                      <AutoScalingText text={animTeamName} align="right" />
-                    </div>
-                    <span className="opacity-50 font-light shrink-0">|</span>
-                    <div className="flex-1 min-w-0">
-                      <AutoScalingText text={animPlayerName} align="left" />
-                    </div>
+                    <AutoScalingText 
+                      text={animTeamName && animPlayerName ? `${animTeamName} | ${animPlayerName}` : (animTeamName || animPlayerName)}
+                      content={
+                        <span className="inline-flex items-center justify-center gap-4 text-3xl md:text-5xl font-bold text-white/90 uppercase tracking-wide">
+                          {animTeamName && <span>{animTeamName}</span>}
+                          {animTeamName && animPlayerName && <span className="opacity-50 font-light shrink-0">|</span>}
+                          {animPlayerName && <span>{animPlayerName}</span>}
+                        </span>
+                      }
+                      align="center"
+                    />
                   </div>
                 </div>
                 
                 <div 
-                  className="flex flex-col items-center uppercase tracking-tighter text-center"
+                  className="flex flex-col items-center uppercase tracking-tighter text-center w-full"
                   style={{
                     fontFamily: '"LINE Seed JP", sans-serif',
                     fontWeight: 800,
                     animation: 'popScale 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both'
                   }}
                 >
-                  <div className={`text-8xl md:text-[12rem] leading-none ${
-                    state.animation.type === 'homerun' ? 'text-white drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]' :
-                    state.animation.type === '2-run-homer' ? 'text-yellow-200 drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]' :
-                    state.animation.type === '3-run-homer' ? 'text-orange-400 drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]' :
-                    'text-transparent bg-clip-text bg-gradient-to-b from-red-600 via-red-500 to-yellow-400 drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]'
-                  }`}>
-                    {state.animation.type === 'homerun' && (language === 'zh' ? '陽春砲' : language === 'ja' ? <span className="flex flex-col items-center justify-center leading-tight"><span>ソロ</span><span>ホームラン</span></span> : 'HOMERUN!')}
-                    {state.animation.type === '2-run-homer' && (language === 'zh' ? '兩分砲' : language === 'ja' ? <span className="flex flex-col items-center justify-center leading-tight"><span>2ラン</span><span>ホームラン</span></span> : '2-RUN HOMER!')}
-                    {state.animation.type === '3-run-homer' && (language === 'zh' ? '三分砲' : language === 'ja' ? <span className="flex flex-col items-center justify-center leading-tight"><span>3ラン</span><span>ホームラン</span></span> : '3-RUN HOMER!')}
-                    {state.animation.type === 'grand-slam' && (language === 'zh' ? '滿貫砲' : language === 'ja' ? '満塁ホームラン' : 'GRAND SLAM!')}
+                  <div className="w-full max-w-5xl px-4">
+                    <AutoScalingText
+                      text={
+                        state.animation.type === 'homerun' ? (language === 'zh' ? '陽春砲' : language === 'ja' ? 'ソロホームラン' : 'HOMERUN!') :
+                        state.animation.type === '2-run-homer' ? (language === 'zh' ? '兩分砲' : language === 'ja' ? '2ランホームラン' : '2-RUN HOMER!') :
+                        state.animation.type === '3-run-homer' ? (language === 'zh' ? '三分砲' : language === 'ja' ? '3ランホームラン' : '3-RUN HOMER!') :
+                        (language === 'zh' ? '滿貫砲' : language === 'ja' ? '満塁ホームラン' : 'GRAND SLAM!')
+                      }
+                      content={
+                        <span className={`text-6xl sm:text-8xl md:text-[10rem] xl:text-[12rem] whitespace-nowrap break-keep leading-none select-none inline-block ${
+                          state.animation.type === 'homerun' ? 'text-white drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]' :
+                          state.animation.type === '2-run-homer' ? 'text-yellow-200 drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]' :
+                          state.animation.type === '3-run-homer' ? 'text-orange-400 drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]' :
+                          'text-transparent bg-clip-text bg-gradient-to-b from-red-600 via-red-500 to-yellow-400 drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]'
+                        }`}>
+                          {state.animation.type === 'homerun' && (language === 'zh' ? '陽春砲' : language === 'ja' ? 'ソロホームラン' : 'HOMERUN!')}
+                          {state.animation.type === '2-run-homer' && (language === 'zh' ? '兩分砲' : language === 'ja' ? '2ランホームラン' : '2-RUN HOMER!')}
+                          {state.animation.type === '3-run-homer' && (language === 'zh' ? '三分砲' : language === 'ja' ? '3ランホームラン' : '3-RUN HOMER!')}
+                          {state.animation.type === 'grand-slam' && (language === 'zh' ? '滿貫砲' : language === 'ja' ? '満塁ホームラン' : 'GRAND SLAM!')}
+                        </span>
+                      }
+                      align="center"
+                    />
                   </div>
                   {(language === 'zh' || language === 'ja') && (
-                    <div className={`text-3xl md:text-5xl mt-2 md:mt-4 tracking-widest opacity-90 ${
-                      state.animation.type === 'homerun' ? 'text-white' :
-                      state.animation.type === '2-run-homer' ? 'text-yellow-200' :
-                      state.animation.type === '3-run-homer' ? 'text-orange-400' :
-                      'text-transparent bg-clip-text bg-gradient-to-b from-red-600 via-red-500 to-yellow-400'
-                    }`}>
-                      {state.animation.type === 'homerun' && 'SOLO HOME RUN'}
-                      {state.animation.type === '2-run-homer' && '2-RUN HOME RUN'}
-                      {state.animation.type === '3-run-homer' && '3-RUN HOME RUN'}
-                      {state.animation.type === 'grand-slam' && 'GRAND SLAM'}
+                    <div className="w-full max-w-2xl px-4 mt-2 md:mt-4">
+                      <AutoScalingText
+                        text={
+                          state.animation.type === 'homerun' ? 'SOLO HOME RUN' :
+                          state.animation.type === '2-run-homer' ? '2-RUN HOME RUN' :
+                          state.animation.type === '3-run-homer' ? '3-RUN HOME RUN' :
+                          'GRAND SLAM'
+                        }
+                        content={
+                          <span className={`text-2xl sm:text-3xl md:text-5xl tracking-widest opacity-90 whitespace-nowrap break-keep select-none inline-block ${
+                            state.animation.type === 'homerun' ? 'text-white' :
+                            state.animation.type === '2-run-homer' ? 'text-yellow-200' :
+                            state.animation.type === '3-run-homer' ? 'text-orange-400' :
+                            'text-transparent bg-clip-text bg-gradient-to-b from-red-600 via-red-500 to-yellow-400'
+                          }`}>
+                            {state.animation.type === 'homerun' && 'SOLO HOME RUN'}
+                            {state.animation.type === '2-run-homer' && '2-RUN HOME RUN'}
+                            {state.animation.type === '3-run-homer' && '3-RUN HOME RUN'}
+                            {state.animation.type === 'grand-slam' && 'GRAND SLAM'}
+                          </span>
+                        }
+                        align="center"
+                      />
                     </div>
                   )}
                 </div>
