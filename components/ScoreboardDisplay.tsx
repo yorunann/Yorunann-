@@ -1387,23 +1387,28 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     animation: 'expandCircle 1s cubic-bezier(0.1, 0.8, 0.3, 1) forwards'
                   }}
                 />
-                <div className="relative z-10 flex flex-col items-center gap-1 w-full px-4">
-                  <div className="overflow-hidden w-full max-w-xl">
-                    <div 
-                      className="w-full px-4"
-                      style={{ animation: 'revealUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both' }}
-                    >
-                      <AutoScalingText 
-                        text={animTeamName && animPlayerName ? `${animTeamName} | ${animPlayerName}` : (animTeamName || animPlayerName)}
-                        content={
-                          <span className="inline-flex items-center justify-center gap-2.5 text-xl font-bold text-white/90 uppercase tracking-wide">
-                            {animTeamName && <span>{animTeamName}</span>}
-                            {animTeamName && animPlayerName && <span className="opacity-50 font-light shrink-0">|</span>}
-                            {animPlayerName && <span>{animPlayerName}</span>}
-                          </span>
-                        }
-                        align="center"
-                      />
+                <div 
+                  className="relative z-10 flex flex-col items-center w-full px-4"
+                  style={{ animation: 'shiftDownBroadcast 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 1.2s forwards' }}
+                >
+                  <div className="absolute bottom-[100%] mb-1 w-full flex justify-center">
+                    <div className="overflow-hidden w-full max-w-xl">
+                      <div 
+                        className="w-full px-4"
+                        style={{ animation: 'revealUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 1.4s both' }}
+                      >
+                        <AutoScalingText 
+                          text={animTeamName && animPlayerName ? `${animTeamName} | ${animPlayerName}` : (animTeamName || animPlayerName)}
+                          content={
+                            <span className="inline-flex items-center justify-center gap-2.5 text-xl font-bold text-white/90 uppercase tracking-wide">
+                              {animTeamName && <span>{animTeamName}</span>}
+                              {animTeamName && animPlayerName && <span className="opacity-50 font-light shrink-0">|</span>}
+                              {animPlayerName && <span>{animPlayerName}</span>}
+                            </span>
+                          }
+                          align="center"
+                        />
+                      </div>
                     </div>
                   </div>
                   
@@ -2035,23 +2040,28 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                 }}
               />
               
-              <div className="relative z-10 flex flex-col items-center gap-2 w-full max-w-4xl px-6">
-                <div className="overflow-hidden w-full">
-                  <div 
-                    className="w-full px-4"
-                    style={{ animation: 'revealUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both' }}
-                  >
-                    <AutoScalingText 
-                      text={animTeamName && animPlayerName ? `${animTeamName} | ${animPlayerName}` : (animTeamName || animPlayerName)}
-                      content={
-                        <span className="inline-flex items-center justify-center gap-4 text-3xl md:text-5xl font-bold text-white/90 uppercase tracking-wide">
-                          {animTeamName && <span>{animTeamName}</span>}
-                          {animTeamName && animPlayerName && <span className="opacity-50 font-light shrink-0">|</span>}
-                          {animPlayerName && <span>{animPlayerName}</span>}
-                        </span>
-                      }
-                      align="center"
-                    />
+              <div 
+                className="relative z-10 flex flex-col items-center w-full max-w-4xl px-6"
+                style={{ animation: 'shiftDownFullscreen 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 1.2s forwards' }}
+              >
+                <div className="absolute bottom-[100%] mb-2 w-full flex justify-center">
+                  <div className="overflow-hidden w-full">
+                    <div 
+                      className="w-full px-4"
+                      style={{ animation: 'revealUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 1.4s both' }}
+                    >
+                      <AutoScalingText 
+                        text={animTeamName && animPlayerName ? `${animTeamName} | ${animPlayerName}` : (animTeamName || animPlayerName)}
+                        content={
+                          <span className="inline-flex items-center justify-center gap-4 text-3xl md:text-5xl font-bold text-white/90 uppercase tracking-wide">
+                            {animTeamName && <span>{animTeamName}</span>}
+                            {animTeamName && animPlayerName && <span className="opacity-50 font-light shrink-0">|</span>}
+                            {animPlayerName && <span>{animPlayerName}</span>}
+                          </span>
+                        }
+                        align="center"
+                      />
+                    </div>
                   </div>
                 </div>
                 
@@ -2153,6 +2163,14 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
           @keyframes hrProgressSvg {
             from { stroke-dashoffset: 0; }
             to { stroke-dashoffset: 213.6; }
+          }
+          @keyframes shiftDownBroadcast {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(16px); }
+          }
+          @keyframes shiftDownFullscreen {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(40px); }
           }
           @keyframes expandCircle {
             0% { width: 0; height: 0; opacity: 0.8; }
