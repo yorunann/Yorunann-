@@ -5,7 +5,7 @@ import { GameState, ActionType, Player } from './types';
 import { INITIAL_STATE } from './constants';
 import { ScoreboardDisplay } from './components/ScoreboardDisplay';
 import { ScoreboardControls } from './components/ScoreboardControls';
-import { MonitorPlay, Maximize, Keyboard, Settings, ExternalLink, RotateCcw, Gamepad2, BookOpen, Plus, Minus } from 'lucide-react';
+import { MonitorPlay, Maximize, Keyboard, Settings, ExternalLink, RotateCcw, Gamepad2, BookOpen, Plus, Minus, Menu } from 'lucide-react';
 import { useShortcuts, DEFAULT_SHORTCUTS, ShortcutMap } from './hooks/useShortcuts';
 import { useGamepad } from './hooks/useGamepad';
 import { ShortcutSettingsModal } from './components/ShortcutSettingsModal';
@@ -17,8 +17,8 @@ export const App: React.FC = () => {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const displayRef = useRef<HTMLDivElement>(null);
 
-  const [isShortcutModeEnabled, setIsShortcutModeEnabled] = useState(false);
   const [isShortcutModalOpen, setIsShortcutModalOpen] = useState(false);
+  const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
   const [isUserGuideModalOpen, setIsUserGuideModalOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [shortcuts, setShortcuts] = useState<ShortcutMap>(DEFAULT_SHORTCUTS);
@@ -209,8 +209,8 @@ export const App: React.FC = () => {
     dispatch(action);
   };
 
-  // In display mode, shortcuts are always enabled so it can be controlled standalone
-  useShortcuts(isDisplayMode || isShortcutModeEnabled, shortcuts, handleDispatch, state);
+  // Shortcuts are always enabled now
+  useShortcuts(true, shortcuts, handleDispatch, state);
   
   const handleConfirmReset = () => {
     handleDispatch({ type: 'RESET_GAME' });
@@ -222,7 +222,7 @@ export const App: React.FC = () => {
   };
 
   const isGamepadConnected = useGamepad(
-    isDisplayMode || isShortcutModeEnabled, 
+    true, 
     handleDispatch, 
     state, 
     () => setIsResetConfirmOpen(true),
@@ -289,6 +289,14 @@ export const App: React.FC = () => {
           
           <div className="flex items-center space-x-2 bg-slate-900 p-1 rounded-lg">
             <button
+              onClick={() => setIsToolbarExpanded(!isToolbarExpanded)}
+              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center"
+              title="Expand Toolbar"
+            >
+              <Menu size={18} />
+            </button>
+            <div className="w-px h-6 bg-slate-700 mx-1"></div>
+            <button
               onClick={() => {
                 const win = window.open('/?mode=display', '_blank');
                 if (win) displayWindowOpenedRef.current = win;
@@ -297,7 +305,7 @@ export const App: React.FC = () => {
               title="Open Display Window"
             >
               <ExternalLink size={18} />
-              <span className="text-xs font-medium hidden sm:inline">Project</span>
+              {isToolbarExpanded && <span className="text-xs font-medium ml-1">Project</span>}
             </button>
             <div className="w-px h-6 bg-slate-700 mx-1"></div>
             <div 
@@ -309,7 +317,7 @@ export const App: React.FC = () => {
               title={isGamepadConnected ? "Gamepad Connected" : "Gamepad Disconnected"}
             >
               <Gamepad2 size={18} />
-              <span className="text-xs font-medium hidden sm:inline">Gamepad</span>
+              {isToolbarExpanded && <span className="text-xs font-medium ml-1">Gamepad</span>}
             </div>
             <button
               onClick={() => setIsUserGuideModalOpen(true)}
@@ -317,26 +325,15 @@ export const App: React.FC = () => {
               title="User Guide"
             >
               <BookOpen size={18} />
-              <span className="text-xs font-medium hidden sm:inline">Guide</span>
-            </button>
-            <button
-              onClick={() => setIsShortcutModeEnabled(!isShortcutModeEnabled)}
-              className={`p-1.5 rounded-md transition-colors flex items-center space-x-1 ${
-                isShortcutModeEnabled 
-                  ? 'bg-blue-600 text-white hover:bg-blue-500' 
-                  : 'text-slate-400 hover:text-white hover:bg-slate-700'
-              }`}
-              title="Toggle Shortcut Mode"
-            >
-              <Keyboard size={18} />
-              <span className="text-xs font-medium hidden sm:inline">Shortcuts</span>
+              {isToolbarExpanded && <span className="text-xs font-medium ml-1">Guide</span>}
             </button>
             <button
               onClick={() => setIsShortcutModalOpen(true)}
-              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center space-x-1"
               title="Shortcut Settings"
             >
-              <Settings size={18} />
+              <Keyboard size={18} />
+              {isToolbarExpanded && <span className="text-xs font-medium ml-1">Shortcuts</span>}
             </button>
             <button
               onClick={() => setIsResetConfirmOpen(true)}
@@ -438,7 +435,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v26.8.21.0</span>
+          <span className="text-slate-600 ml-2">v26.9.3.1</span>
        </footer>
 
         <ShortcutSettingsModal

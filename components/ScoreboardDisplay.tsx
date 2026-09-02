@@ -695,7 +695,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     </motion.div>
                   )}
                 </AnimatePresence>
-                <div className="w-1/2 sm:w-auto flex justify-end sm:justify-center shrink-0 transform scale-[0.85] sm:scale-80 lg:scale-100 origin-right sm:origin-center pr-4 sm:pr-0">
+                <div className="order-2 sm:order-1 w-1/2 sm:w-auto flex justify-start sm:justify-center shrink-0 transform scale-[0.85] sm:scale-80 lg:scale-100 origin-left sm:origin-center pl-4 sm:pl-0">
                    <Diamond 
                       bases={state.bases} 
                       onToggle={(idx) => dispatch({type: 'TOGGLE_BASE', baseIndex: idx})}
@@ -704,7 +704,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                    />
                 </div>
 
-                <div className="w-1/2 sm:w-full flex justify-center shrink-0">
+                <div className="order-1 sm:order-2 w-1/2 sm:w-full flex justify-end sm:justify-center shrink-0 pr-2 sm:pr-0">
                     <div className="flex flex-col space-y-2 items-start">
                         {/* Balls */}
                         <div className="flex items-center gap-3 sm:gap-4 cursor-pointer group" onClick={handleBallClick}>

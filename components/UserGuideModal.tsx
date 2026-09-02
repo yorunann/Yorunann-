@@ -10,7 +10,7 @@ interface UserGuideModalProps {
 
 export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose, language = 'zh' }) => {
   const [page, setPage] = useState(1);
-  const totalPages = 6;
+  const totalPages = 7;
 
   if (!isOpen) return null;
 
@@ -47,7 +47,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose,
                 {language === 'en' ? 'Welcome to the Baseball Scoreboard System!' : language === 'zh' ? '歡迎使用本棒球計分板系統！' : '野球スコアボードシステムへようこそ！'}
               </p>
               <p className="text-slate-600 leading-relaxed">
-                {language === 'en' ? <span><strong>Goal:</strong> We want to provide a professional broadcast-level scoreboard for grassroots, amateur leagues, and any baseball games. No expensive hardware needed, just a PC or tablet.</span> : language === 'zh' ? <span><strong>開發初衷：</strong>我們希望讓基層棒球、業餘聯賽，或是各類棒球比賽，都能夠輕鬆擁有專業轉播等級的計分板。不需要昂貴的硬體設備，只要有一台電腦或平板，就能呈現出高質感的比賽畫面。</span> : <span><strong>開発の目的：</strong> 草野球、アマチュアリーグ、またはあらゆる野球の試合で、プロの放送レベルのスコアボードを簡単に利用できるようにしたいと考えています。高価なハードウェアは必要ありません。PCやタブレットだけで、高品質な試合画面を提供できます。</span>}
+                {language === 'en' ? <span>Goal: We want to provide a professional broadcast-level scoreboard for grassroots, amateur leagues, and any baseball games. No expensive hardware needed, just a PC or tablet.</span> : language === 'zh' ? <span>開發初衷：我們希望讓基層棒球、業餘聯賽，或是各類棒球比賽，都能夠輕鬆擁有專業轉播等級的計分板。不需要昂貴的硬體設備，只要有一台電腦或平板，就能呈現出高質感的比賽畫面。</span> : <span>開発の目的： 草野球、アマチュアリーグ、またはあらゆる野球の試合で、プロの放送レベルのスコアボードを簡単に利用できるようにしたいと考えています。高価なハードウェアは必要ありません。PCやタブレットだけで、高品質な試合画面を提供できます。</span>}
               </p>
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mt-4">
                 <h4 className="font-bold text-blue-800 mb-2">{language === 'en' ? 'Key Features' : language === 'zh' ? '基本功能概覽' : '主な機能の概要'}</h4>
@@ -95,23 +95,23 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose,
               <div className="space-y-4 mt-4">
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                   <h4 className="font-bold text-slate-800 text-lg">{language === 'en' ? '🎛️ Default (Control Panel)' : language === 'zh' ? '🎛️ Default (控制台模式)' : '🎛️ デフォルト (コントロールパネル)'}</h4>
-                  <p className="text-slate-600 mt-1">{language === 'en' ? <span><strong>When to use:</strong> Main screen for the scorekeeper.</span> : language === 'zh' ? <span><strong>使用時機：</strong>計分員操作時的主要畫面。</span> : <span><strong>使用タイミング：</strong>スコアキーパーのメイン操作画面。</span>}</p>
+                  <p className="text-slate-600 mt-1">{language === 'en' ? <span>When to use: Main screen for the scorekeeper.</span> : language === 'zh' ? <span>使用時機：計分員操作時的主要畫面。</span> : <span>使用タイミング：スコアキーパーのメイン操作画面。</span>}</p>
                   <p className="text-sm text-slate-500">{language === 'en' ? 'Shows scoreboard preview on the left and full controls on the right. This is the default mode, allowing you to operate while previewing.' : language === 'zh' ? '左側顯示計分板預覽，右側為完整的控制面板。這是系統的預設模式，讓您可以一邊操作一邊確認畫面。' : '左側にスコアボードのプレビュー、右側に完全なコントロールパネルを表示します。これがデフォルトモードであり、画面を確認しながら操作できます。'}</p>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                   <h4 className="font-bold text-slate-800 text-lg">{language === 'en' ? '📋 Lineup Mode' : language === 'zh' ? '📋 Lineup (先發名單模式)' : '📋 スタメンモード (Lineup)'}</h4>
-                  <p className="text-slate-600 mt-1">{language === 'en' ? <span><strong>When to use:</strong> Before the game starts.</span> : language === 'zh' ? <span><strong>使用時機：</strong>比賽開始前。</span> : <span><strong>使用タイミング：</strong>試合開始前。</span>}</p>
+                  <p className="text-slate-600 mt-1">{language === 'en' ? <span>When to use: Before the game starts.</span> : language === 'zh' ? <span>使用時機：比賽開始前。</span> : <span>使用タイミング：試合開始前。</span>}</p>
                   <p className="text-sm text-slate-500">{language === 'en' ? 'Displays the starting lineup and fielding positions for both teams.' : language === 'zh' ? '顯示兩隊完整的先發打線與守備位置，讓觀眾在賽前了解雙方陣容。' : '両チームのスタメンと守備位置をすべて表示し、試合前に両チームの陣容を視聴者に伝えます。'}</p>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                   <h4 className="font-bold text-slate-800 text-lg">{language === 'en' ? '📊 Inning / RHE Mode' : language === 'zh' ? '📊 Inning / RHE (局間模式)' : '📊 RHEモード'}</h4>
-                  <p className="text-slate-600 mt-1">{language === 'en' ? <span><strong>When to use:</strong> Between half-innings.</span> : language === 'zh' ? <span><strong>使用時機：</strong>半局結束、攻守交替時。</span> : <span><strong>使用タイミング：</strong>イニングの合間、攻守交替時。</span>}</p>
+                  <p className="text-slate-600 mt-1">{language === 'en' ? <span>When to use: Between half-innings.</span> : language === 'zh' ? <span>使用時機：半局結束、攻守交替時。</span> : <span>使用タイミング：イニングの合間、攻守交替時。</span>}</p>
                   <p className="text-sm text-slate-500">{language === 'en' ? 'Displays traditional line score and RHE stats.' : language === 'zh' ? '顯示傳統的九局計分板（Box Score）以及 R (得分)、H (安打)、E (失誤) 統計，讓觀眾快速掌握比賽走向。' : '伝統的な9イニングのスコアボードと R(得点)、H(安打)、E(失策) の成績を表示し、試合の展開を素早く把握できます。'}</p>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                   <h4 className="font-bold text-slate-800 text-lg">{language === 'en' ? '📺 Broadcast Mode' : language === 'zh' ? '📺 Broadcast (轉播模式)' : '📺 配信モード'}</h4>
-                  <p className="text-slate-600 mt-1">{language === 'en' ? <span><strong>When to use:</strong> During gameplay.</span> : language === 'zh' ? <span><strong>使用時機：</strong>比賽進行中。</span> : <span><strong>使用タイミング：</strong>試合進行中。</span>}</p>
-                  <p className="text-sm text-slate-500">{language === 'en' ? <span>Compact bug graphics showing current batter, pitcher, count and bases. In <strong>Adjustment Mode</strong>, you can drag, scale, and <strong>adjust borders</strong> to fit your broadcast.</span> : language === 'zh' ? <span>精簡的左下角/右下角字卡設計，顯示當前打者、投手、好壞球與壘包狀態。進入<strong>「調整模式 (Adjustment Mode)」</strong>後，可以自由拖曳位置、縮放大小，甚至<strong>調整各個區塊的邊界寬度與高度</strong>，完美契合您的轉播畫面。</span> : <span>現在の打者、投手、カウント、塁の状況を表示するコンパクトなグラフィック。<strong>「調整モード (Adjustment Mode)」</strong>に入ると、自由にドラッグ、リサイズ、さらには<strong>各セクションの境界線の幅や高さを調整</strong>でき、配信画面に完璧にフィットします。</span>}</p>
+                  <p className="text-slate-600 mt-1">{language === 'en' ? <span>When to use: During gameplay.</span> : language === 'zh' ? <span>使用時機：比賽進行中。</span> : <span>使用タイミング：試合進行中。</span>}</p>
+                  <p className="text-sm text-slate-500">{language === 'en' ? <span>Compact bug graphics showing current batter, pitcher, count and bases. In Adjustment Mode, you can drag, scale, and adjust borders to fit your broadcast.</span> : language === 'zh' ? <span>精簡的左下角/右下角字卡設計，顯示當前打者、投手、好壞球與壘包狀態。進入「調整模式 (Adjustment Mode)」後，可以自由拖曳位置、縮放大小，甚至調整各個區塊的邊界寬度與高度，完美契合您的轉播畫面。</span> : <span>現在の打者、投手、カウント、塁の状況を表示するコンパクトなグラフィック。「調整モード (Adjustment Mode)」に入ると、自由にドラッグ、リサイズ、さらには各セクションの境界線の幅や高さを調整でき、配信画面に完璧にフィットします。</span>}</p>
                 </div>
               </div>
             </div>
@@ -123,9 +123,9 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose,
               <p className="text-slate-700">{language === 'en' ? 'We included professional animations to enhance the broadcast:' : language === 'zh' ? '為了增加轉播的趣味性，我們內建了多種專業的動畫特效：' : '中継を盛り上げるためにプロ仕様のアニメーションを内蔵：'}</p>
               
               <ul className="list-disc list-inside space-y-2 text-slate-600 mt-4">
-                <li><strong>{language === 'en' ? 'Home Run: ' : language === 'zh' ? '全壘打 (Home Run)：' : 'ホームラン：'}</strong>{language === 'en' ? 'Shows unique HR animations depending on the bases, styled with team colors.' : language === 'zh' ? '根據壘上人數，會顯示 Home Run、2-Run Homer、3-Run Homer 或 Grand Slam (滿貫砲) 的專屬動畫，並帶有隊伍代表色。' : '走者の数に応じて、ソロホームラン、2ランホームラン、3ランホームラン、満塁ホームランの専用アニメーションをチームカラーで表示します。'}</li>
-                <li><strong>{language === 'en' ? 'Strikeout: ' : language === 'zh' ? '三振 (Strikeout)：' : '三振：'}</strong>{language === 'en' ? 'Triggers a \'K\' animation when strike reaches 3.' : language === 'zh' ? '當好球數達到 3 時，會觸發「K」字動畫。' : 'ストライクが3に達するとKアニメーションを表示します。'}</li>
-                <li><strong>{language === 'en' ? 'On-base & Scoring: ' : language === 'zh' ? '上壘與得分：' : '出塁と得点：'}</strong>{language === 'en' ? 'Smooth transitions for base changes and score updates.' : language === 'zh' ? '壘包狀態改變與分數跳動時，都有平滑的過渡效果。' : '塁状況とスコアの更新にスムーズなトランジション。'}</li>
+                <li>{language === 'en' ? 'Home Run: ' : language === 'zh' ? '全壘打 (Home Run)：' : 'ホームラン：'}{language === 'en' ? 'Shows unique HR animations depending on the bases, styled with team colors.' : language === 'zh' ? '根據壘上人數，會顯示 Home Run、2-Run Homer、3-Run Homer 或 Grand Slam (滿貫砲) 的專屬動畫，並帶有隊伍代表色。' : '走者の数に応じて、ソロホームラン、2ランホームラン、3ランホームラン、満塁ホームランの専用アニメーションをチームカラーで表示します。'}</li>
+                <li>{language === 'en' ? 'Strikeout: ' : language === 'zh' ? '三振 (Strikeout)：' : '三振：'}{language === 'en' ? 'Triggers a \'K\' animation when strike reaches 3.' : language === 'zh' ? '當好球數達到 3 時，會觸發「K」字動畫。' : 'ストライクが3に達するとKアニメーションを表示します。'}</li>
+                <li>{language === 'en' ? 'On-base & Scoring: ' : language === 'zh' ? '上壘與得分：' : '出塁と得点：'}{language === 'en' ? 'Smooth transitions for base changes and score updates.' : language === 'zh' ? '壘包狀態改變與分數跳動時，都有平滑的過渡效果。' : '塁状況とスコアの更新にスムーズなトランジション。'}</li>
               </ul>
             </div>
           )}
@@ -180,10 +180,10 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose,
               
               <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mt-4">
                 <ol className="list-decimal list-inside space-y-3 text-slate-700">
-                  <li>{language === 'en' ? 'Click the <strong>Open Projector</strong> button in the top bar.' : language === 'zh' ? '點擊頂部工具列的 <strong>「Open Projector」</strong> 按鈕。' : '上部ツールバーの<strong>Open Projector</strong>ボタンをクリック。'}</li>
+                  <li>{language === 'en' ? 'Click the Open Projector button in the top bar.' : language === 'zh' ? '點擊頂部工具列的 「Open Projector」 按鈕。' : '上部ツールバーのOpen Projectorボタンをクリック。'}</li>
                   <li>{language === 'en' ? 'A clean scoreboard window will pop up (no controls).' : language === 'zh' ? '系統會彈出一個新的瀏覽器視窗，裡面只有乾淨的計分板畫面（沒有控制台）。' : 'コントロールのないクリーンなスコアボード画面が開きます。'}</li>
-                  <li>{language === 'en' ? '<strong>Drag it to your second screen</strong> or capture it in OBS.' : language === 'zh' ? '將這個新視窗<strong>拖曳到您的第二螢幕</strong>，或是讓 OBS 擷取該視窗。' : '<strong>セカンドスクリーンにドラッグ</strong>するか、OBSでキャプチャします。'}</li>
-                  <li>{language === 'en' ? 'All control actions will be <strong>synced in real-time</strong> to the projector window!' : language === 'zh' ? '您在主視窗（控制台）的所有操作，都會<strong>即時同步</strong>到投影視窗中！' : 'コントロール画面での操作は<strong>リアルタイムに同期</strong>されます！'}</li>
+                  <li>{language === 'en' ? 'Drag it to your second screen or capture it in OBS.' : language === 'zh' ? '將這個新視窗拖曳到您的第二螢幕，或是讓 OBS 擷取該視窗。' : 'セカンドスクリーンにドラッグするか、OBSでキャプチャします。'}</li>
+                  <li>{language === 'en' ? 'All control actions will be synced in real-time to the projector window!' : language === 'zh' ? '您在主視窗（控制台）的所有操作，都會即時同步到投影視窗中！' : 'コントロール画面での操作はリアルタイムに同期されます！'}</li>
                 </ol>
               </div>
               
@@ -193,8 +193,22 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose,
                   <span className="relative z-10 font-bold tracking-widest">{language === 'zh' ? 'OBS / 大螢幕' : language === 'en' ? 'OBS / Second Screen' : 'OBS / セカンドスクリーン'}</span>
                 </div>
               </div>
+
+                          </div>
+          )}
+
+          {page === 7 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 flex flex-col items-center justify-center h-64 text-center">
+              <h3 className="text-2xl font-bold text-slate-800 mb-2">Credits</h3>
+              <div className="text-lg text-slate-600">
+                {language === 'en' ? 'Production, Design, Ideation: ' : language === 'zh' ? '製作、設計、發想：' : '制作・デザイン・発案：'}
+                <a href="https://www.instagram.com/yorunann/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-bold ml-1">
+                  Yorunann
+                </a>
+              </div>
             </div>
           )}
+
         </div>
 
         <div className="p-4 border-t bg-slate-50 flex justify-between items-center">

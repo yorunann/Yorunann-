@@ -40,6 +40,8 @@ const SortablePlayerRow = ({
   onSetPitcher,
   language,
   selectedPosId,
+  selectedPlayerId,
+  onRowClick,
   onPosClick,
   onPosDoubleClick,
   onPosBlur,
@@ -56,6 +58,8 @@ const SortablePlayerRow = ({
   language: 'en' | 'zh' | 'ja';
   key?: any;
   selectedPosId?: string | null;
+  selectedPlayerId?: string | null;
+  onRowClick?: (id: string) => void;
   onPosClick?: (id: string) => void;
   onPosDoubleClick?: (id: string) => void;
   onPosBlur?: () => void;
@@ -80,7 +84,12 @@ const SortablePlayerRow = ({
     <div 
       ref={setNodeRef} 
       style={style} 
-      className={`flex items-center gap-1 text-xs p-1 rounded border min-w-max ${isDragging ? 'opacity-50 bg-blue-50 border-blue-200' : isCurrentBatter ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-transparent'}`}
+      className={`flex items-center gap-1 text-xs p-1 rounded border min-w-max transition-colors ${isDragging ? 'opacity-50 bg-blue-50 border-blue-200' : selectedPlayerId === player.id ? 'bg-indigo-100 border-indigo-400' : isCurrentBatter ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-transparent hover:bg-gray-100'}`}
+      onClick={(e) => {
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || target.closest('.cursor-grab')) return;
+        onRowClick?.(player.id);
+      }}
     >
       <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 text-gray-500 hover:text-gray-800 transition-colors shrink-0">
         <GripVertical size={14} />
@@ -237,6 +246,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
   
   const [selectedPosId, setSelectedPosId] = useState<string | null>(null);
   const [editingPosId, setEditingPosId] = useState<string | null>(null);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
 
   const handlePosClick = (id: string) => {
     if (editingPosId === id) return;
@@ -265,6 +275,36 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
       setSelectedPosId(null);
     } else {
       setSelectedPosId(selectedPosId === id ? null : id);
+    }
+  };
+
+  
+  const handleRowClick = (id: string) => {
+    if (selectedPlayerId && selectedPlayerId !== id) {
+      const getPlayerLoc = (pid: string) => {
+        let idx = draft.lineup.findIndex(p => p.id === pid);
+        if (idx >= 0) return { list: 'lineup' as const, idx };
+        idx = draft.bench.findIndex(p => p.id === pid);
+        if (idx >= 0) return { list: 'bench' as const, idx };
+        return null;
+      };
+      
+      const loc1 = getPlayerLoc(selectedPlayerId);
+      const loc2 = getPlayerLoc(id);
+
+      if (loc1 && loc2) {
+        const newDraft = { ...draft, lineup: [...draft.lineup], bench: [...draft.bench] };
+        const p1 = newDraft[loc1.list][loc1.idx];
+        const p2 = newDraft[loc2.list][loc2.idx];
+        
+        newDraft[loc1.list][loc1.idx] = p2;
+        newDraft[loc2.list][loc2.idx] = p1;
+        
+        setDraft(newDraft);
+      }
+      setSelectedPlayerId(null);
+    } else {
+      setSelectedPlayerId(selectedPlayerId === id ? null : id);
     }
   };
 
@@ -542,6 +582,8 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
                   onRemove={() => removeLineupPlayer(idx)}
                   onSetPitcher={() => setAsPitcher(player)}
                   selectedPosId={selectedPosId}
+                  selectedPlayerId={selectedPlayerId}
+                  onRowClick={handleRowClick}
                   onPosClick={handlePosClick}
                   onPosDoubleClick={handlePosDoubleClick}
                   onPosBlur={() => setEditingPosId(null)}
@@ -582,6 +624,8 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
                   onRemove={() => removeBenchPlayer(idx)}
                   onSetPitcher={() => setAsPitcher(player)}
                   selectedPosId={selectedPosId}
+                  selectedPlayerId={selectedPlayerId}
+                  onRowClick={handleRowClick}
                   onPosClick={handlePosClick}
                   onPosDoubleClick={handlePosDoubleClick}
                   onPosBlur={() => setEditingPosId(null)}
