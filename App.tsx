@@ -268,9 +268,15 @@ export const App: React.FC = () => {
       {!isDisplayMode && (
         <header className="bg-slate-800 border-b border-slate-700 p-3 flex justify-between items-center z-50 shrink-0">
           <div className="flex items-center space-x-2">
-            <MonitorPlay className="text-yellow-400" />
-            <h1 className="text-white font-bold text-xl hidden md:block">Pro Baseball Scoreboard</h1>
-            <h1 className="text-white font-bold text-xl md:hidden">PBS</h1>
+            <div 
+              className="flex items-center space-x-2 cursor-pointer select-none"
+              onDoubleClick={toggleFullscreen}
+              title="Double click to toggle fullscreen"
+            >
+              <MonitorPlay className="text-yellow-400" />
+              <h1 className="text-white font-bold text-xl hidden md:block">Pro Baseball Scoreboard</h1>
+              <h1 className="text-white font-bold text-xl md:hidden">PBS</h1>
+            </div>
             <select 
               value={language}
               onChange={(e) => {
@@ -435,7 +441,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v26.9.3.1</span>
+          <span className="text-slate-600 ml-2">v26.9.5.1</span>
        </footer>
 
         <ShortcutSettingsModal

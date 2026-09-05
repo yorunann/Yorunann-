@@ -619,10 +619,17 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                           const team = state.isTop ? state.awayTeam : state.homeTeam;
                           const batter = team.lineup[team.currentBatterIndex];
                           const pName = batter ? (batter.number ? `${batter.name} #${batter.number}` : batter.name) : '';
+                          
+                          const runnersOnBase = state.bases.filter(Boolean).length;
+                          let animationType: 'homerun' | '2-run-homer' | '3-run-homer' | 'grand-slam' = 'homerun';
+                          if (runnersOnBase === 1) animationType = '2-run-homer';
+                          else if (runnersOnBase === 2) animationType = '3-run-homer';
+                          else if (runnersOnBase === 3) animationType = 'grand-slam';
+
                           dispatch({ 
                             type: 'SET_ANIMATION', 
                             animation: { 
-                              type: 'homerun', 
+                              type: animationType,
                               playerName: pName,
                               teamName: team.name,
                               teamColor: team.color,
