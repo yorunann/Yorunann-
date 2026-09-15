@@ -1297,7 +1297,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
     return (
       <div className="w-full h-full relative pointer-events-none animate-in slide-in-from-left duration-500 overflow-hidden">
         <div 
-          className={`absolute bg-slate-900/90 backdrop-blur-md border-[4px] border-slate-700 text-white font-display shadow-2xl pointer-events-auto overflow-hidden flex flex-col origin-top-left ${state.isAdjustmentMode ? 'cursor-move ring-4 ring-blue-500 ring-offset-4 ring-offset-transparent' : ''}`} 
+          className={`absolute bg-gradient-to-br from-cyan-950/30 via-slate-900/50 to-teal-950/30 backdrop-blur-xl border border-white/20 text-white font-display shadow-2xl shadow-black/50 pointer-events-auto overflow-hidden flex flex-col origin-top-left ${state.isAdjustmentMode ? 'cursor-move ring-4 ring-blue-500 ring-offset-4 ring-offset-transparent' : ''}`} 
           style={{ 
             width: `${state.meta.broadcastWidth ?? 450}px`,
             left: `${state.meta.broadcastMarginX ?? 20}px`,
@@ -1487,14 +1487,14 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
           <div className={`flex w-full`}>
             
             {/* Left Column */}
-            <div className={`flex flex-col justify-center flex-1 border-r-[3px] border-slate-700 min-w-0`}>
+            <div className={`flex flex-col justify-center flex-1 min-w-0`}>
               
               {topSpacerHeight > 0 && <div style={{ height: `${topSpacerHeight}px` }} className="shrink-0" />}
               
               {/* Away Player Row (Top) */}
               {showAwayPlayer && (
                 <div 
-                  className="border-b-[3px] border-slate-700 px-2 flex items-center gap-2 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative"
+                  className="bg-slate-800/50 px-2 flex items-center gap-2 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative"
                   style={{ height: `${state.meta.broadcastPlayerRowHeight ?? 50}px` }}
                 >
                   {/* Top Resizer */}
@@ -1583,18 +1583,19 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
               )}
 
               {/* Teams & Inning Row */}
-              <div className={`flex ${showHomePlayer ? 'border-b-[3px]' : ''} border-slate-700 shrink-0`}>
+              <div className={`flex shrink-0`}>
                 {/* Teams */}
-                <div className={`flex flex-col flex-1 border-slate-700 min-w-0 border-r-[3px]`}>
+                <div className={`flex flex-col flex-1 min-w-0`}>
                   {/* Away */}
                   <div 
                     className="flex relative overflow-hidden shrink-0 min-h-0"
-                    style={{ height: `${state.meta.broadcastTeamRowHeight ?? 72}px` }}
+                    style={{ height: `${state.meta.broadcastTeamRowHeight ?? 72}px`, backgroundColor: state.awayTeam.color }}
                   >
-                    <div className="absolute inset-0 opacity-20" style={{ backgroundColor: state.awayTeam.color }}></div>
+                    {/* Gradient Overlay for lighting effect */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-black/40 pointer-events-none"></div>
                     <div className="flex-1 px-2 flex items-center gap-3 min-w-0 relative z-10 h-full">
                       <div 
-                        className="rounded-full border-[3px] border-slate-700 overflow-hidden flex items-center justify-center bg-slate-800 shrink-0 transition-all"
+                        className="rounded-full border border-white/20 overflow-hidden flex items-center justify-center bg-slate-800 shrink-0 transition-all"
                         style={{ width: `${state.meta.broadcastLogoSize ?? 40}px`, height: `${state.meta.broadcastLogoSize ?? 40}px` }}
                       >
                         {state.awayTeam.logoUrl ? (
@@ -1618,7 +1619,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                       </div>
                     </div>
                     <div 
-                      className={`border-slate-700 px-2 flex items-center justify-center text-3xl font-black font-display text-yellow-400 shrink-0 relative z-10 cursor-pointer hover:bg-white/10 transition-colors border-l-[3px] h-full`}
+                      className={`bg-black/40 border-l border-black/50 px-2 flex items-center justify-center text-3xl font-black font-display text-yellow-400 shrink-0 relative z-10 cursor-pointer hover:bg-white/20 transition-colors h-full`}
                       style={{ width: `${state.meta.broadcastScoreWidth ?? 72}px` }}
                       onMouseDown={() => handleScoreMouseDown('away')}
                       onMouseUp={handleScoreMouseUp}
@@ -1661,12 +1662,14 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     </div>
                   </div>
                   {/* Vertical Center Divider */}
-                  <div className="h-[3px] bg-slate-700 w-full shrink-0" />
+                  
                   {/* Home */}
                   <div 
                     className="flex relative overflow-hidden shrink-0"
-                    style={{ height: `${state.meta.broadcastTeamRowHeight ?? 72}px` }}
+                    style={{ height: `${state.meta.broadcastTeamRowHeight ?? 72}px`, backgroundColor: state.homeTeam.color }}
                   >
+                    {/* Gradient Overlay for lighting effect */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-black/40 pointer-events-none"></div>
                     {/* Team Row Resizer */}
                     {state.isAdjustmentMode && (
                       <div 
@@ -1690,10 +1693,10 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         }}
                       />
                     )}
-                    <div className="absolute inset-0 opacity-20" style={{ backgroundColor: state.homeTeam.color }}></div>
+                    
                     <div className="flex-1 p-2 flex items-center gap-3 min-w-0 relative z-10">
                       <div 
-                        className="rounded-full border-[3px] border-slate-700 overflow-hidden flex items-center justify-center bg-slate-800 shrink-0 transition-all"
+                        className="rounded-full border border-white/20 overflow-hidden flex items-center justify-center bg-slate-800 shrink-0 transition-all"
                         style={{ width: `${state.meta.broadcastLogoSize ?? 40}px`, height: `${state.meta.broadcastLogoSize ?? 40}px` }}
                       >
                         {state.homeTeam.logoUrl ? (
@@ -1717,7 +1720,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                       </div>
                     </div>
                     <div 
-                      className={`border-slate-700 px-2 flex items-center justify-center text-3xl font-black font-display text-yellow-400 shrink-0 relative z-10 cursor-pointer hover:bg-white/10 transition-colors border-l-[3px] h-full`}
+                      className={`bg-black/40 border-l border-black/50 px-2 flex items-center justify-center text-3xl font-black font-display text-yellow-400 shrink-0 relative z-10 cursor-pointer hover:bg-white/20 transition-colors h-full`}
                       style={{ width: `${state.meta.broadcastScoreWidth ?? 72}px` }}
                       onMouseDown={() => handleScoreMouseDown('home')}
                       onMouseUp={handleScoreMouseUp}
@@ -1738,7 +1741,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                 </div>
                 {/* Inning */}
                 <div 
-                  className="p-2 flex flex-col items-center justify-center gap-2 shrink-0 relative"
+                  className="p-2 flex flex-col items-center justify-center gap-2 shrink-0 relative bg-slate-700/50 border-l border-white/10 shadow-[-1px_0_0_rgba(0,0,0,0.5)]"
                   style={{ width: `${state.meta.broadcastInningWidth ?? 56}px` }}
                 >
                   {state.isAdjustmentMode && (
@@ -1773,7 +1776,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
               {/* Home Player Row (Bottom) */}
               {showHomePlayer && (
                 <div 
-                  className="px-2 flex items-center gap-2 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative"
+                  className="bg-slate-800/40 px-2 flex items-center gap-2 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative"
                   style={{ height: `${state.meta.broadcastPlayerRowHeight ?? 50}px` }}
                 >
                   {/* Bottom Resizer */}
@@ -1866,7 +1869,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
 
             {/* Right Column (Count & Diamond) */}
             <div 
-              className="px-2 flex flex-col items-center shrink-0 relative h-full"
+              className="px-2 flex flex-col items-center shrink-0 relative h-full bg-blue-950/50 backdrop-blur-md border-l border-white/10 shadow-[-1px_0_0_rgba(0,0,0,0.5)]"
               style={{ width: `${state.meta.broadcastRightColumnWidth ?? 150}px` }}
             >
                             <AnimatePresence>
