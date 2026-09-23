@@ -16,13 +16,42 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
   const [previewData, setPreviewData] = useState<Partial<Player>[]>([]);
   const [previewTab, setPreviewTab] = useState<'import' | 'current'>('import');
   const [localCurrentPlayers, setLocalCurrentPlayers] = useState<Player[]>([]);
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   
   useEffect(() => {
     if (isOpen) {
       setLocalCurrentPlayers(currentPlayers || []);
       setPreviewTab('import');
+      setSelectedPlayerIds([]);
     }
   }, [isOpen, currentPlayers]);
+
+  const handleToggleSelectAll = () => {
+    if (selectedPlayerIds.length === localCurrentPlayers.length && localCurrentPlayers.length > 0) {
+      setSelectedPlayerIds([]);
+    } else {
+      setSelectedPlayerIds(localCurrentPlayers.map(p => p.id));
+    }
+  };
+
+  const handleToggleSelectPlayer = (id: string) => {
+    setSelectedPlayerIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedPlayerIds.length === 0) return;
+    const msg = language === 'en' 
+      ? `Delete ${selectedPlayerIds.length} selected player(s)?` 
+      : language === 'zh' 
+      ? `確定要刪除選取的 ${selectedPlayerIds.length} 位球員嗎？` 
+      : `選択した${selectedPlayerIds.length}名の選手を削除しますか？`;
+    if (confirm(msg)) {
+      setLocalCurrentPlayers(prev => prev.filter(p => !selectedPlayerIds.includes(p.id)));
+      setSelectedPlayerIds([]);
+    }
+  };
 
   const handleUpdateCurrent = (index: number, field: keyof Player, value: string) => {
     setLocalCurrentPlayers(prev => {
@@ -33,6 +62,10 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
   };
 
   const handleRemoveCurrentRow = (index: number) => {
+    const removedPlayer = localCurrentPlayers[index];
+    if (removedPlayer) {
+      setSelectedPlayerIds(prev => prev.filter(id => id !== removedPlayer.id));
+    }
     setLocalCurrentPlayers(prev => prev.filter((_, idx) => idx !== index));
   };
 
@@ -166,7 +199,7 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
             />
             
             <div className="flex justify-between items-center text-xs text-slate-400">
-              <span>{language === 'en' ? 'Supports all formats: Chinese / English positions, numbers, names, batting averages.' : language === 'zh' ? '支援自動識別：中英文守備位置、背號、姓名、打擊率等任意排列' : '漢英表記の守備位置、背番号、選手名、打率の自動判別に対応'}</span>
+              <span>{language === 'en' ? 'Supports all formats: Chinese / English positions, numbers, names, batting averages. Delimiters: newline, full-width comma (，), enumeration comma (、), semicolon (;).' : language === 'zh' ? '支援自動識別：中英文守備位置、背號、姓名、打擊率（支援換行、全形逗號、頓號、分號分隔）' : '漢英表記の守備位置、背番号、選手名、打率（改行、読点「、」「，」、セミコロンに対応）'}</span>
               <button 
                 onClick={handleParse}
                 className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-1.5 rounded text-xs transition-colors shrink-0 ml-2"
@@ -178,48 +211,78 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
 
           {/* Bottom Section: Preview area (預覽處) */}
           <div className="flex-1 flex flex-col min-h-[220px]">
-            <div className="flex border-b border-slate-700 mb-2 w-full">
-              <button 
-                onClick={() => setPreviewTab('import')} 
-                className={`flex-1 py-2 text-sm font-bold uppercase transition-colors ${previewTab === 'import' ? 'border-b-2 border-blue-500 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}
-              >
-                {language === 'en' ? 'Preview Import' : language === 'zh' ? '匯入預覽' : 'プレビュー'}
-                <span className="ml-1 text-xs font-normal">({previewData.length})</span>
-              </button>
-              <button 
-                onClick={() => setPreviewTab('current')} 
-                className={`flex-1 py-2 text-sm font-bold uppercase transition-colors ${previewTab === 'current' ? 'border-b-2 border-blue-500 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}
-              >
-                {language === 'en' ? 'Current Players' : language === 'zh' ? '現有名單' : '現在の選手'}
-                <span className="ml-1 text-xs font-normal">({localCurrentPlayers.length})</span>
-              </button>
+            <div className="flex justify-between items-center border-b border-slate-700 mb-2 w-full gap-2">
+              <div className="flex flex-1">
+                <button 
+                  onClick={() => setPreviewTab('import')} 
+                  className={`flex-1 py-2 text-sm font-bold uppercase transition-colors ${previewTab === 'import' ? 'border-b-2 border-blue-500 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}
+                >
+                  {language === 'en' ? 'Preview Import' : language === 'zh' ? '匯入預覽' : 'プレビュー'}
+                  <span className="ml-1 text-xs font-normal">({previewData.length})</span>
+                </button>
+                <button 
+                  onClick={() => setPreviewTab('current')} 
+                  className={`flex-1 py-2 text-sm font-bold uppercase transition-colors ${previewTab === 'current' ? 'border-b-2 border-blue-500 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}
+                >
+                  {language === 'en' ? 'Current Players' : language === 'zh' ? '現有名單' : '現在の選手'}
+                  <span className="ml-1 text-xs font-normal">({localCurrentPlayers.length})</span>
+                </button>
+              </div>
+              {previewTab === 'current' && selectedPlayerIds.length > 0 && (
+                <div className="shrink-0 py-1">
+                  <button
+                    onClick={handleBulkDelete}
+                    className="px-2.5 py-1 bg-red-600/90 hover:bg-red-600 text-white font-semibold text-xs rounded shadow flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Trash2 size={13} />
+                    <span>
+                      {language === 'en' 
+                        ? `Delete Selected (${selectedPlayerIds.length})` 
+                        : language === 'zh' 
+                        ? `刪除所選 (${selectedPlayerIds.length})` 
+                        : `選択削除 (${selectedPlayerIds.length})`}
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
 
-            <div className="flex-1 bg-slate-900 border border-slate-700 rounded-lg overflow-y-auto shadow-inner">
-              <table className="w-full text-left text-sm text-slate-300">
-                <thead className="text-xs uppercase bg-slate-800/90 text-slate-400 sticky top-0 backdrop-blur z-10 border-b border-slate-700">
+            <div className="flex-1 bg-slate-900 border border-slate-700 rounded-lg overflow-x-auto overflow-y-auto shadow-inner">
+              <table className="w-full text-left text-sm text-slate-300 min-w-[560px]">
+                <thead className="text-xs uppercase bg-slate-800/90 text-slate-400 sticky top-0 backdrop-blur z-10 border-b border-slate-700 select-none">
                   <tr>
-                    <th className="px-3 py-2.5 w-12 text-center">#</th>
-                    <th className="px-2 py-2.5 w-24">
+                    {previewTab === 'current' && (
+                      <th className="px-2 py-2.5 w-10 text-center shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={localCurrentPlayers.length > 0 && selectedPlayerIds.length === localCurrentPlayers.length}
+                          onChange={handleToggleSelectAll}
+                          className="w-4 h-4 rounded text-blue-600 accent-blue-600 bg-slate-800 border-slate-600 cursor-pointer align-middle"
+                          title={language === 'en' ? 'Select All' : language === 'zh' ? '全選' : 'すべて選択'}
+                        />
+                      </th>
+                    )}
+                    <th className="px-2 py-2.5 w-10 text-center shrink-0">#</th>
+                    <th className="px-2 py-2.5 w-16 sm:w-20 text-center shrink-0">
                       {language === 'en' ? 'POS' : language === 'zh' ? '守備' : '守備'}
                     </th>
-                    <th className="px-2 py-2.5 w-24">
+                    <th className="px-2 py-2.5 w-16 sm:w-20 text-center shrink-0">
                       {language === 'en' ? 'NO.' : language === 'zh' ? '背號' : '背番号'}
                     </th>
-                    <th className="px-2 py-2.5">
+                    <th className="px-2 py-2.5 min-w-[150px] sm:min-w-[180px]">
                       {language === 'en' ? 'NAME' : language === 'zh' ? '姓名' : '選手名'}
                     </th>
-                    <th className="px-2 py-2.5 w-24">
+                    <th className="px-2 py-2.5 w-20 sm:w-24 text-center shrink-0">
                       {language === 'en' ? 'AVG' : language === 'zh' ? '打擊率' : '打率'}
                     </th>
-                    <th className="px-2 py-2.5 w-12 text-center"></th>
+                    <th className="px-2 py-2.5 w-10 sm:w-12 text-center shrink-0"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
                   {previewTab === 'current' ? (
                     localCurrentPlayers.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-12 text-slate-500">
+                        <td colSpan={7} className="text-center py-12 text-slate-500">
                           {language === 'en' 
                             ? 'No players imported yet' 
                             : language === 'zh' 
@@ -227,56 +290,70 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
                             : '選手はいません'}
                         </td>
                       </tr>
-                    ) : localCurrentPlayers.map((p, idx) => (
-                      <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="px-3 py-1.5 text-center font-bold text-slate-500">{idx + 1}</td>
-                        <td className="px-1.5 py-1.5">
-                          <input 
-                            type="text" 
-                            className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 text-center font-semibold uppercase"
-                            value={p.position || ''}
-                            onChange={(e) => handleUpdateCurrent(idx, 'position', e.target.value)}
-                            placeholder="POS"
-                          />
-                        </td>
-                        <td className="px-1.5 py-1.5">
-                          <input 
-                            type="text" 
-                            className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 font-mono text-center"
-                            value={p.number || ''}
-                            onChange={(e) => handleUpdateCurrent(idx, 'number', e.target.value)}
-                            placeholder="00"
-                          />
-                        </td>
-                        <td className="px-1.5 py-1.5">
-                          <input 
-                            type="text" 
-                            className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 font-medium"
-                            value={p.name || ''}
-                            onChange={(e) => handleUpdateCurrent(idx, 'name', e.target.value)}
-                            placeholder="Name"
-                          />
-                        </td>
-                        <td className="px-1.5 py-1.5">
-                          <input 
-                            type="text" 
-                            className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 font-mono text-center"
-                            value={p.stat || ''}
-                            onChange={(e) => handleUpdateCurrent(idx, 'stat', e.target.value)}
-                            placeholder=".000"
-                          />
-                        </td>
-                        <td className="px-1.5 py-1.5 text-center">
-                          <button 
-                            onClick={() => handleRemoveCurrentRow(idx)}
-                            className="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors"
-                            title="Remove row"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                    ) : localCurrentPlayers.map((p, idx) => {
+                      const isSelected = selectedPlayerIds.includes(p.id);
+                      return (
+                        <tr 
+                          key={p.id || idx} 
+                          className={`hover:bg-slate-800/40 transition-colors ${isSelected ? 'bg-blue-900/30' : ''}`}
+                        >
+                          <td className="px-2 py-1.5 text-center shrink-0">
+                            <input 
+                              type="checkbox" 
+                              checked={isSelected}
+                              onChange={() => handleToggleSelectPlayer(p.id)}
+                              className="w-4 h-4 rounded text-blue-600 accent-blue-600 bg-slate-800 border-slate-600 cursor-pointer align-middle"
+                            />
+                          </td>
+                          <td className="px-2 py-1.5 text-center font-bold text-slate-500 shrink-0">{idx + 1}</td>
+                          <td className="px-1.5 py-1.5 shrink-0">
+                            <input 
+                              type="text" 
+                              className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 text-center font-semibold uppercase"
+                              value={p.position || ''}
+                              onChange={(e) => handleUpdateCurrent(idx, 'position', e.target.value)}
+                              placeholder="POS"
+                            />
+                          </td>
+                          <td className="px-1.5 py-1.5 shrink-0">
+                            <input 
+                              type="text" 
+                              className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 font-mono text-center"
+                              value={p.number || ''}
+                              onChange={(e) => handleUpdateCurrent(idx, 'number', e.target.value)}
+                              placeholder="00"
+                            />
+                          </td>
+                          <td className="px-1.5 py-1.5 min-w-[150px] sm:min-w-[180px]">
+                            <input 
+                              type="text" 
+                              className="w-full min-w-[140px] bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 font-medium"
+                              value={p.name || ''}
+                              onChange={(e) => handleUpdateCurrent(idx, 'name', e.target.value)}
+                              placeholder="Name"
+                            />
+                          </td>
+                          <td className="px-1.5 py-1.5 shrink-0">
+                            <input 
+                              type="text" 
+                              className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 font-mono text-center"
+                              value={p.stat || ''}
+                              onChange={(e) => handleUpdateCurrent(idx, 'stat', e.target.value)}
+                              placeholder=".000"
+                            />
+                          </td>
+                          <td className="px-1.5 py-1.5 text-center shrink-0">
+                            <button 
+                              onClick={() => handleRemoveCurrentRow(idx)}
+                              className="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors"
+                              title="Remove row"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     previewData.length === 0 ? (
                       <tr>
@@ -290,8 +367,8 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
                       </tr>
                     ) : previewData.map((p, idx) => (
                     <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="px-3 py-1.5 text-center font-bold text-slate-500">{idx + 1}</td>
-                      <td className="px-1.5 py-1.5">
+                      <td className="px-2 py-1.5 text-center font-bold text-slate-500 shrink-0">{idx + 1}</td>
+                      <td className="px-1.5 py-1.5 shrink-0">
                         <input 
                           type="text" 
                           className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 text-center font-semibold uppercase"
@@ -300,7 +377,7 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
                           placeholder="POS"
                         />
                       </td>
-                      <td className="px-1.5 py-1.5">
+                      <td className="px-1.5 py-1.5 shrink-0">
                         <input 
                           type="text" 
                           className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 font-mono text-center"
@@ -309,16 +386,16 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
                           placeholder="00"
                         />
                       </td>
-                      <td className="px-1.5 py-1.5">
+                      <td className="px-1.5 py-1.5 min-w-[150px] sm:min-w-[180px]">
                         <input 
                           type="text" 
-                          className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 font-medium"
+                          className="w-full min-w-[140px] bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 font-medium"
                           value={p.name || ''}
                           onChange={(e) => handleUpdatePreview(idx, 'name', e.target.value)}
                           placeholder="Name"
                         />
                       </td>
-                      <td className="px-1.5 py-1.5">
+                      <td className="px-1.5 py-1.5 shrink-0">
                         <input 
                           type="text" 
                           className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 font-mono text-center"
@@ -327,7 +404,7 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
                           placeholder=".000"
                         />
                       </td>
-                      <td className="px-1.5 py-1.5 text-center">
+                      <td className="px-1.5 py-1.5 text-center shrink-0">
                         <button 
                           onClick={() => handleRemoveRow(idx)}
                           className="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors"

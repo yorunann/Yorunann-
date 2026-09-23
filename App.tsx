@@ -13,8 +13,25 @@ import { UserGuideModal } from './components/UserGuideModal';
 
 import { reducer } from './reducer';
 
+const getInitialState = (init: GameState): GameState => {
+  try {
+    const savedState = localStorage.getItem('scoreboard_state');
+    if (savedState) {
+      const parsed = JSON.parse(savedState);
+      return {
+        ...init,
+        ...parsed,
+        animation: null, // Clear any animation on start
+      };
+    }
+  } catch (e) {
+    console.error("Failed to load initial state from localStorage", e);
+  }
+  return init;
+};
+
 export const App: React.FC = () => {
-  const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+  const [state, dispatch] = useReducer(reducer, INITIAL_STATE, getInitialState);
   const displayRef = useRef<HTMLDivElement>(null);
 
   const [isShortcutModalOpen, setIsShortcutModalOpen] = useState(false);
@@ -121,7 +138,9 @@ export const App: React.FC = () => {
     const savedState = localStorage.getItem('scoreboard_state');
     if (savedState) {
       try {
-        handleSyncState(JSON.parse(savedState));
+        const parsed = JSON.parse(savedState);
+        parsed.animation = null;
+        handleSyncState(parsed);
       } catch (e) {}
     }
 
@@ -441,7 +460,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v26.9.5.12</span>
+          <span className="text-slate-600 ml-2">v26.9.23.0</span>
        </footer>
 
         <ShortcutSettingsModal

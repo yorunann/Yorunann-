@@ -356,18 +356,41 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
   };
 
   
+  const isMountedRef = useRef(false);
   const prevStrikeoutTriggerRef = useRef(state.strikeoutAnimationTrigger || 0);
 
   useEffect(() => {
+    // Avoid running animations on initial app open / component mount
+    if (!isMountedRef.current) {
+      isMountedRef.current = true;
+      prevStrikeoutTriggerRef.current = state.strikeoutAnimationTrigger || 0;
+      return;
+    }
+
     const currentTrigger = state.strikeoutAnimationTrigger || 0;
     if (currentTrigger > prevStrikeoutTriggerRef.current) {
       setShowKAnimation(true);
-      const timer = setTimeout(() => setShowKAnimation(false), 2000);
-      prevStrikeoutTriggerRef.current = currentTrigger;
-      return () => clearTimeout(timer);
     }
     prevStrikeoutTriggerRef.current = currentTrigger;
   }, [state.strikeoutAnimationTrigger]);
+
+  // Dedicated auto-dismiss for K animation so it never stays stuck on screen
+  useEffect(() => {
+    if (!showKAnimation) return;
+    const timer = setTimeout(() => {
+      setShowKAnimation(false);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [showKAnimation]);
+
+  // Safety auto-dismiss for non-locked animations (e.g. HR) to avoid getting stuck
+  useEffect(() => {
+    if (!state.animation || state.animation.isLocked) return;
+    const timer = setTimeout(() => {
+      dispatch({ type: 'SET_ANIMATION', animation: null });
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [state.animation, dispatch]);
   
   const [awaySettledKey, setAwaySettledKey] = useState('');
   const [homeSettledKey, setHomeSettledKey] = useState('');
@@ -1591,8 +1614,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     className="flex relative overflow-hidden shrink-0 min-h-0"
                     style={{ height: `${state.meta.broadcastTeamRowHeight ?? 72}px`, backgroundColor: state.awayTeam.color }}
                   >
-                    {/* Gradient Overlay for lighting effect */}
-                    <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-black/40 pointer-events-none"></div>
+                    {/* Darker team background tone and subtle, smaller gradient */}
+                    <div className="absolute inset-0 bg-black/25 pointer-events-none"></div>
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/8 via-transparent to-black/25 pointer-events-none"></div>
                     <div className="flex-1 px-2 flex items-center gap-3 min-w-0 relative z-10 h-full">
                       <div 
                         className="rounded-full border border-white/20 overflow-hidden flex items-center justify-center bg-slate-800 shrink-0 transition-all"
@@ -1668,8 +1692,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     className="flex relative overflow-hidden shrink-0"
                     style={{ height: `${state.meta.broadcastTeamRowHeight ?? 72}px`, backgroundColor: state.homeTeam.color }}
                   >
-                    {/* Gradient Overlay for lighting effect */}
-                    <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-black/40 pointer-events-none"></div>
+                    {/* Darker team background tone and subtle, smaller gradient */}
+                    <div className="absolute inset-0 bg-black/25 pointer-events-none"></div>
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/8 via-transparent to-black/25 pointer-events-none"></div>
                     {/* Team Row Resizer */}
                     {state.isAdjustmentMode && (
                       <div 

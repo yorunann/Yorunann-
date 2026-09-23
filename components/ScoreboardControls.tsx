@@ -3,7 +3,7 @@ import { LineupImportModal } from './LineupImportModal';
 
 import React, { useRef, useEffect, useState } from 'react';
 import { GameState, ActionType, Player, Team, PitchInfo, GameMeta } from '../types';
-import { Play, Pause, RotateCcw, Eye, EyeOff, User, Trash2, Plus, PenTool, Tv, LayoutTemplate, Square, Image as ImageIcon, RefreshCw, ArrowDown, ArrowUp, GripVertical, Settings, Check, CircleDot } from 'lucide-react';
+import { Play, Pause, RotateCcw, Eye, EyeOff, User, Trash2, Plus, PenTool, Tv, LayoutTemplate, Square, Image as ImageIcon, RefreshCw, ArrowDown, ArrowUp, GripVertical, Settings, Check, CircleDot, ChevronDown, ChevronUp, ChevronRight } from 'lucide-react';
 import { ImageCropperModal } from './ImageCropperModal';
 import { 
   DndContext, 
@@ -146,6 +146,7 @@ const SortablePlayerRow = ({
 
 
 const InningsAndRHEEditor: React.FC<{ state: GameState, dispatch: React.Dispatch<ActionType>, language?: 'en' | 'zh' | 'ja' }> = ({ state, dispatch, language = 'zh' }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
   const maxInnings = Math.max(state.awayTeam.inningScores.length, state.homeTeam.inningScores.length);
   const innings = Array.from({ length: maxInnings }, (_, i) => i);
 
@@ -177,62 +178,84 @@ const InningsAndRHEEditor: React.FC<{ state: GameState, dispatch: React.Dispatch
   };
 
   return (
-    <div className="bg-white p-3 rounded-lg border shadow-sm mt-4">
-      <h4 className="font-bold text-sm text-gray-800 mb-3 uppercase tracking-wide border-b pb-1">
-        {language === 'en' ? 'Innings & RHE Configuration' : language === 'zh' ? '局數與 RHE 設定' : 'イニングとRHE設定'}
-      </h4>
-      
-      <div className="flex gap-4 min-w-0 overflow-x-auto pb-4">
-        {/* Team Labels & RHE */}
-        <div className="flex flex-col gap-2 shrink-0 border-r pr-4">
-          <div className="h-6"></div> {/* Spacer for inning numbers */}
-          <div className="flex items-center justify-between gap-4 h-8">
-             <span className="font-bold text-xs" style={{ color: state.awayTeam.color }}>{state.awayTeam.name}</span>
-             <div className="flex gap-2">
-                <div className="flex items-center gap-1"><span className="text-xs font-bold text-slate-500">H</span><input type="number" className="w-10 border rounded px-1 text-xs text-slate-900 font-bold bg-white" value={state.awayTeam.hits} onChange={(e) => handleStatChange('away', 'hits', parseInt(e.target.value) || 0)} /></div>
-                <div className="flex items-center gap-1"><span className="text-xs font-bold text-slate-500">E</span><input type="number" className="w-10 border rounded px-1 text-xs text-slate-900 font-bold bg-white" value={state.awayTeam.errors} onChange={(e) => handleStatChange('away', 'errors', parseInt(e.target.value) || 0)} /></div>
-             </div>
-          </div>
-          <div className="flex items-center justify-between gap-4 h-8">
-             <span className="font-bold text-xs" style={{ color: state.homeTeam.color }}>{state.homeTeam.name}</span>
-             <div className="flex gap-2">
-                <div className="flex items-center gap-1"><span className="text-xs font-bold text-slate-500">H</span><input type="number" className="w-10 border rounded px-1 text-xs text-slate-900 font-bold bg-white" value={state.homeTeam.hits} onChange={(e) => handleStatChange('home', 'hits', parseInt(e.target.value) || 0)} /></div>
-                <div className="flex items-center gap-1"><span className="text-xs font-bold text-slate-500">E</span><input type="number" className="w-10 border rounded px-1 text-xs text-slate-900 font-bold bg-white" value={state.homeTeam.errors} onChange={(e) => handleStatChange('home', 'errors', parseInt(e.target.value) || 0)} /></div>
-             </div>
-          </div>
+    <div className="bg-white rounded-lg border shadow-sm mt-4 overflow-hidden transition-all">
+      <button
+        type="button"
+        onClick={() => setIsExpanded(prev => !prev)}
+        className="w-full p-3 flex items-center justify-between text-left hover:bg-slate-50 transition-colors cursor-pointer select-none"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <Square size={14} className="text-emerald-600 shrink-0" />
+          <span className="font-bold text-xs sm:text-sm text-gray-800 uppercase tracking-wide truncate">
+            {language === 'en' ? 'Innings & RHE Configuration' : language === 'zh' ? '局數與 RHE 設定' : 'イニングとRHE設定'}
+          </span>
+          <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold shrink-0">
+            {maxInnings} {language === 'zh' ? '局' : 'INN'}
+          </span>
         </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[11px] text-slate-500 font-mono hidden sm:inline">
+            H: {state.awayTeam.hits}-{state.homeTeam.hits} / E: {state.awayTeam.errors}-{state.homeTeam.errors}
+          </span>
+          {isExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+        </div>
+      </button>
 
-        {/* Innings */}
-        {innings.map(idx => (
-          <div key={idx} className="flex flex-col gap-2 items-center shrink-0">
-            <div className="h-6 flex items-center justify-between w-full">
-              <span className="text-xs font-bold text-slate-500 w-full text-center">{idx + 1}</span>
-              <button onClick={() => handleDeleteInning(idx)} className="text-red-400 hover:text-red-600 p-0.5"><Trash2 size={10} /></button>
+      {isExpanded && (
+        <div className="p-3 border-t border-slate-100">
+          <div className="flex gap-4 min-w-0 overflow-x-auto pb-4">
+            {/* Team Labels & RHE */}
+            <div className="flex flex-col gap-2 shrink-0 border-r pr-4">
+              <div className="h-6"></div> {/* Spacer for inning numbers */}
+              <div className="flex items-center justify-between gap-4 h-8">
+                 <span className="font-bold text-xs" style={{ color: state.awayTeam.color }}>{state.awayTeam.name}</span>
+                 <div className="flex gap-2">
+                    <div className="flex items-center gap-1"><span className="text-xs font-bold text-slate-500">H</span><input type="number" className="w-10 border rounded px-1 text-xs text-slate-900 font-bold bg-white" value={state.awayTeam.hits} onChange={(e) => handleStatChange('away', 'hits', parseInt(e.target.value) || 0)} /></div>
+                    <div className="flex items-center gap-1"><span className="text-xs font-bold text-slate-500">E</span><input type="number" className="w-10 border rounded px-1 text-xs text-slate-900 font-bold bg-white" value={state.awayTeam.errors} onChange={(e) => handleStatChange('away', 'errors', parseInt(e.target.value) || 0)} /></div>
+                 </div>
+              </div>
+              <div className="flex items-center justify-between gap-4 h-8">
+                 <span className="font-bold text-xs" style={{ color: state.homeTeam.color }}>{state.homeTeam.name}</span>
+                 <div className="flex gap-2">
+                    <div className="flex items-center gap-1"><span className="text-xs font-bold text-slate-500">H</span><input type="number" className="w-10 border rounded px-1 text-xs text-slate-900 font-bold bg-white" value={state.homeTeam.hits} onChange={(e) => handleStatChange('home', 'hits', parseInt(e.target.value) || 0)} /></div>
+                    <div className="flex items-center gap-1"><span className="text-xs font-bold text-slate-500">E</span><input type="number" className="w-10 border rounded px-1 text-xs text-slate-900 font-bold bg-white" value={state.homeTeam.errors} onChange={(e) => handleStatChange('home', 'errors', parseInt(e.target.value) || 0)} /></div>
+                 </div>
+              </div>
             </div>
-            <input 
-              className="w-10 h-8 border rounded px-1 text-center text-sm font-bold text-slate-900 bg-white" 
-              value={state.awayTeam.inningScores[idx] === null || state.awayTeam.inningScores[idx] === undefined ? '' : state.awayTeam.inningScores[idx]}
-              onChange={(e) => handleScoreChange('away', idx, e.target.value)}
-            />
-            <input 
-              className="w-10 h-8 border rounded px-1 text-center text-sm font-bold text-slate-900 bg-white" 
-              value={state.homeTeam.inningScores[idx] === null || state.homeTeam.inningScores[idx] === undefined ? '' : state.homeTeam.inningScores[idx]}
-              onChange={(e) => handleScoreChange('home', idx, e.target.value)}
-            />
+
+            {/* Innings */}
+            {innings.map(idx => (
+              <div key={idx} className="flex flex-col gap-2 items-center shrink-0">
+                <div className="h-6 flex items-center justify-between w-full">
+                  <span className="text-xs font-bold text-slate-500 w-full text-center">{idx + 1}</span>
+                  <button onClick={() => handleDeleteInning(idx)} className="text-red-400 hover:text-red-600 p-0.5"><Trash2 size={10} /></button>
+                </div>
+                <input 
+                  className="w-10 h-8 border rounded px-1 text-center text-sm font-bold text-slate-900 bg-white" 
+                  value={state.awayTeam.inningScores[idx] === null || state.awayTeam.inningScores[idx] === undefined ? '' : state.awayTeam.inningScores[idx]}
+                  onChange={(e) => handleScoreChange('away', idx, e.target.value)}
+                />
+                <input 
+                  className="w-10 h-8 border rounded px-1 text-center text-sm font-bold text-slate-900 bg-white" 
+                  value={state.homeTeam.inningScores[idx] === null || state.homeTeam.inningScores[idx] === undefined ? '' : state.homeTeam.inningScores[idx]}
+                  onChange={(e) => handleScoreChange('home', idx, e.target.value)}
+                />
+              </div>
+            ))}
+            
+            {/* Add Inning */}
+            <div className="flex flex-col items-center justify-center shrink-0 pl-2">
+              <button 
+                onClick={handleAddInning}
+                className="w-8 h-full min-h-[80px] flex items-center justify-center border-2 border-dashed rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors"
+                title="Add Inning"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
           </div>
-        ))}
-        
-        {/* Add Inning */}
-        <div className="flex flex-col items-center justify-center shrink-0 pl-2">
-          <button 
-            onClick={handleAddInning}
-            className="w-8 h-full min-h-[80px] flex items-center justify-center border-2 border-dashed rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors"
-            title="Add Inning"
-          >
-            <Plus size={16} />
-          </button>
         </div>
-      </div>
+      )}
     </div>
   );
 };
@@ -247,6 +270,9 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
   const [selectedPosId, setSelectedPosId] = useState<string | null>(null);
   const [editingPosId, setEditingPosId] = useState<string | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+
+  const [isLineupOpen, setIsLineupOpen] = useState(true);
+  const [isBenchOpen, setIsBenchOpen] = useState(false);
 
   const handlePosClick = (id: string) => {
     if (editingPosId === id) return;
@@ -534,103 +560,133 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
       </div>
       
       {/* Pitcher Editor */}
-      <div className="bg-orange-50 p-2 rounded border border-orange-200 mt-2 min-w-0 overflow-hidden">
-          <h4 className="font-bold text-xs text-orange-800 mb-1 flex items-center gap-1"><PenTool size={12}/> Active Pitcher</h4>
-          <div className="flex items-center gap-1 min-w-0 w-full overflow-x-auto">
-              <div className="flex items-center gap-1 min-w-max">
-                  <input className="w-12 border rounded px-1 text-sm text-slate-900 bg-white shrink-0" value={draft.pitcher.number} onChange={(e) => updatePitcher('number', e.target.value)} placeholder="#" />
-                  <input className="w-32 border rounded px-1 text-sm text-slate-900 bg-white shrink-0" value={draft.pitcher.name} onChange={(e) => updatePitcher('name', e.target.value)} placeholder="Name" />
-                  <input className="w-16 border rounded px-1 text-sm text-slate-900 bg-white shrink-0" value={draft.pitcher.stat} onChange={(e) => updatePitcher('stat', e.target.value)} placeholder="P: 0" />
-              </div>
+      <div className="bg-orange-50/80 p-2.5 rounded border border-orange-200 mt-2 min-w-0">
+          <div className="flex items-center justify-between mb-1.5">
+            <h4 className="font-bold text-xs text-orange-800 flex items-center gap-1.5"><PenTool size={12}/> Active Pitcher 先發/當前投手</h4>
+          </div>
+          <div className="flex items-center gap-1.5 min-w-0 w-full">
+              <input className="w-12 border rounded px-1.5 py-1 text-sm text-slate-900 bg-white shrink-0 font-medium text-center" value={draft.pitcher.number} onChange={(e) => updatePitcher('number', e.target.value)} placeholder="#" title="Number" />
+              <input className="flex-1 min-w-0 border rounded px-2 py-1 text-sm text-slate-900 bg-white font-medium" value={draft.pitcher.name} onChange={(e) => updatePitcher('name', e.target.value)} placeholder="Pitcher Name" title="Name" />
+              <input className="w-16 border rounded px-1.5 py-1 text-sm text-slate-900 bg-white shrink-0 text-center font-medium" value={draft.pitcher.stat} onChange={(e) => updatePitcher('stat', e.target.value)} placeholder="P: 0" title="Pitch Count / Stat" />
           </div>
       </div>
 
       {/* Lineup Editor */}
-      <div className="bg-white p-3 rounded border shadow-sm mt-2">
-        <div className="flex justify-between items-center mb-2">
-          <div className="flex flex-col">
-            <h4 className="font-bold text-sm text-gray-700">{draft.name} 打線 (Lineup)</h4>
-            <span className="text-[9px] text-gray-400 italic">拖曳左側圖示可重新排序</span>
-          </div>
-          <button onClick={addLineupPlayer} className="text-xs flex items-center bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200">
-            <Plus size={12} className="mr-1" /> 新增
-          </button>
-        </div>
-        <DndContext 
-          sensors={sensors} 
-          collisionDetection={closestCenter} 
-          onDragEnd={handleDragEnd}
-          modifiers={[restrictToVerticalAxis]}
+      <div className="bg-white rounded border shadow-sm mt-2 overflow-hidden">
+        <div 
+          onClick={() => setIsLineupOpen(prev => !prev)}
+          className="flex justify-between items-center p-2.5 bg-slate-50/70 hover:bg-slate-100/70 cursor-pointer select-none border-b transition-colors"
         >
-          <div className="space-y-1 max-h-48 overflow-y-auto overflow-x-auto pr-1">
-            <SortableContext items={draft.lineup.map(p => p.id)} strategy={verticalListSortingStrategy}>
-              {draft.lineup.map((player, idx) => (
-                <SortablePlayerRow 
-                  key={player.id}
-                  player={player}
-                  idx={idx}
-                  isLineup={true}
-                  isCurrentBatter={idx === globalTeam.currentBatterIndex && ((state.isTop && teamKey === 'away') || (!state.isTop && teamKey === 'home'))}
-                  language={language as "en" | "zh" | "ja"}
-                  onUpdate={(field, value) => updateLineupPlayer(idx, field, value)}
-                  onMove={() => moveToBench(idx)}
-                  onRemove={() => removeLineupPlayer(idx)}
-                  onSetPitcher={() => setAsPitcher(player)}
-                  selectedPosId={selectedPosId}
-                  selectedPlayerId={selectedPlayerId}
-                  onRowClick={handleRowClick}
-                  onPosClick={handlePosClick}
-                  onPosDoubleClick={handlePosDoubleClick}
-                  onPosBlur={() => setEditingPosId(null)}
-                  isPosEditing={editingPosId === player.id}
-                />
-              ))}
-            </SortableContext>
+          <div className="flex items-center gap-2">
+            {isLineupOpen ? <ChevronDown size={14} className="text-gray-500" /> : <ChevronRight size={14} className="text-gray-500" />}
+            <h4 className="font-bold text-xs sm:text-sm text-gray-700">{draft.name} 打線 (Lineup)</h4>
+            <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-bold">{draft.lineup.length}</span>
           </div>
-        </DndContext>
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <button 
+              onClick={addLineupPlayer} 
+              className="text-xs flex items-center bg-blue-600 hover:bg-blue-700 text-white font-medium px-2 py-1 rounded shadow-sm transition-colors active:scale-95"
+            >
+              <Plus size={12} className="mr-1" /> 新增
+            </button>
+          </div>
+        </div>
+        {isLineupOpen && (
+          <div className="p-2.5">
+            <div className="text-[10px] text-gray-400 italic mb-1.5">拖曳左側圖示可重新排序</div>
+            <DndContext 
+              sensors={sensors} 
+              collisionDetection={closestCenter} 
+              onDragEnd={handleDragEnd}
+              modifiers={[restrictToVerticalAxis]}
+            >
+              <div className="space-y-1 max-h-48 overflow-y-auto overflow-x-auto pr-1">
+                <SortableContext items={draft.lineup.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                  {draft.lineup.map((player, idx) => (
+                    <SortablePlayerRow 
+                      key={player.id}
+                      player={player}
+                      idx={idx}
+                      isLineup={true}
+                      isCurrentBatter={idx === globalTeam.currentBatterIndex && ((state.isTop && teamKey === 'away') || (!state.isTop && teamKey === 'home'))}
+                      language={language as "en" | "zh" | "ja"}
+                      onUpdate={(field, value) => updateLineupPlayer(idx, field, value)}
+                      onMove={() => moveToBench(idx)}
+                      onRemove={() => removeLineupPlayer(idx)}
+                      onSetPitcher={() => setAsPitcher(player)}
+                      selectedPosId={selectedPosId}
+                      selectedPlayerId={selectedPlayerId}
+                      onRowClick={handleRowClick}
+                      onPosClick={handlePosClick}
+                      onPosDoubleClick={handlePosDoubleClick}
+                      onPosBlur={() => setEditingPosId(null)}
+                      isPosEditing={editingPosId === player.id}
+                    />
+                  ))}
+                </SortableContext>
+              </div>
+            </DndContext>
+          </div>
+        )}
       </div>
 
       {/* Bench Editor */}
-      <div className="bg-slate-50 p-3 rounded border shadow-sm mt-2">
-        <div className="flex justify-between items-center mb-2">
-          <h4 className="font-bold text-sm text-slate-700">{draft.name} 板凳 (Bench)</h4>
-          <button onClick={addBenchPlayer} className="text-xs flex items-center bg-slate-200 text-slate-700 px-2 py-1 rounded hover:bg-slate-300">
-            <Plus size={12} className="mr-1" /> 新增
-          </button>
-        </div>
-        <DndContext 
-          sensors={sensors} 
-          collisionDetection={closestCenter} 
-          onDragEnd={handleDragEnd}
-          modifiers={[restrictToVerticalAxis]}
+      <div className="bg-slate-50 rounded border shadow-sm mt-2 overflow-hidden">
+        <div 
+          onClick={() => setIsBenchOpen(prev => !prev)}
+          className="flex justify-between items-center p-2.5 bg-slate-100/80 hover:bg-slate-200/60 cursor-pointer select-none border-b transition-colors"
         >
-          <div className="space-y-1 max-h-40 overflow-y-auto overflow-x-auto pr-1">
-            <SortableContext items={draft.bench.map(p => p.id)} strategy={verticalListSortingStrategy}>
-              {draft.bench.map((player, idx) => (
-                <SortablePlayerRow 
-                  key={player.id}
-                  player={player}
-                  idx={idx}
-                  isLineup={false}
-                  isCurrentBatter={false}
-                  language={language as "en" | "zh" | "ja"}
-                  onUpdate={(field, value) => updateBenchPlayer(idx, field, value)}
-                  onMove={() => moveToLineup(idx)}
-                  onRemove={() => removeBenchPlayer(idx)}
-                  onSetPitcher={() => setAsPitcher(player)}
-                  selectedPosId={selectedPosId}
-                  selectedPlayerId={selectedPlayerId}
-                  onRowClick={handleRowClick}
-                  onPosClick={handlePosClick}
-                  onPosDoubleClick={handlePosDoubleClick}
-                  onPosBlur={() => setEditingPosId(null)}
-                  isPosEditing={editingPosId === player.id}
-                />
-              ))}
-            </SortableContext>
-            {draft.bench.length === 0 && <div className="text-center text-slate-400 text-[10px] py-2">板凳區目前沒有球員</div>}
+          <div className="flex items-center gap-2">
+            {isBenchOpen ? <ChevronDown size={14} className="text-slate-500" /> : <ChevronRight size={14} className="text-slate-500" />}
+            <h4 className="font-bold text-xs sm:text-sm text-slate-700">{draft.name} 板凳 (Bench)</h4>
+            <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded-full font-bold">{draft.bench.length}</span>
           </div>
-        </DndContext>
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <button 
+              onClick={addBenchPlayer} 
+              className="text-xs flex items-center bg-slate-600 hover:bg-slate-700 text-white font-medium px-2 py-1 rounded shadow-sm transition-colors active:scale-95"
+            >
+              <Plus size={12} className="mr-1" /> 新增
+            </button>
+          </div>
+        </div>
+        {isBenchOpen && (
+          <div className="p-2.5">
+            <DndContext 
+              sensors={sensors} 
+              collisionDetection={closestCenter} 
+              onDragEnd={handleDragEnd}
+              modifiers={[restrictToVerticalAxis]}
+            >
+              <div className="space-y-1 max-h-40 overflow-y-auto overflow-x-auto pr-1">
+                <SortableContext items={draft.bench.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                  {draft.bench.map((player, idx) => (
+                    <SortablePlayerRow 
+                      key={player.id}
+                      player={player}
+                      idx={idx}
+                      isLineup={false}
+                      isCurrentBatter={false}
+                      language={language as "en" | "zh" | "ja"}
+                      onUpdate={(field, value) => updateBenchPlayer(idx, field, value)}
+                      onMove={() => moveToLineup(idx)}
+                      onRemove={() => removeBenchPlayer(idx)}
+                      onSetPitcher={() => setAsPitcher(player)}
+                      selectedPosId={selectedPosId}
+                      selectedPlayerId={selectedPlayerId}
+                      onRowClick={handleRowClick}
+                      onPosClick={handlePosClick}
+                      onPosDoubleClick={handlePosDoubleClick}
+                      onPosBlur={() => setEditingPosId(null)}
+                      isPosEditing={editingPosId === player.id}
+                    />
+                  ))}
+                </SortableContext>
+                {draft.bench.length === 0 && <div className="text-center text-slate-400 text-[10px] py-2">板凳區目前沒有球員</div>}
+              </div>
+            </DndContext>
+          </div>
+        )}
       </div>
 
       {/* Paste Import Button below Bench */}
@@ -672,6 +728,11 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
 
 export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, language = 'zh' }) => {
   const [activeTab, setActiveTab] = useState<'controls' | 'info'>('controls');
+  const [isMatchupOpen, setIsMatchupOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(true);
+  const [isFontSizesOpen, setIsFontSizesOpen] = useState(true);
+  const [isDimensionsOpen, setIsDimensionsOpen] = useState(false);
+  const [isGameInfoOpen, setIsGameInfoOpen] = useState(false);
 
   const [hrState, setHrState] = React.useState<'idle' | 'playing' | 'locked' | 'exiting'>('idle');
   const hrTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -854,7 +915,10 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
           <div className="flex flex-col gap-6">
            {/* Game State Actions */}
           <div className="space-y-3">
-            <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide border-b pb-1">{language === 'en' ? 'Umpire Controls' : language === 'zh' ? 'Umpire Controls 裁判控制' : '審判コントロール'}</h3>            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide border-b pb-1">
+              {language === 'en' ? 'Umpire Controls' : language === 'zh' ? 'Umpire Controls 裁判控制' : '審判コントロール'}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             
             {/* Left Column (Count Controls) */}
             <div className="flex flex-col gap-2 h-full">
@@ -1049,62 +1113,107 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
 
             
             {/* Quick Matchup Editor */}
-            <div className="bg-slate-100 p-2 rounded border border-slate-200 space-y-2">
-              <h4 className="text-xs font-bold text-slate-600 flex items-center gap-1"><User size={12} /> {language === 'zh' ? '目前對決 (Current Matchup)' : language === 'en' ? 'Current Matchup' : '現在の対戦'}</h4>
-              <div className="flex flex-col gap-2">
-                {/* Active Batter */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-green-700 w-8 shrink-0">{language === 'zh' ? '打者' : language === 'en' ? 'BAT' : '打者'}</span>
-                  <input 
-                    className="w-10 border rounded px-1 text-sm bg-white text-black" 
-                    value={matchupDraft.batter?.number || ''} 
-                    onChange={(e) => updateMatchupDraft('batter', 'number', e.target.value)} 
-                    placeholder="#" 
-                  />
-                  <input 
-                    className="flex-1 min-w-0 border rounded px-1 text-sm bg-white text-black" 
-                    value={matchupDraft.batter?.name || ''} 
-                    onChange={(e) => updateMatchupDraft('batter', 'name', e.target.value)} 
-                    placeholder="Name" 
-                  />
-                  <select className="w-16 border rounded text-xs bg-white text-black shrink-0 outline-none" onChange={(e) => handleSelectBench('batter', e)} defaultValue="">
-                    <option value="" disabled>{language === 'zh' ? '找板凳' : 'Bench'}</option>
-                    {activeBatterTeamObj.bench.map(p => (
-                      <option key={p.id} value={p.id}>{p.number} {p.name}</option>
-                    ))}
-                  </select>
+            <div className="bg-slate-100 rounded border border-slate-200 overflow-hidden shadow-xs">
+              <button
+                type="button"
+                onClick={() => setIsMatchupOpen(prev => !prev)}
+                className="w-full p-2.5 flex items-center justify-between text-left hover:bg-slate-200/60 transition-colors cursor-pointer select-none"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <User size={13} className="text-slate-600 shrink-0" />
+                  <span className="text-xs font-bold text-slate-700 shrink-0">
+                    {language === 'zh' ? '目前對決 (Matchup)' : language === 'en' ? 'Current Matchup' : '現在の対戦'}
+                  </span>
+                  {!isMatchupOpen && (
+                    <span className="text-[11px] text-slate-500 font-mono truncate hidden sm:inline ml-1 font-normal">
+                      打: #{matchupDraft.batter?.number || '-'} {matchupDraft.batter?.name || ''} vs 投: #{matchupDraft.pitcher?.number || '-'} {matchupDraft.pitcher?.name || ''}
+                    </span>
+                  )}
                 </div>
-                {/* Active Pitcher */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-red-700 w-8 shrink-0">{language === 'zh' ? '投手' : language === 'en' ? 'PIT' : '投手'}</span>
-                  <input 
-                    className="w-10 border rounded px-1 text-sm bg-white text-black" 
-                    value={matchupDraft.pitcher?.number || ''} 
-                    onChange={(e) => updateMatchupDraft('pitcher', 'number', e.target.value)} 
-                    placeholder="#" 
-                  />
-                  <input 
-                    className="flex-1 min-w-0 border rounded px-1 text-sm bg-white text-black" 
-                    value={matchupDraft.pitcher?.name || ''} 
-                    onChange={(e) => updateMatchupDraft('pitcher', 'name', e.target.value)} 
-                    placeholder="Name" 
-                  />
-                  <select className="w-16 border rounded text-xs bg-white text-black shrink-0 outline-none" onChange={(e) => handleSelectBench('pitcher', e)} defaultValue="">
-                    <option value="" disabled>{language === 'zh' ? '找板凳' : 'Bench'}</option>
-                    {activePitcherTeamObj.bench.map(p => (
-                      <option key={p.id} value={p.id}>{p.number} {p.name}</option>
-                    ))}
-                  </select>
+                <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                  <span className="text-[10px] text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-medium">
+                    {isMatchupOpen ? (language === 'zh' ? '收合' : 'Hide') : (language === 'zh' ? '替換' : 'Edit')}
+                  </span>
+                  {isMatchupOpen ? <ChevronUp size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
                 </div>
-                </div>
-              <button onClick={handleUpdateMatchup} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 rounded text-sm shadow transition-transform active:scale-95">
-                {language === 'zh' ? '更新資訊' : language === 'en' ? 'Update Info' : '情報更新'}
               </button>
+
+              {isMatchupOpen && (
+                <div className="p-2.5 pt-1 space-y-2 border-t border-slate-200/80 bg-slate-50/50">
+                  <div className="flex flex-col gap-2">
+                    {/* Active Batter */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-green-700 w-8 shrink-0">{language === 'zh' ? '打者' : language === 'en' ? 'BAT' : '打者'}</span>
+                      <input 
+                        className="w-10 border rounded px-1.5 py-1 text-sm bg-white text-black font-medium text-center" 
+                        value={matchupDraft.batter?.number || ''} 
+                        onChange={(e) => updateMatchupDraft('batter', 'number', e.target.value)} 
+                        placeholder="#" 
+                      />
+                      <input 
+                        className="flex-1 min-w-0 border rounded px-2 py-1 text-sm bg-white text-black font-medium" 
+                        value={matchupDraft.batter?.name || ''} 
+                        onChange={(e) => updateMatchupDraft('batter', 'name', e.target.value)} 
+                        placeholder="Name" 
+                      />
+                      <select className="w-20 border rounded text-xs bg-white text-black shrink-0 outline-none py-1 px-1" onChange={(e) => handleSelectBench('batter', e)} defaultValue="">
+                        <option value="" disabled>{language === 'zh' ? '找板凳' : 'Bench'}</option>
+                        {activeBatterTeamObj.bench.map(p => (
+                          <option key={p.id} value={p.id}>{p.number} {p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Active Pitcher */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-red-700 w-8 shrink-0">{language === 'zh' ? '投手' : language === 'en' ? 'PIT' : '投手'}</span>
+                      <input 
+                        className="w-10 border rounded px-1.5 py-1 text-sm bg-white text-black font-medium text-center" 
+                        value={matchupDraft.pitcher?.number || ''} 
+                        onChange={(e) => updateMatchupDraft('pitcher', 'number', e.target.value)} 
+                        placeholder="#" 
+                      />
+                      <input 
+                        className="flex-1 min-w-0 border rounded px-2 py-1 text-sm bg-white text-black font-medium" 
+                        value={matchupDraft.pitcher?.name || ''} 
+                        onChange={(e) => updateMatchupDraft('pitcher', 'name', e.target.value)} 
+                        placeholder="Name" 
+                      />
+                      <select className="w-20 border rounded text-xs bg-white text-black shrink-0 outline-none py-1 px-1" onChange={(e) => handleSelectBench('pitcher', e)} defaultValue="">
+                        <option value="" disabled>{language === 'zh' ? '找板凳' : 'Bench'}</option>
+                        {activePitcherTeamObj.bench.map(p => (
+                          <option key={p.id} value={p.id}>{p.number} {p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <button onClick={handleUpdateMatchup} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded text-sm shadow transition-transform active:scale-95 min-h-[38px]">
+                    {language === 'zh' ? '更新資訊' : language === 'en' ? 'Update Info' : '情報更新'}
+                  </button>
+                </div>
+              )}
             </div>
 
       {/* Settings & Timer */}
           <div className="space-y-3">
-             <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide border-b pb-1">{language === 'en' ? 'Settings & Timer' : language === 'zh' ? 'Settings & Timer 設定與計時器' : '設定とタイマー'}</h3>
+             <button
+               type="button"
+               onClick={() => setIsSettingsOpen(prev => !prev)}
+               className="w-full flex items-center justify-between border-b pb-1.5 cursor-pointer select-none text-left hover:text-blue-600 transition-colors"
+             >
+               <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide flex items-center gap-1.5">
+                 <Settings size={14} className="text-gray-500" />
+                 {language === 'en' ? 'Settings & Timer' : language === 'zh' ? 'Settings & Timer 設定與計時器' : '設定とタイマー'}
+               </h3>
+               <div className="flex items-center gap-1 text-gray-400">
+                 <span className="text-[10px] text-slate-400 font-normal">
+                   {isSettingsOpen ? (language === 'zh' ? '收合' : 'Collapse') : (language === 'zh' ? '展開' : 'Expand')}
+                 </span>
+                 {isSettingsOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+               </div>
+             </button>
+
+             {isSettingsOpen && (
+               <div className="space-y-3">
              
              {/* Timer Controls */}
              <div className="bg-white p-2 rounded border shadow-sm flex flex-col space-y-2">
@@ -1226,26 +1335,38 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                    : (language === 'en' ? 'Adjustment Mode' : language === 'zh' ? '調整模式' : '調整モード')}
                </button>
                {state.isAdjustmentMode && (
-                  <div className="mt-3 space-y-2 bg-slate-50 p-2.5 rounded border text-xs">
-                     <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
-                        <span className="font-semibold text-slate-700">{language === "en" ? "Font Sizes" : language === "zh" ? "字體大小設定" : "フォントサイズ設定"}</span>
-                        <button
-                          onClick={() => {
-                            dispatch({ type: "UPDATE_META", field: "broadcastTeamNameSize", value: 24 });
-                            dispatch({ type: "UPDATE_META", field: "broadcastPlayerNameSize", value: 20 });
-                            dispatch({ type: "UPDATE_META", field: "broadcastScoreSize", value: 30 });
-                            dispatch({ type: "UPDATE_META", field: "broadcastTimerSize", value: 24 });
-                            dispatch({ type: "UPDATE_META", field: "broadcastInningSize", value: 24 });
-                            dispatch({ type: "UPDATE_META", field: "broadcastLogoSize", value: 40 });
-                            dispatch({ type: "UPDATE_META", field: "broadcastCountGap", value: 2 });
-                          }}
-                          className="px-1.5 py-0.5 text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 rounded flex items-center gap-1 transition-colors"
-                          title={language === "en" ? "Reset all font sizes to default" : language === "zh" ? "重置全部字體與元件大小為默認" : "所有的フォントサイズをデフォルトに戻す"}
-                        >
-                          <RotateCcw size={10} />
-                          <span>{language === "en" ? "Reset All" : language === "zh" ? "重置全部" : "全重置"}</span>
-                        </button>
-                     </div>
+                  <div className="mt-3 space-y-3">
+                     {/* Font Sizes Section */}
+                     <div className="bg-white rounded border border-slate-200 overflow-hidden shadow-xs">
+                       <div 
+                         onClick={() => setIsFontSizesOpen(prev => !prev)}
+                         className="flex items-center justify-between p-2.5 bg-slate-100/90 hover:bg-slate-200/70 cursor-pointer select-none border-b transition-colors"
+                       >
+                         <div className="flex items-center gap-1.5 font-semibold text-slate-700 text-xs">
+                           {isFontSizesOpen ? <ChevronDown size={14} className="text-slate-500" /> : <ChevronRight size={14} className="text-slate-500" />}
+                           <span>{language === "en" ? "Font & Element Sizes" : language === "zh" ? "字體與元件大小設定" : "フォントサイズ設定"}</span>
+                         </div>
+                         <button
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             dispatch({ type: "UPDATE_META", field: "broadcastTeamNameSize", value: 24 });
+                             dispatch({ type: "UPDATE_META", field: "broadcastPlayerNameSize", value: 20 });
+                             dispatch({ type: "UPDATE_META", field: "broadcastScoreSize", value: 30 });
+                             dispatch({ type: "UPDATE_META", field: "broadcastTimerSize", value: 24 });
+                             dispatch({ type: "UPDATE_META", field: "broadcastInningSize", value: 24 });
+                             dispatch({ type: "UPDATE_META", field: "broadcastLogoSize", value: 40 });
+                             dispatch({ type: "UPDATE_META", field: "broadcastCountGap", value: 2 });
+                           }}
+                           className="px-2 py-0.5 text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 rounded flex items-center gap-1 transition-colors font-medium"
+                           title={language === "en" ? "Reset all font sizes to default" : language === "zh" ? "重置全部字體與元件大小為默認" : "所有的フォントサイズをデフォルトに戻す"}
+                         >
+                           <RotateCcw size={10} />
+                           <span>{language === "en" ? "Reset All" : language === "zh" ? "重置全部" : "全重置"}</span>
+                         </button>
+                       </div>
+
+                       {isFontSizesOpen && (
+                         <div className="p-2.5 space-y-2 text-xs">
 
                      <div className="flex items-center justify-between gap-1.5">
                         <span className="text-slate-600 whitespace-nowrap min-w-[60px]">{language === "en" ? "Logo Size" : language === "zh" ? "隊徽大小" : "ロゴサイズ"}</span>
@@ -1441,26 +1562,40 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                         </select>
                      </div>
 
-                     {/* Layout Dimensions */}
-                     <div className="pt-2 border-t border-slate-200 space-y-1.5">
-                        <div className="flex items-center justify-between pb-1 border-b border-slate-200">
-                           <span className="font-semibold text-slate-700">{language === "en" ? "Dimensions (px)" : language === "zh" ? "版面尺寸 (px)" : "サイズ (px)"}</span>
-                           <button
-                             onClick={() => {
-                               dispatch({ type: "UPDATE_META", field: "broadcastWidth", value: 450 });
-                               dispatch({ type: "UPDATE_META", field: "broadcastTeamRowHeight", value: 72 });
-                               dispatch({ type: "UPDATE_META", field: "broadcastPlayerRowHeight", value: 50 });
-                               dispatch({ type: "UPDATE_META", field: "broadcastScoreWidth", value: 72 });
-                               dispatch({ type: "UPDATE_META", field: "broadcastInningWidth", value: 56 });
-                               dispatch({ type: "UPDATE_META", field: "broadcastRightColumnWidth", value: 150 });
-                             }}
-                             className="px-1.5 py-0.5 text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 rounded flex items-center gap-1 transition-colors"
-                             title={language === "en" ? "Reset dimensions" : language === "zh" ? "重置尺寸" : "サイズリセット"}
-                           >
-                             <RotateCcw size={9} />
-                             <span>{language === "en" ? "Reset" : language === "zh" ? "重置" : "リセット"}</span>
-                           </button>
-                        </div>
+                         </div>
+                       )}
+                     </div>
+
+                     {/* Layout Dimensions Section */}
+                     <div className="bg-white rounded border border-slate-200 overflow-hidden shadow-xs">
+                       <div 
+                         onClick={() => setIsDimensionsOpen(prev => !prev)}
+                         className="flex items-center justify-between p-2.5 bg-slate-100/90 hover:bg-slate-200/70 cursor-pointer select-none border-b transition-colors"
+                       >
+                         <div className="flex items-center gap-1.5 font-semibold text-slate-700 text-xs">
+                           {isDimensionsOpen ? <ChevronDown size={14} className="text-slate-500" /> : <ChevronRight size={14} className="text-slate-500" />}
+                           <span>{language === "en" ? "Board Dimensions (px)" : language === "zh" ? "版面尺寸與寬度 (px)" : "サイズ (px)"}</span>
+                         </div>
+                         <button
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             dispatch({ type: "UPDATE_META", field: "broadcastWidth", value: 450 });
+                             dispatch({ type: "UPDATE_META", field: "broadcastTeamRowHeight", value: 72 });
+                             dispatch({ type: "UPDATE_META", field: "broadcastPlayerRowHeight", value: 50 });
+                             dispatch({ type: "UPDATE_META", field: "broadcastScoreWidth", value: 72 });
+                             dispatch({ type: "UPDATE_META", field: "broadcastInningWidth", value: 56 });
+                             dispatch({ type: "UPDATE_META", field: "broadcastRightColumnWidth", value: 150 });
+                           }}
+                           className="px-2 py-0.5 text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 rounded flex items-center gap-1 transition-colors font-medium"
+                           title={language === "en" ? "Reset dimensions" : language === "zh" ? "重置尺寸" : "サイズリセット"}
+                         >
+                           <RotateCcw size={9} />
+                           <span>{language === "en" ? "Reset" : language === "zh" ? "重置" : "リセット"}</span>
+                         </button>
+                       </div>
+
+                       {isDimensionsOpen && (
+                         <div className="p-2.5 space-y-2 text-xs">
 
                         <div className="flex items-center justify-between gap-1.5">
                            <span className="text-slate-600 whitespace-nowrap min-w-[60px]">{language === "en" ? "Board Width" : language === "zh" ? "記分板寬度" : "ボード幅"}</span>
@@ -1611,10 +1746,14 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                              </button>
                            </div>
                         </div>
+                         </div>
+                       )}
                      </div>
                   </div>
                 )}
              </div>
+               </div>
+             )}
           </div>
         </div>
         </div>
@@ -1661,14 +1800,35 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
             <InningsAndRHEEditor state={state} dispatch={dispatch} language={language} />
 
             {/* Game Info Section */}
-            <div className="space-y-3">
-              <div className="mt-4">
-                <h4 className="font-semibold text-gray-600 text-xs uppercase mb-2 flex items-center gap-2"><Tv size={14}/> {language === 'en' ? 'Game Info' : language === 'zh' ? 'Game Info 比賽資訊' : '試合情報'}</h4>
-                <div className="flex flex-col gap-2">
+            <div className="bg-white rounded-lg border shadow-sm overflow-hidden mt-4">
+              <button
+                type="button"
+                onClick={() => setIsGameInfoOpen(prev => !prev)}
+                className="w-full p-3 flex items-center justify-between text-left hover:bg-slate-50 transition-colors cursor-pointer select-none"
+              >
+                <div className="flex items-center gap-2">
+                  <Tv size={14} className="text-blue-600 shrink-0" />
+                  <span className="font-bold text-xs sm:text-sm text-gray-800 uppercase tracking-wide">
+                    {language === 'en' ? 'Game Info' : language === 'zh' ? 'Game Info 比賽資訊' : '試合情報'}
+                  </span>
+                  <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-bold">
+                    {(state.meta.gameInfos || []).length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 text-gray-400">
+                  <span className="text-[10px] text-slate-400 font-normal hidden sm:inline">
+                    {isGameInfoOpen ? (language === 'zh' ? '收合' : 'Collapse') : (language === 'zh' ? '展開' : 'Expand')}
+                  </span>
+                  {isGameInfoOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </div>
+              </button>
+
+              {isGameInfoOpen && (
+                <div className="p-3 border-t border-slate-100 flex flex-col gap-2 bg-slate-50/30">
                   {(state.meta.gameInfos || []).map((info, idx) => (
-                    <div key={idx} className="flex items-center gap-1 bg-gray-100 rounded border p-1 w-full">
+                    <div key={idx} className="flex items-center gap-1.5 bg-white rounded border p-1 w-full shadow-xs">
                       <input 
-                        className="bg-transparent text-sm text-slate-900 flex-1 outline-none px-2 min-w-0" 
+                        className="bg-transparent text-sm text-slate-900 flex-1 outline-none px-2 min-w-0 font-medium" 
                         value={info}
                         onChange={(e) => {
                           const newInfos = [...(state.meta.gameInfos || [])];
@@ -1683,7 +1843,8 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                           newInfos.splice(idx, 1);
                           updateMeta('gameInfos', newInfos);
                         }}
-                        className="text-red-500 hover:text-red-700 p-1 shrink-0"
+                        className="text-red-500 hover:text-red-700 p-1.5 rounded hover:bg-red-50 shrink-0 transition-colors"
+                        title="Delete"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -1694,17 +1855,12 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                       const newInfos = [...(state.meta.gameInfos || []), 'New Info'];
                       updateMeta('gameInfos', newInfos);
                     }}
-                    className="flex items-center justify-center gap-1 text-sm bg-blue-50 text-blue-600 px-2 py-1.5 rounded border border-blue-200 hover:bg-blue-100 border-dashed"
+                    className="flex items-center justify-center gap-1.5 text-sm bg-blue-50 text-blue-600 px-3 py-2 rounded border border-blue-200 hover:bg-blue-100 border-dashed font-medium transition-colors"
                   >
-                    <Plus size={14} /> Add Info
-                  </button>
-                  <button 
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 rounded text-sm shadow transition-transform active:scale-95 mt-2"
-                  >
-                    {language === 'zh' ? '更新資訊' : language === 'en' ? 'Update Info' : '情報更新'}
+                    <Plus size={14} /> {language === 'zh' ? '新增資訊欄位' : 'Add Info'}
                   </button>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}

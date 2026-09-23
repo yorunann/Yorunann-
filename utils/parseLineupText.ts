@@ -1,5 +1,7 @@
 export function parseLineupText(text: string) {
-    const rawLines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    // Treat full-width comma (，), enumeration comma (、), full-width semicolon (；), and half-width semicolon (;) as line breaks
+    const normalizedText = text.replace(/[，、；;]/g, '\n');
+    const rawLines = normalizedText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     const results = [];
 
     // mapping for multi-character positions
