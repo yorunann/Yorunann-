@@ -529,12 +529,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
               onChange={(e) => updateDraft('name', e.target.value)}
               placeholder="Team (Abbr)"
             />
-             <input 
-              className="w-full border-2 border-slate-300 p-1.5 rounded text-xs text-black bg-white box-border min-w-0" 
-              value={draft.fullName}
-              onChange={(e) => updateDraft('fullName', e.target.value)}
-              placeholder="Team Full Name"
-            />
+
         </div>
       </div>
       
@@ -653,8 +648,9 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
         isOpen={importModalOpen}
         onClose={() => setImportModalOpen(false)}
         language={language}
-        onImport={(importedPlayers) => {
-          const newDraft = { ...draft, lineup: [...draft.lineup, ...importedPlayers] };
+        currentPlayers={draft.lineup}
+        onImport={(newLineup) => {
+          const newDraft = { ...draft, lineup: newLineup };
           setDraft(newDraft);
           dispatch({ type: 'APPLY_TEAM_CONFIG', team: teamKey, config: newDraft });
         }}

@@ -8,11 +8,33 @@ interface Props {
   onClose: () => void;
   onImport: (players: Player[]) => void;
   language?: 'en' | 'zh' | 'ja';
+  currentPlayers?: Player[];
 }
 
-export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, language = 'zh' }) => {
+export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, language = 'zh', currentPlayers = [] }) => {
   const [text, setText] = useState('');
   const [previewData, setPreviewData] = useState<Partial<Player>[]>([]);
+  const [previewTab, setPreviewTab] = useState<'import' | 'current'>('import');
+  const [localCurrentPlayers, setLocalCurrentPlayers] = useState<Player[]>([]);
+  
+  useEffect(() => {
+    if (isOpen) {
+      setLocalCurrentPlayers(currentPlayers || []);
+      setPreviewTab('import');
+    }
+  }, [isOpen, currentPlayers]);
+
+  const handleUpdateCurrent = (index: number, field: keyof Player, value: string) => {
+    setLocalCurrentPlayers(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const handleRemoveCurrentRow = (index: number) => {
+    setLocalCurrentPlayers(prev => prev.filter((_, idx) => idx !== index));
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -51,17 +73,41 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
     setPreviewData(prev => prev.filter((_, idx) => idx !== index));
   };
 
-  const handleImport = () => {
-    if (previewData.length === 0) return;
-    const players: Player[] = previewData.map((p, index) => ({
-      id: Math.random().toString(36).substring(2, 9),
-      name: p.name || `Player ${index + 1}`,
-      number: p.number || '00',
-      stat: p.stat || p.avg || '.000',
-      position: p.position || 'DH'
-    }));
-    onImport(players);
-    onClose();
+  const handleImportReplace = () => {
+    if (confirm(language === 'en' ? 'Are you sure you want to clear the current lineup and import?' : language === 'zh' ? '確定要清空現有名單並匯入嗎？' : '現在のラインナップをクリアしてインポートしますか？')) {
+      const players: Player[] = previewData.map((p, index) => ({
+        id: Math.random().toString(36).substring(2, 9),
+        name: p.name || `Player ${index + 1}`,
+        number: p.number || '00',
+        stat: p.stat || p.avg || '.000',
+        position: p.position || 'DH'
+      }));
+      onImport(players);
+      setPreviewData([]);
+      setText('');
+      onClose();
+    }
+  };
+
+  const handleImportAppend = () => {
+    const isSaveOnly = previewData.length === 0;
+    const msg = isSaveOnly 
+      ? (language === 'en' ? 'Save changes to current lineup?' : language === 'zh' ? '確定要儲存變更嗎？' : '変更を保存しますか？')
+      : (language === 'en' ? 'Append these players to the current lineup?' : language === 'zh' ? '確定要直接接續現有名單並匯入嗎？' : '現在のラインナップに追加してインポートしますか？');
+      
+    if (confirm(msg)) {
+      const players: Player[] = previewData.map((p, index) => ({
+        id: Math.random().toString(36).substring(2, 9),
+        name: p.name || `Player ${index + 1}`,
+        number: p.number || '00',
+        stat: p.stat || p.avg || '.000',
+        position: p.position || 'DH'
+      }));
+      onImport([...localCurrentPlayers, ...players]);
+      setPreviewData([]);
+      setText('');
+      onClose();
+    }
   };
 
   if (!isOpen) return null;
@@ -132,13 +178,21 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
 
           {/* Bottom Section: Preview area (預覽處) */}
           <div className="flex-1 flex flex-col min-h-[220px]">
-            <div className="flex justify-between items-center mb-2">
-              <label className="text-sm font-semibold text-slate-200">
-                {language === 'en' ? 'Preview & Edit' : language === 'zh' ? '即時預覽與修正' : 'プレビューと編集'}
-                <span className="ml-2 text-xs font-normal text-blue-400">
-                  ({previewData.length} {language === 'en' ? 'players' : language === 'zh' ? '位球員' : '名'})
-                </span>
-              </label>
+            <div className="flex border-b border-slate-700 mb-2 w-full">
+              <button 
+                onClick={() => setPreviewTab('import')} 
+                className={`flex-1 py-2 text-sm font-bold uppercase transition-colors ${previewTab === 'import' ? 'border-b-2 border-blue-500 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}
+              >
+                {language === 'en' ? 'Preview Import' : language === 'zh' ? '匯入預覽' : 'プレビュー'}
+                <span className="ml-1 text-xs font-normal">({previewData.length})</span>
+              </button>
+              <button 
+                onClick={() => setPreviewTab('current')} 
+                className={`flex-1 py-2 text-sm font-bold uppercase transition-colors ${previewTab === 'current' ? 'border-b-2 border-blue-500 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}
+              >
+                {language === 'en' ? 'Current Players' : language === 'zh' ? '現有名單' : '現在の選手'}
+                <span className="ml-1 text-xs font-normal">({localCurrentPlayers.length})</span>
+              </button>
             </div>
 
             <div className="flex-1 bg-slate-900 border border-slate-700 rounded-lg overflow-y-auto shadow-inner">
@@ -162,17 +216,79 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {previewData.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="text-center py-12 text-slate-500">
-                        {language === 'en' 
-                          ? 'Paste lineup text above to preview' 
-                          : language === 'zh' 
-                          ? '請於上方輸入框貼上文字，系統將自動解析預覽' 
-                          : '上の入力欄にテキストを貼り付けると自動プレビューされます'}
-                      </td>
-                    </tr>
-                  ) : previewData.map((p, idx) => (
+                  {previewTab === 'current' ? (
+                    localCurrentPlayers.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-center py-12 text-slate-500">
+                          {language === 'en' 
+                            ? 'No players imported yet' 
+                            : language === 'zh' 
+                            ? '目前沒有任何球員' 
+                            : '選手はいません'}
+                        </td>
+                      </tr>
+                    ) : localCurrentPlayers.map((p, idx) => (
+                      <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="px-3 py-1.5 text-center font-bold text-slate-500">{idx + 1}</td>
+                        <td className="px-1.5 py-1.5">
+                          <input 
+                            type="text" 
+                            className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 text-center font-semibold uppercase"
+                            value={p.position || ''}
+                            onChange={(e) => handleUpdateCurrent(idx, 'position', e.target.value)}
+                            placeholder="POS"
+                          />
+                        </td>
+                        <td className="px-1.5 py-1.5">
+                          <input 
+                            type="text" 
+                            className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 font-mono text-center"
+                            value={p.number || ''}
+                            onChange={(e) => handleUpdateCurrent(idx, 'number', e.target.value)}
+                            placeholder="00"
+                          />
+                        </td>
+                        <td className="px-1.5 py-1.5">
+                          <input 
+                            type="text" 
+                            className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 font-medium"
+                            value={p.name || ''}
+                            onChange={(e) => handleUpdateCurrent(idx, 'name', e.target.value)}
+                            placeholder="Name"
+                          />
+                        </td>
+                        <td className="px-1.5 py-1.5">
+                          <input 
+                            type="text" 
+                            className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500 font-mono text-center"
+                            value={p.stat || ''}
+                            onChange={(e) => handleUpdateCurrent(idx, 'stat', e.target.value)}
+                            placeholder=".000"
+                          />
+                        </td>
+                        <td className="px-1.5 py-1.5 text-center">
+                          <button 
+                            onClick={() => handleRemoveCurrentRow(idx)}
+                            className="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors"
+                            title="Remove row"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    previewData.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-center py-12 text-slate-500">
+                          {language === 'en' 
+                            ? 'Paste lineup text above to preview' 
+                            : language === 'zh' 
+                            ? '請於上方輸入框貼上文字，系統將自動解析預覽' 
+                            : '上の入力欄にテキストを貼り付けると自動プレビューされます'}
+                        </td>
+                      </tr>
+                    ) : previewData.map((p, idx) => (
                     <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
                       <td className="px-3 py-1.5 text-center font-bold text-slate-500">{idx + 1}</td>
                       <td className="px-1.5 py-1.5">
@@ -221,7 +337,8 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
                         </button>
                       </td>
                     </tr>
-                  ))}
+                  ))
+                )}
                 </tbody>
               </table>
             </div>
@@ -249,12 +366,21 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
               {language === 'en' ? 'Cancel' : language === 'zh' ? '取消' : 'キャンセル'}
             </button>
             <button 
-              onClick={handleImport}
+              onClick={handleImportReplace}
               disabled={previewData.length === 0}
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold rounded-lg text-sm flex items-center gap-2 transition-all shadow-md cursor-pointer disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-sm transition-colors shadow-md disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed"
+            >
+              {language === 'en' ? 'Clear & Import' : language === 'zh' ? '清空名單後匯入' : 'クリアしてインポート'}
+            </button>
+            <button 
+              onClick={handleImportAppend}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-sm transition-colors shadow-md flex items-center gap-1"
             >
               <Check size={16} />
-              {language === 'en' ? 'Confirm Import' : language === 'zh' ? '確認匯入' : 'インポートの確認'}
+              {previewData.length === 0 
+                ? (language === 'en' ? 'Save Changes' : language === 'zh' ? '儲存變更' : '変更を保存')
+                : (language === 'en' ? 'Append' : language === 'zh' ? '直接接續現有名單' : '追加')
+              }
             </button>
           </div>
         </div>
