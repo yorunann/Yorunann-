@@ -5,7 +5,7 @@ import { GameState, ActionType, Player } from './types';
 import { INITIAL_STATE } from './constants';
 import { ScoreboardDisplay } from './components/ScoreboardDisplay';
 import { ScoreboardControls } from './components/ScoreboardControls';
-import { MonitorPlay, Maximize, Keyboard, Settings, ExternalLink, RotateCcw, Gamepad2, BookOpen, Plus, Minus, Menu } from 'lucide-react';
+import { MonitorPlay, Maximize, Minimize, Keyboard, Settings, ExternalLink, RotateCcw, Gamepad2, BookOpen, Plus, Minus, Menu, X } from 'lucide-react';
 import { useShortcuts, DEFAULT_SHORTCUTS, ShortcutMap } from './hooks/useShortcuts';
 import { useGamepad } from './hooks/useGamepad';
 import { ShortcutSettingsModal } from './components/ShortcutSettingsModal';
@@ -45,6 +45,9 @@ export const App: React.FC = () => {
   const [history, setHistory] = useState<GameState[]>([]);
   const [controlPanelWidth, setControlPanelWidth] = useState(33.33); // percentage
   const [localDisplayMode, setLocalDisplayMode] = useState<GameState['displayMode'] | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPseudoFullscreen, setIsPseudoFullscreen] = useState(false);
+  const [showIosTip, setShowIosTip] = useState(false);
   const isResizingRef = useRef(false);
 
   const [isDisplayMode, setIsDisplayMode] = useState(() => {
@@ -271,22 +274,116 @@ export const App: React.FC = () => {
     document.title = '棒球電子計分板';
   }, []);
 
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-       // Request fullscreen on the display element if it exists, otherwise fallback to root
-       if (displayRef.current) {
-          displayRef.current.requestFullscreen().catch(err => {
-             console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
-          });
-       } else {
-          document.documentElement.requestFullscreen();
-       }
+  const getFullscreenElement = () => {
+    return (
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (document as any).mozFullScreenElement ||
+      (document as any).msFullscreenElement ||
+      null
+    );
+  };
+
+  const toggleFullscreen = async () => {
+    // If currently in pseudo-fullscreen, exit it
+    if (isPseudoFullscreen) {
+      setIsPseudoFullscreen(false);
+      setIsFullscreen(false);
+      return;
+    }
+
+    // If currently in native fullscreen, exit it
+    if (getFullscreenElement()) {
+      try {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        } else if ((document as any).mozCancelFullScreen) {
+          await (document as any).mozCancelFullScreen();
+        } else if ((document as any).msExitFullscreen) {
+          await (document as any).msExitFullscreen();
+        }
+      } catch (e) {
+        console.warn('Exit native fullscreen error:', e);
+      }
+      setIsFullscreen(false);
+      return;
+    }
+
+    // Try native fullscreen first
+    const target = displayRef.current || document.documentElement;
+    let nativeSuccess = false;
+
+    try {
+      if (target && target.requestFullscreen) {
+        await target.requestFullscreen();
+        nativeSuccess = true;
+      } else if (target && (target as any).webkitRequestFullscreen) {
+        await (target as any).webkitRequestFullscreen();
+        nativeSuccess = true;
+      } else if (target && (target as any).webkitRequestFullScreen) {
+        await (target as any).webkitRequestFullScreen();
+        nativeSuccess = true;
+      } else if (target && (target as any).mozRequestFullScreen) {
+        await (target as any).mozRequestFullScreen();
+        nativeSuccess = true;
+      } else if (target && (target as any).msRequestFullscreen) {
+        await (target as any).msRequestFullscreen();
+        nativeSuccess = true;
+      }
+    } catch (err) {
+      console.warn('Native fullscreen not available or failed:', err);
+      nativeSuccess = false;
+    }
+
+    if (nativeSuccess) {
+      setIsFullscreen(true);
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
+      // Native fullscreen not supported (e.g. iPhone Safari) -> Seamless CSS Immersive Fullscreen
+      setIsPseudoFullscreen(true);
+      setIsFullscreen(true);
+
+      const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (isIos && !sessionStorage.getItem('ios_fullscreen_tip_dismissed')) {
+        setShowIosTip(true);
       }
     }
   };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isNative = !!getFullscreenElement();
+      if (!isNative && !isPseudoFullscreen) {
+        setIsFullscreen(false);
+      } else if (isNative) {
+        setIsFullscreen(true);
+        setIsPseudoFullscreen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isPseudoFullscreen) {
+        setIsPseudoFullscreen(false);
+        setIsFullscreen(false);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isPseudoFullscreen]);
 
   return (
     <div className="fixed inset-0 bg-slate-900 flex flex-col font-sans overflow-hidden">
@@ -377,10 +474,18 @@ export const App: React.FC = () => {
             <div className="w-px h-6 bg-slate-700 mx-1"></div>
             <button 
               onClick={toggleFullscreen}
-              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
-              title="Toggle Display Fullscreen"
+              className={`p-1.5 rounded-md transition-colors ${
+                isFullscreen || isPseudoFullscreen 
+                  ? 'text-yellow-400 bg-slate-700 hover:text-white' 
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700'
+              }`}
+              title={
+                isFullscreen || isPseudoFullscreen
+                  ? (language === 'zh' ? '退出全螢幕' : language === 'en' ? 'Exit Fullscreen' : '全画面終了')
+                  : (language === 'zh' ? '全螢幕' : language === 'en' ? 'Fullscreen' : '全画面')
+              }
             >
-              <Maximize size={18} />
+              {isFullscreen || isPseudoFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
             </button>
             <div className="w-px h-6 bg-slate-700 mx-1"></div>
             <button
@@ -433,10 +538,14 @@ export const App: React.FC = () => {
               {isDisplayMode && (
                 <button 
                   onClick={toggleFullscreen}
-                  className="absolute top-4 right-4 p-2 bg-slate-800/50 hover:bg-slate-700/80 text-white rounded-md transition-colors z-50 opacity-30 hover:opacity-100"
-                  title="Toggle Fullscreen"
+                  className="absolute top-4 right-4 p-2 bg-slate-800/60 hover:bg-slate-700/80 text-white rounded-md transition-colors z-50 opacity-40 hover:opacity-100 shadow-lg backdrop-blur-xs"
+                  title={
+                    isFullscreen || isPseudoFullscreen
+                      ? (language === 'zh' ? '退出全螢幕' : language === 'en' ? 'Exit Fullscreen' : '全画面終了')
+                      : (language === 'zh' ? '全螢幕' : language === 'en' ? 'Fullscreen' : '全画面')
+                  }
                 >
-                  <Maximize size={24} />
+                  {isFullscreen || isPseudoFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
                 </button>
               )}
 
@@ -498,6 +607,83 @@ export const App: React.FC = () => {
           onClose={() => setIsSettingsModalOpen(false)}
           language={language}
         />
+
+        {/* Pseudo Fullscreen Immersive Mode for iPhone / unsupported browsers */}
+        {isPseudoFullscreen && (
+          <div className="fixed inset-0 z-[150] bg-slate-950 flex flex-col items-center justify-center overflow-hidden p-2 select-none touch-manipulation">
+            {/* Floating Top Bar with Mode Switcher & Exit Button */}
+            <div className="absolute top-3 right-3 flex items-center gap-2 z-50">
+              <div className="bg-slate-800/85 backdrop-blur-md rounded-lg p-1 flex border border-slate-700 shadow-xl">
+                {(['default', 'lineup', 'rhe', 'broadcast'] as const).map(mode => {
+                  const isActive = (localDisplayMode || state.displayMode) === mode;
+                  return (
+                    <button
+                      key={mode}
+                      onClick={() => setLocalDisplayMode(mode)}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded capitalize transition-colors ${
+                        isActive 
+                          ? 'bg-blue-600 text-white' 
+                          : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
+                      }`}
+                    >
+                      {mode}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={toggleFullscreen}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700 text-white rounded-lg shadow-xl backdrop-blur-md border border-slate-600 transition-all text-xs font-bold"
+                title={language === 'zh' ? '退出全螢幕' : language === 'en' ? 'Exit Fullscreen' : '全画面終了'}
+              >
+                <Minimize size={16} className="text-yellow-400" />
+                <span>{language === 'zh' ? '退出全螢幕' : language === 'en' ? 'Exit' : '終了'}</span>
+              </button>
+            </div>
+
+            {/* iOS Tip Banner */}
+            {showIosTip && (
+              <div className="absolute bottom-4 left-4 right-4 max-w-lg mx-auto bg-slate-900/95 border border-yellow-500/50 text-slate-200 text-xs p-3.5 rounded-xl shadow-2xl z-50 flex items-start gap-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-3">
+                <span className="text-lg shrink-0">💡</span>
+                <div className="flex-1 leading-relaxed">
+                  <div className="font-bold text-yellow-300 mb-1">
+                    {language === 'zh' ? 'iPhone 全螢幕說明' : language === 'en' ? 'iPhone Fullscreen Tip' : 'iPhone 全画面ヒント'}
+                  </div>
+                  {language === 'zh' ? (
+                    <span>
+                      已為您開啟全版沈浸模式！若想要<strong>完全隱藏 Safari 網址列與底欄</strong>，可點擊 Safari 底部「<strong>分享</strong>」按鈕 ➔ 選擇「<strong>加入主畫面</strong>」，即可像原生 App 一樣以 100% 完整無邊框全螢幕開啟！
+                    </span>
+                  ) : (
+                    <span>
+                      Immersive mode active! Due to iOS limitations, to completely hide Safari's address and bottom bars, tap <strong>Share</strong> ➔ <strong>Add to Home Screen</strong> for a 100% borderless app!
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    setShowIosTip(false);
+                    sessionStorage.setItem('ios_fullscreen_tip_dismissed', '1');
+                  }}
+                  className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-slate-800 shrink-0"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            )}
+
+            {/* Scoreboard display */}
+            <div className="w-full h-full max-w-full aspect-video flex items-center justify-center">
+              <div className="w-full transform scale-95 md:scale-100 origin-center h-full">
+                <ScoreboardDisplay 
+                  state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
+                  dispatch={handleDispatch} 
+                  language={language} 
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Reset Confirmation Modal */}
         {isResetConfirmOpen && (
