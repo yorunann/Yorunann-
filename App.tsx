@@ -10,6 +10,7 @@ import { useShortcuts, DEFAULT_SHORTCUTS, ShortcutMap } from './hooks/useShortcu
 import { useGamepad } from './hooks/useGamepad';
 import { ShortcutSettingsModal } from './components/ShortcutSettingsModal';
 import { UserGuideModal } from './components/UserGuideModal';
+import { SettingsModal } from './components/SettingsModal';
 
 import { reducer } from './reducer';
 
@@ -38,6 +39,7 @@ export const App: React.FC = () => {
   const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
   const [isUserGuideModalOpen, setIsUserGuideModalOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [shortcuts, setShortcuts] = useState<ShortcutMap>(DEFAULT_SHORTCUTS);
   const [language, setLanguage] = useState<'en' | 'zh' | 'ja'>('zh');
   const [history, setHistory] = useState<GameState[]>([]);
@@ -264,6 +266,11 @@ export const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [state.isTimerRunning, state.timer, isDisplayMode]);
 
+  // Sync document title for SEO and browser tab
+  useEffect(() => {
+    document.title = '棒球電子計分板';
+  }, []);
+
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
        // Request fullscreen on the display element if it exists, otherwise fallback to root
@@ -375,6 +382,15 @@ export const App: React.FC = () => {
             >
               <Maximize size={18} />
             </button>
+            <div className="w-px h-6 bg-slate-700 mx-1"></div>
+            <button
+              onClick={() => setIsSettingsModalOpen(true)}
+              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center space-x-1"
+              title={language === 'zh' ? '設定' : language === 'en' ? 'Settings' : '設定'}
+            >
+              <Settings size={18} />
+              {isToolbarExpanded && <span className="text-xs font-medium ml-1">{language === 'zh' ? '設定' : language === 'en' ? 'Settings' : '設定'}</span>}
+            </button>
           </div>
         </header>
       )}
@@ -474,6 +490,12 @@ export const App: React.FC = () => {
         <UserGuideModal
           isOpen={isUserGuideModalOpen}
           onClose={() => setIsUserGuideModalOpen(false)}
+          language={language}
+        />
+
+        <SettingsModal
+          isOpen={isSettingsModalOpen}
+          onClose={() => setIsSettingsModalOpen(false)}
           language={language}
         />
 

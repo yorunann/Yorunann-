@@ -1,5 +1,5 @@
 {
-  "name": "純前Pro Baseball Scoreboard",
-  "description": "A high-fidelity baseball scoreboard application featuring interactive display and control panels, modeled after professional broadcast overlays.",
+  "name": "棒球電子計分板",
+  "description": "專業線上棒球電子計分板 (Baseball Scoreboard)，提供即時局數比分、BSO好壞球與出局數、壘包跑者、當前投手球數與打者顯示、雙螢幕同步投影與快捷鍵控制。",
   "requestFramePermissions": []
 }

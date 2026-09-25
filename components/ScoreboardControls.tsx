@@ -561,13 +561,50 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
       
       {/* Pitcher Editor */}
       <div className="bg-orange-50/80 p-2.5 rounded border border-orange-200 mt-2 min-w-0">
-          <div className="flex items-center justify-between mb-1.5">
-            <h4 className="font-bold text-xs text-orange-800 flex items-center gap-1.5"><PenTool size={12}/> Active Pitcher 先發/當前投手</h4>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="font-bold text-xs text-orange-800 flex items-center gap-1.5">
+              <PenTool size={12}/> {language === 'zh' ? '當前投手' : language === 'en' ? 'Current Pitcher' : '現在の投手'}
+            </h4>
           </div>
-          <div className="flex items-center gap-1.5 min-w-0 w-full">
-              <input className="w-12 border rounded px-1.5 py-1 text-sm text-slate-900 bg-white shrink-0 font-medium text-center" value={draft.pitcher.number} onChange={(e) => updatePitcher('number', e.target.value)} placeholder="#" title="Number" />
-              <input className="flex-1 min-w-0 border rounded px-2 py-1 text-sm text-slate-900 bg-white font-medium" value={draft.pitcher.name} onChange={(e) => updatePitcher('name', e.target.value)} placeholder="Pitcher Name" title="Name" />
-              <input className="w-16 border rounded px-1.5 py-1 text-sm text-slate-900 bg-white shrink-0 text-center font-medium" value={draft.pitcher.stat} onChange={(e) => updatePitcher('stat', e.target.value)} placeholder="P: 0" title="Pitch Count / Stat" />
+          <div className="flex flex-col gap-2 min-w-0 w-full">
+              <div className="grid grid-cols-2 gap-2 w-full min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-[11px] text-slate-600 font-semibold shrink-0 w-8 text-right">
+                      {language === 'zh' ? '背號' : language === 'en' ? 'No.' : '背番号'}
+                    </span>
+                    <input 
+                      className="flex-1 min-w-0 border rounded px-2 py-1 text-sm text-slate-900 bg-white font-medium text-center" 
+                      value={draft.pitcher.number} 
+                      onChange={(e) => updatePitcher('number', e.target.value)} 
+                      placeholder="#" 
+                      title={language === 'zh' ? '背號' : language === 'en' ? 'Number' : '背番号'} 
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-[11px] text-slate-600 font-semibold shrink-0 w-8 text-right">
+                      {language === 'zh' ? '球數' : language === 'en' ? 'Pitches' : '球数'}
+                    </span>
+                    <input 
+                      className="flex-1 min-w-0 border rounded px-2 py-1 text-sm text-slate-900 bg-white font-medium text-center" 
+                      value={draft.pitcher.stat} 
+                      onChange={(e) => updatePitcher('stat', e.target.value)} 
+                      placeholder="P: 0" 
+                      title={language === 'zh' ? '投球數' : language === 'en' ? 'Pitch Count' : '投球数'} 
+                    />
+                  </div>
+              </div>
+              <div className="flex items-center gap-1.5 w-full min-w-0">
+                <span className="text-[11px] text-slate-600 font-semibold shrink-0 w-8 text-right">
+                  {language === 'zh' ? '姓名' : language === 'en' ? 'Name' : '名前'}
+                </span>
+                <input 
+                  className="flex-1 min-w-0 border rounded px-2.5 py-1 text-sm text-slate-900 bg-white font-medium" 
+                  value={draft.pitcher.name} 
+                  onChange={(e) => updatePitcher('name', e.target.value)} 
+                  placeholder={language === 'zh' ? '投手姓名' : language === 'en' ? 'Pitcher Name' : '投手名'} 
+                  title={language === 'zh' ? '姓名' : language === 'en' ? 'Name' : '名前'} 
+                />
+              </div>
           </div>
       </div>
 
@@ -728,7 +765,6 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
 
 export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, language = 'zh' }) => {
   const [activeTab, setActiveTab] = useState<'controls' | 'info'>('controls');
-  const [isMatchupOpen, setIsMatchupOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
   const [isFontSizesOpen, setIsFontSizesOpen] = useState(true);
   const [isDimensionsOpen, setIsDimensionsOpen] = useState(false);
@@ -747,44 +783,18 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
   const activeBatter = activeBatterTeamObj.lineup[activeBatterTeamObj.currentBatterIndex] || null;
   const activePitcher = activePitcherTeamObj.pitcher;
 
-  const [matchupDraft, setMatchupDraft] = useState({ batter: activeBatter, pitcher: activePitcher });
-
-  React.useEffect(() => {
-    setMatchupDraft({ batter: activeBatter, pitcher: activePitcher });
-  }, [activeBatter, activePitcher]);
-
-  const handleUpdateMatchup = () => {
-    if (matchupDraft.batter && activeBatter) {
-      if (matchupDraft.batter.number !== activeBatter.number) dispatch({ type: 'UPDATE_LINEUP_PLAYER', team: activeBatterTeam, index: activeBatterTeamObj.currentBatterIndex, field: 'number', value: matchupDraft.batter.number });
-      if (matchupDraft.batter.name !== activeBatter.name) dispatch({ type: 'UPDATE_LINEUP_PLAYER', team: activeBatterTeam, index: activeBatterTeamObj.currentBatterIndex, field: 'name', value: matchupDraft.batter.name });
-    }
-    if (matchupDraft.pitcher && activePitcher) {
-      if (matchupDraft.pitcher.number !== activePitcher.number || matchupDraft.pitcher.name !== activePitcher.name) {
-        dispatch({ type: 'UPDATE_TEAM', team: activePitcherTeam, field: 'pitcher', value: { ...activePitcher, number: matchupDraft.pitcher.number, name: matchupDraft.pitcher.name } });
-      }
-    }
-  };
-
-  const updateMatchupDraft = (role: 'batter' | 'pitcher', field: keyof Player, value: string) => {
-    setMatchupDraft(prev => ({
-      ...prev,
-      [role]: prev[role] ? { ...prev[role], [field]: value } : null
-    }));
-  };
-
-  const handleSelectBench = (role: 'batter' | 'pitcher', e: React.ChangeEvent<HTMLSelectElement>) => {
-    const playerId = e.target.value;
-    if (!playerId) return;
-    const teamObj = role === 'batter' ? activeBatterTeamObj : activePitcherTeamObj;
-    const player = teamObj.bench.find(p => p.id === playerId);
-    if (player) {
-      setMatchupDraft(prev => ({
-        ...prev,
-        [role]: prev[role] ? { ...prev[role], number: player.number, name: player.name } : null
-      }));
-    }
-    e.target.value = ''; // Reset select
-  };
+  const minTeamRowHeight = Math.max(
+    50,
+    (state.meta.broadcastLogoSize ?? 40) + 10,
+    (state.meta.broadcastScoreSize ?? 30) + 12,
+    (state.meta.broadcastTeamNameSize ?? 24) + 12,
+    Math.ceil(((state.meta.broadcastInningSize ?? 24) + 52) / 2)
+  );
+  const minPlayerRowHeight = Math.max(
+    36,
+    (state.meta.broadcastPlayerNameSize ?? 20) + 12,
+    (state.meta.broadcastTimerSize ?? 24) + 10
+  );
 
   React.useEffect(() => {
      if (!state.animation && hrState !== 'idle') {
@@ -1110,88 +1120,6 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
               </div>
             </div>
           </div>
-
-            
-            {/* Quick Matchup Editor */}
-            <div className="bg-slate-100 rounded border border-slate-200 overflow-hidden shadow-xs">
-              <button
-                type="button"
-                onClick={() => setIsMatchupOpen(prev => !prev)}
-                className="w-full p-2.5 flex items-center justify-between text-left hover:bg-slate-200/60 transition-colors cursor-pointer select-none"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <User size={13} className="text-slate-600 shrink-0" />
-                  <span className="text-xs font-bold text-slate-700 shrink-0">
-                    {language === 'zh' ? '目前對決 (Matchup)' : language === 'en' ? 'Current Matchup' : '現在の対戦'}
-                  </span>
-                  {!isMatchupOpen && (
-                    <span className="text-[11px] text-slate-500 font-mono truncate hidden sm:inline ml-1 font-normal">
-                      打: #{matchupDraft.batter?.number || '-'} {matchupDraft.batter?.name || ''} vs 投: #{matchupDraft.pitcher?.number || '-'} {matchupDraft.pitcher?.name || ''}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                  <span className="text-[10px] text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-medium">
-                    {isMatchupOpen ? (language === 'zh' ? '收合' : 'Hide') : (language === 'zh' ? '替換' : 'Edit')}
-                  </span>
-                  {isMatchupOpen ? <ChevronUp size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
-                </div>
-              </button>
-
-              {isMatchupOpen && (
-                <div className="p-2.5 pt-1 space-y-2 border-t border-slate-200/80 bg-slate-50/50">
-                  <div className="flex flex-col gap-2">
-                    {/* Active Batter */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-green-700 w-8 shrink-0">{language === 'zh' ? '打者' : language === 'en' ? 'BAT' : '打者'}</span>
-                      <input 
-                        className="w-10 border rounded px-1.5 py-1 text-sm bg-white text-black font-medium text-center" 
-                        value={matchupDraft.batter?.number || ''} 
-                        onChange={(e) => updateMatchupDraft('batter', 'number', e.target.value)} 
-                        placeholder="#" 
-                      />
-                      <input 
-                        className="flex-1 min-w-0 border rounded px-2 py-1 text-sm bg-white text-black font-medium" 
-                        value={matchupDraft.batter?.name || ''} 
-                        onChange={(e) => updateMatchupDraft('batter', 'name', e.target.value)} 
-                        placeholder="Name" 
-                      />
-                      <select className="w-20 border rounded text-xs bg-white text-black shrink-0 outline-none py-1 px-1" onChange={(e) => handleSelectBench('batter', e)} defaultValue="">
-                        <option value="" disabled>{language === 'zh' ? '找板凳' : 'Bench'}</option>
-                        {activeBatterTeamObj.bench.map(p => (
-                          <option key={p.id} value={p.id}>{p.number} {p.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    {/* Active Pitcher */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-red-700 w-8 shrink-0">{language === 'zh' ? '投手' : language === 'en' ? 'PIT' : '投手'}</span>
-                      <input 
-                        className="w-10 border rounded px-1.5 py-1 text-sm bg-white text-black font-medium text-center" 
-                        value={matchupDraft.pitcher?.number || ''} 
-                        onChange={(e) => updateMatchupDraft('pitcher', 'number', e.target.value)} 
-                        placeholder="#" 
-                      />
-                      <input 
-                        className="flex-1 min-w-0 border rounded px-2 py-1 text-sm bg-white text-black font-medium" 
-                        value={matchupDraft.pitcher?.name || ''} 
-                        onChange={(e) => updateMatchupDraft('pitcher', 'name', e.target.value)} 
-                        placeholder="Name" 
-                      />
-                      <select className="w-20 border rounded text-xs bg-white text-black shrink-0 outline-none py-1 px-1" onChange={(e) => handleSelectBench('pitcher', e)} defaultValue="">
-                        <option value="" disabled>{language === 'zh' ? '找板凳' : 'Bench'}</option>
-                        {activePitcherTeamObj.bench.map(p => (
-                          <option key={p.id} value={p.id}>{p.number} {p.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <button onClick={handleUpdateMatchup} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded text-sm shadow transition-transform active:scale-95 min-h-[38px]">
-                    {language === 'zh' ? '更新資訊' : language === 'en' ? 'Update Info' : '情報更新'}
-                  </button>
-                </div>
-              )}
-            </div>
 
       {/* Settings & Timer */}
           <div className="space-y-3">
@@ -1625,15 +1553,15 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                         <div className="flex items-center justify-between gap-1.5">
                            <span className="text-slate-600 whitespace-nowrap min-w-[60px]">{language === "en" ? "Team Row Height" : language === "zh" ? "隊伍行高" : "チーム行高さ"}</span>
                            <div className="flex items-center gap-1 flex-1 justify-end">
-                             <input type="range" min="30" max="150" value={state.meta.broadcastTeamRowHeight ?? 72} onChange={(e) => dispatch({ type: "UPDATE_META", field: "broadcastTeamRowHeight", value: parseInt(e.target.value) || 30 })} className="w-14 sm:w-20 accent-blue-600" />
+                             <input type="range" min={minTeamRowHeight} max="150" value={Math.max(minTeamRowHeight, state.meta.broadcastTeamRowHeight ?? 72)} onChange={(e) => dispatch({ type: "UPDATE_META", field: "broadcastTeamRowHeight", value: Math.max(minTeamRowHeight, parseInt(e.target.value) || minTeamRowHeight) })} className="w-14 sm:w-20 accent-blue-600" />
                              <input
                                type="number"
-                               min="30"
+                               min={minTeamRowHeight}
                                max="150"
-                               value={state.meta.broadcastTeamRowHeight ?? 72}
+                               value={Math.max(minTeamRowHeight, state.meta.broadcastTeamRowHeight ?? 72)}
                                onChange={(e) => {
                                  const val = parseInt(e.target.value);
-                                 if (!isNaN(val)) dispatch({ type: "UPDATE_META", field: "broadcastTeamRowHeight", value: val });
+                                 if (!isNaN(val)) dispatch({ type: "UPDATE_META", field: "broadcastTeamRowHeight", value: Math.max(minTeamRowHeight, val) });
                                }}
                                className="w-12 text-center font-mono text-[11px] text-slate-700 bg-white border border-slate-300 rounded px-1 py-0.5 outline-none focus:border-blue-500"
                              />
@@ -1650,15 +1578,15 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                         <div className="flex items-center justify-between gap-1.5">
                            <span className="text-slate-600 whitespace-nowrap min-w-[60px]">{language === "en" ? "Player Row Height" : language === "zh" ? "球員行高" : "選手行高さ"}</span>
                            <div className="flex items-center gap-1 flex-1 justify-end">
-                             <input type="range" min="20" max="100" value={state.meta.broadcastPlayerRowHeight ?? 50} onChange={(e) => dispatch({ type: "UPDATE_META", field: "broadcastPlayerRowHeight", value: parseInt(e.target.value) || 20 })} className="w-14 sm:w-20 accent-blue-600" />
+                             <input type="range" min={minPlayerRowHeight} max="100" value={Math.max(minPlayerRowHeight, state.meta.broadcastPlayerRowHeight ?? 50)} onChange={(e) => dispatch({ type: "UPDATE_META", field: "broadcastPlayerRowHeight", value: Math.max(minPlayerRowHeight, parseInt(e.target.value) || minPlayerRowHeight) })} className="w-14 sm:w-20 accent-blue-600" />
                              <input
                                type="number"
-                               min="20"
+                               min={minPlayerRowHeight}
                                max="100"
-                               value={state.meta.broadcastPlayerRowHeight ?? 50}
+                               value={Math.max(minPlayerRowHeight, state.meta.broadcastPlayerRowHeight ?? 50)}
                                onChange={(e) => {
                                  const val = parseInt(e.target.value);
-                                 if (!isNaN(val)) dispatch({ type: "UPDATE_META", field: "broadcastPlayerRowHeight", value: val });
+                                 if (!isNaN(val)) dispatch({ type: "UPDATE_META", field: "broadcastPlayerRowHeight", value: Math.max(minPlayerRowHeight, val) });
                                }}
                                className="w-12 text-center font-mono text-[11px] text-slate-700 bg-white border border-slate-300 rounded px-1 py-0.5 outline-none focus:border-blue-500"
                              />

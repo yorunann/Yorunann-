@@ -26,10 +26,10 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose,
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col h-[600px] max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center p-4 border-b bg-slate-50">
+        <div className="flex justify-between items-center p-4 border-b bg-slate-50 shrink-0">
           <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
             <BookOpen className="w-5 h-5" />
             {language === 'en' ? 'User Guide' : language === 'zh' ? '使用指南' : 'ユーザーガイド'}
@@ -39,12 +39,12 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose,
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className="p-6 overflow-y-auto flex-1 min-h-0">
           {page === 1 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
               <h3 className="text-2xl font-bold text-blue-600">{language === 'en' ? '1. Introduction' : language === 'zh' ? '1. 介紹與初衷' : '1. 紹介と目的'}</h3>
               <p className="text-lg text-slate-700 leading-relaxed">
-                {language === 'en' ? 'Welcome to the Baseball Scoreboard System!' : language === 'zh' ? '歡迎使用本棒球計分板系統！' : '野球スコアボードシステムへようこそ！'}
+                {language === 'en' ? 'Welcome to the Baseball Scoreboard System!' : language === 'zh' ? '歡迎使用「棒球電子計分板」系統！' : '野球電子スコアボードシステムへようこそ！'}
               </p>
               <p className="text-slate-600 leading-relaxed">
                 {language === 'en' ? <span>Goal: We want to provide a professional broadcast-level scoreboard for grassroots, amateur leagues, and any baseball games. No expensive hardware needed, just a PC or tablet.</span> : language === 'zh' ? <span>開發初衷：我們希望讓基層棒球、業餘聯賽，或是各類棒球比賽，都能夠輕鬆擁有專業轉播等級的計分板。不需要昂貴的硬體設備，只要有一台電腦或平板，就能呈現出高質感的比賽畫面。</span> : <span>開発の目的： 草野球、アマチュアリーグ、またはあらゆる野球の試合で、プロの放送レベルのスコアボードを簡単に利用できるようにしたいと考えています。高価なハードウェアは必要ありません。PCやタブレットだけで、高品質な試合画面を提供できます。</span>}
@@ -211,7 +211,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose,
 
         </div>
 
-        <div className="p-4 border-t bg-slate-50 flex justify-between items-center">
+        <div className="p-4 border-t bg-slate-50 flex justify-between items-center shrink-0">
           <div className="flex gap-1">
             {Array.from({ length: totalPages }).map((_, i) => (
               <div 
@@ -220,25 +220,25 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose,
               />
             ))}
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button 
               onClick={prevPage} 
               disabled={page === 1}
-              className="px-4 py-2 flex items-center gap-1 rounded-lg font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-24 py-2 flex items-center justify-center gap-1 rounded-lg font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors select-none"
             >
               <ChevronLeft className="w-4 h-4" /> {language === 'en' ? 'Prev' : language === 'zh' ? '上一頁' : '前へ'}
             </button>
             {page < totalPages ? (
               <button 
                 onClick={nextPage}
-                className="px-4 py-2 flex items-center gap-1 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                className="w-28 py-2 flex items-center justify-center gap-1 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors select-none"
               >
                 {language === 'en' ? 'Next' : language === 'zh' ? '下一頁' : '次へ'} <ChevronRight className="w-4 h-4" />
               </button>
             ) : (
               <button 
                 onClick={onClose}
-                className="px-4 py-2 flex items-center gap-1 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
+                className="w-28 py-2 flex items-center justify-center gap-1 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors select-none"
               >
                 {language === 'en' ? 'Get Started!' : language === 'zh' ? '開始使用！' : 'はじめる！'}
               </button>
