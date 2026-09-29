@@ -1,4 +1,4 @@
-import { GameState, Player } from './types';
+import { GameState, Player, Team } from './types';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -98,4 +98,65 @@ export const INITIAL_STATE: GameState = {
     broadcastMarginX: 20,
     broadcastMarginY: 20,
   }
+};
+
+export const sanitizeGameState = (loadedState: any, fallbackState: GameState = INITIAL_STATE): GameState => {
+  if (!loadedState || typeof loadedState !== 'object') {
+    return fallbackState;
+  }
+
+  const sanitizeTeam = (teamData: any, defaultTeam: Team): Team => {
+    if (!teamData || typeof teamData !== 'object') return defaultTeam;
+    return {
+      name: teamData.name || defaultTeam.name,
+      fullName: teamData.fullName || defaultTeam.fullName,
+      score: typeof teamData.score === 'number' ? teamData.score : defaultTeam.score,
+      hits: typeof teamData.hits === 'number' ? teamData.hits : defaultTeam.hits,
+      errors: typeof teamData.errors === 'number' ? teamData.errors : defaultTeam.errors,
+      inningScores: Array.isArray(teamData.inningScores) ? teamData.inningScores : defaultTeam.inningScores,
+      color: teamData.color || defaultTeam.color,
+      baseColor: teamData.baseColor || defaultTeam.baseColor,
+      lineup: Array.isArray(teamData.lineup) && teamData.lineup.length > 0 ? teamData.lineup : defaultTeam.lineup,
+      bench: Array.isArray(teamData.bench) ? teamData.bench : defaultTeam.bench,
+      currentBatterIndex: typeof teamData.currentBatterIndex === 'number' ? teamData.currentBatterIndex : 0,
+      pitcher: teamData.pitcher && typeof teamData.pitcher === 'object' ? {
+        id: teamData.pitcher.id || defaultTeam.pitcher.id,
+        name: teamData.pitcher.name || defaultTeam.pitcher.name,
+        number: teamData.pitcher.number ?? defaultTeam.pitcher.number,
+        stat: teamData.pitcher.stat || defaultTeam.pitcher.stat,
+      } : defaultTeam.pitcher,
+      logoUrl: teamData.logoUrl || defaultTeam.logoUrl,
+    };
+  };
+
+  return {
+    ...fallbackState,
+    ...loadedState,
+    awayTeam: sanitizeTeam(loadedState.awayTeam, fallbackState.awayTeam),
+    homeTeam: sanitizeTeam(loadedState.homeTeam, fallbackState.homeTeam),
+    inning: typeof loadedState.inning === 'number' ? loadedState.inning : fallbackState.inning,
+    isTop: typeof loadedState.isTop === 'boolean' ? loadedState.isTop : fallbackState.isTop,
+    balls: typeof loadedState.balls === 'number' ? loadedState.balls : fallbackState.balls,
+    strikes: typeof loadedState.strikes === 'number' ? loadedState.strikes : fallbackState.strikes,
+    outs: typeof loadedState.outs === 'number' ? loadedState.outs : fallbackState.outs,
+    bases: Array.isArray(loadedState.bases) && loadedState.bases.length === 3 ? loadedState.bases : fallbackState.bases,
+    pitcher: loadedState.pitcher || fallbackState.pitcher,
+    currentPitch: loadedState.currentPitch || fallbackState.currentPitch,
+    timer: typeof loadedState.timer === 'number' ? loadedState.timer : fallbackState.timer,
+    initialTimer: typeof loadedState.initialTimer === 'number' ? loadedState.initialTimer : fallbackState.initialTimer,
+    isTimerRunning: typeof loadedState.isTimerRunning === 'boolean' ? loadedState.isTimerRunning : false,
+    displayMode: loadedState.displayMode || fallbackState.displayMode,
+    animation: null, // Always clear animation on fresh load/sync
+    showPlayerStat: loadedState.showPlayerStat ?? fallbackState.showPlayerStat,
+    showBatterInfo: loadedState.showBatterInfo ?? fallbackState.showBatterInfo,
+    showPitcherInfo: loadedState.showPitcherInfo ?? fallbackState.showPitcherInfo,
+    showPitchInfo: loadedState.showPitchInfo ?? fallbackState.showPitchInfo,
+    showCount: loadedState.showCount ?? fallbackState.showCount,
+    showTimer: loadedState.showTimer ?? fallbackState.showTimer,
+    strikeoutAnimationTrigger: loadedState.strikeoutAnimationTrigger ?? fallbackState.strikeoutAnimationTrigger,
+    meta: {
+      ...fallbackState.meta,
+      ...(loadedState.meta || {}),
+    }
+  };
 };

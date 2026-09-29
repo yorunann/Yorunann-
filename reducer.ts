@@ -439,6 +439,14 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const teamObj = state[teamKey];
       const nextIndex = teamObj.lineup.length > 0 ? (teamObj.currentBatterIndex + 1) % teamObj.lineup.length : teamObj.currentBatterIndex;
       
+      let animationType: 'homerun' | '2-run-homer' | '3-run-homer' | 'grand-slam' = 'homerun';
+      if (runnersOnBase === 1) animationType = '2-run-homer';
+      else if (runnersOnBase === 2) animationType = '3-run-homer';
+      else if (runnersOnBase >= 3) animationType = 'grand-slam';
+
+      const batter = teamObj.lineup[teamObj.currentBatterIndex];
+      const playerName = batter ? (batter.number ? `${batter.name} #${batter.number}` : batter.name) : (state.isTop ? '客隊打者' : '主隊打者');
+
       return {
         ...state,
         [teamKey]: { 
@@ -450,6 +458,13 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         bases: [false, false, false],
         balls: 0,
         strikes: 0,
+        animation: {
+          type: animationType,
+          playerName,
+          teamName: teamObj.name || (state.isTop ? '客隊' : '主隊'),
+          teamColor: teamObj.color || '#3b82f6',
+          bubbleKey: Date.now()
+        }
       };
     }
 
@@ -536,6 +551,37 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       };
     }
 
+    case 'THREE_UP_THREE_DOWN': {
+      const currentTeamKey = state.isTop ? 'awayTeam' : 'homeTeam';
+      const currentTeamObj = state[currentTeamKey];
+      const currentInningIdx = state.inning - 1;
+      
+      const newInningScores = [...currentTeamObj.inningScores];
+      if (newInningScores[currentInningIdx] === null || newInningScores[currentInningIdx] === undefined) {
+         newInningScores[currentInningIdx] = 0;
+      }
+
+      // Next batter advances by remaining outs to complete 3
+      const remainingOuts = Math.max(1, 3 - state.outs);
+      const nextIndex = currentTeamObj.lineup.length > 0 
+        ? (currentTeamObj.currentBatterIndex + remainingOuts) % currentTeamObj.lineup.length
+        : currentTeamObj.currentBatterIndex;
+      
+      return { 
+        ...state, 
+        [currentTeamKey]: {
+          ...currentTeamObj,
+          currentBatterIndex: nextIndex,
+          inningScores: newInningScores
+        },
+        isTop: !state.isTop, 
+        inning: state.isTop ? state.inning : state.inning + 1,
+        balls: 0, strikes: 0, outs: 0, bases: [false, false, false],
+        isTimerRunning: false,
+        timer: state.initialTimer || 20
+      };
+    }
+
     case 'PREVIOUS_HALF_INNING':
       return {
         ...state,
@@ -604,9 +650,16 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       }
       return state;
 
-    case 'UPDATE_TEAM':
+    case 'UPDATE_TEAM': {
       const teamKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
-      return { ...state, [teamKey]: { ...state[teamKey], [action.field]: action.value } };
+      if ('data' in action && (action as any).data) {
+        return { ...state, [teamKey]: { ...state[teamKey], ...(action as any).data } };
+      }
+      if (action.field) {
+        return { ...state, [teamKey]: { ...state[teamKey], [action.field]: action.value } };
+      }
+      return state;
+    }
 
     case 'APPLY_TEAM_CONFIG': {
       const teamKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
@@ -753,6 +806,81 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       return {
         ...state,
         [tKey]: { ...state[tKey], bench: newBench }
+      };
+    }
+
+    case 'ADD_PLAYER_TO_BENCH': {
+      const tKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
+      const newPlayer: Player = {
+        id: Math.random().toString(36).substring(2, 9),
+        name: action.player?.name || `Bench ${state[tKey].bench.length + 1}`,
+        number: action.player?.number || '00',
+        stat: action.player?.stat || '.000',
+        position: action.player?.position || 'BN'
+      };
+      return {
+        ...state,
+        [tKey]: {
+          ...state[tKey],
+          bench: [...state[tKey].bench, newPlayer]
+        }
+      };
+    }
+
+    case 'UPDATE_BENCH_PLAYER': {
+      const tKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
+      const newBench = [...state[tKey].bench];
+      if (newBench[action.index]) {
+        newBench[action.index] = { ...newBench[action.index], [action.field]: action.value };
+      }
+      return {
+        ...state,
+        [tKey]: { ...state[tKey], bench: newBench }
+      };
+    }
+
+    case 'REMOVE_PLAYER_FROM_BENCH': {
+      const tKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
+      const newBench = state[tKey].bench.filter((_, i) => i !== action.index);
+      return {
+        ...state,
+        [tKey]: { ...state[tKey], bench: newBench }
+      };
+    }
+
+    case 'SWAP_LINEUP_BENCH': {
+      const tKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
+      const lineupPlayer = state[tKey].lineup[action.lineupIndex];
+      const benchPlayer = state[tKey].bench[action.benchIndex];
+      if (!lineupPlayer || !benchPlayer) return state;
+
+      const newLineup = [...state[tKey].lineup];
+      const newBench = [...state[tKey].bench];
+      // Keep fielding position of lineup slot if desired, but swap players
+      newLineup[action.lineupIndex] = { ...benchPlayer, position: lineupPlayer.position || benchPlayer.position };
+      newBench[action.benchIndex] = { ...lineupPlayer, position: 'BN' };
+
+      return {
+        ...state,
+        [tKey]: { ...state[tKey], lineup: newLineup, bench: newBench }
+      };
+    }
+
+    case 'SET_INNING_SCORE': {
+      const tKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
+      const newInningScores = [...state[tKey].inningScores];
+      while (newInningScores.length <= action.inningIndex) {
+        newInningScores.push(null);
+      }
+      newInningScores[action.inningIndex] = action.score;
+      const totalScore = newInningScores.reduce<number>((sum, val) => sum + (val || 0), 0);
+      return {
+        ...state,
+        [tKey]: {
+          ...state[tKey],
+          score: totalScore,
+          inningScores: newInningScores
+        }
       };
     }
 

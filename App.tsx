@@ -5,6 +5,7 @@ import { GameState, ActionType, Player } from './types';
 import { INITIAL_STATE } from './constants';
 import { ScoreboardDisplay } from './components/ScoreboardDisplay';
 import { ScoreboardControls } from './components/ScoreboardControls';
+import { ScoreboardControlsV2 } from './components/ScoreboardControlsV2';
 import { MonitorPlay, Maximize, Minimize, Keyboard, Settings, ExternalLink, RotateCcw, Gamepad2, BookOpen, Plus, Minus, Menu, X } from 'lucide-react';
 import { useShortcuts, DEFAULT_SHORTCUTS, ShortcutMap } from './hooks/useShortcuts';
 import { useGamepad } from './hooks/useGamepad';
@@ -48,12 +49,68 @@ export const App: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPseudoFullscreen, setIsPseudoFullscreen] = useState(false);
   const [showIosTip, setShowIosTip] = useState(false);
-  const isResizingRef = useRef(false);
+  const [isPortrait, setIsPortrait] = useState(() => typeof window !== 'undefined' ? window.innerHeight > window.innerWidth : false);
+  const [useBetaControls, setUseBetaControls] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('scoreboard_beta_controls');
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const handleOrientation = () => {
+      setIsPortrait(window.innerHeight > window.innerWidth);
+    };
+    window.addEventListener('resize', handleOrientation);
+    window.addEventListener('orientationchange', handleOrientation);
+    return () => {
+      window.removeEventListener('resize', handleOrientation);
+      window.removeEventListener('orientationchange', handleOrientation);
+    };
+  }, []);
+
+  const handleToggleBetaControls = (val: boolean) => {
+    setUseBetaControls(val);
+    try {
+      localStorage.setItem('scoreboard_beta_controls', JSON.stringify(val));
+    } catch (e) {
+      console.error("Failed to save beta controls setting", e);
+    }
+  };
 
   const [isDisplayMode, setIsDisplayMode] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('mode') === 'display';
   });
+
+  const isResizingRef = useRef(false);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const [previewScale, setPreviewScale] = useState(1);
+
+  useEffect(() => {
+    if (!previewContainerRef.current) return;
+    const updateScale = () => {
+      if (!previewContainerRef.current) return;
+      const { clientWidth, clientHeight } = previewContainerRef.current;
+      if (clientWidth <= 0 || clientHeight <= 0) return;
+      const refW = 960;
+      const refH = 540;
+      const s = Math.min(clientWidth / refW, clientHeight / refH);
+      setPreviewScale(Math.max(0.15, Math.min(1.5, s)));
+    };
+    updateScale();
+    const ro = new ResizeObserver(updateScale);
+    ro.observe(previewContainerRef.current);
+    window.addEventListener('resize', updateScale);
+    window.addEventListener('orientationchange', updateScale);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', updateScale);
+      window.removeEventListener('orientationchange', updateScale);
+    };
+  }, [useBetaControls, isPortrait, isDisplayMode, controlPanelWidth]);
 
   const channelRef = useRef<BroadcastChannel | null>(null);
   const isLocalAction = useRef(false);
@@ -503,10 +560,16 @@ export const App: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-1 overflow-hidden relative flex">
         {/* Split Screen Layout */}
-        <div className="w-full h-full flex flex-row gap-0 overflow-hidden">
+        <div className={`w-full h-full flex ${useBetaControls ? (isPortrait && typeof window !== 'undefined' && window.innerWidth < 768 ? 'flex-col' : 'flex-col md:flex-row') : 'flex-row'} gap-0 overflow-hidden`}>
           {/* Left/Top: Display */}
           <div 
-            className={`flex-none p-4 bg-slate-950 flex flex-col items-center justify-center overflow-y-auto overscroll-contain overflow-x-hidden border-r border-slate-700 relative w-[var(--left-width)]`}
+            className={`flex-none p-2 sm:p-4 bg-slate-950 flex flex-col items-center justify-center overflow-y-auto overscroll-contain overflow-x-hidden border-b md:border-b-0 md:border-r border-slate-700 relative ${
+              useBetaControls 
+                ? (isPortrait && typeof window !== 'undefined' && window.innerWidth < 768 
+                    ? 'w-full h-[35vh] sm:h-[42vh] shrink-0' 
+                    : 'w-full md:w-[var(--left-width)] h-[35vh] sm:h-[42vh] md:h-full shrink-0')
+                : 'w-[var(--left-width)] h-full'
+            }`}
             style={{ 
               '--left-width': isDisplayMode ? '100%' : `calc(${100 - controlPanelWidth}% - 4px)`,
               ...(isDisplayMode ? { zoom: '150%' } : {})
@@ -549,9 +612,23 @@ export const App: React.FC = () => {
                 </button>
               )}
 
-              <div className="w-full max-w-full aspect-video flex items-center justify-center">
-                <div className="w-full transform scale-90 xl:scale-100 origin-center h-full">
-                  <ScoreboardDisplay ref={displayRef} state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} dispatch={handleDispatch} language={language} />
+              <div ref={previewContainerRef} className="w-full h-full max-w-full flex items-center justify-center overflow-hidden relative">
+                <div 
+                  style={{
+                    width: 960,
+                    height: 540,
+                    transform: `scale(${previewScale})`,
+                    transformOrigin: 'center center',
+                    flexShrink: 0
+                  }}
+                >
+                  <ScoreboardDisplay 
+                    ref={displayRef} 
+                    state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
+                    dispatch={handleDispatch} 
+                    language={language} 
+                    isVerticalFullscreen={false} 
+                  />
                 </div>
               </div>
           </div>
@@ -559,7 +636,7 @@ export const App: React.FC = () => {
           {/* Resize Handle */}
           {!isDisplayMode && (
             <div 
-              className="flex w-1 bg-slate-700 hover:bg-blue-500 cursor-col-resize transition-colors z-50 items-center justify-center shrink-0"
+              className={`${useBetaControls ? (isPortrait && typeof window !== 'undefined' && window.innerWidth < 768 ? 'hidden' : 'hidden md:flex') : 'flex'} w-1 bg-slate-700 hover:bg-blue-500 cursor-col-resize transition-colors z-50 items-center justify-center shrink-0`}
               onMouseDown={(e) => {
                 e.preventDefault();
                 isResizingRef.current = true;
@@ -573,10 +650,16 @@ export const App: React.FC = () => {
           {/* Right/Bottom: Controls */}
           {!isDisplayMode && (
             <div 
-              className="flex-1 bg-gray-100 overflow-y-auto overscroll-contain shadow-inner"
-              style={{ flexBasis: `${controlPanelWidth}%` }}
+              className={`flex-1 overflow-y-auto overscroll-contain shadow-inner min-h-0 ${
+                useBetaControls ? 'w-full md:w-auto bg-slate-900' : 'bg-gray-100'
+              }`}
+              style={{ flexBasis: (isPortrait && typeof window !== 'undefined' && window.innerWidth < 768) ? undefined : `${controlPanelWidth}%` }}
             >
-                <ScoreboardControls state={state} dispatch={handleDispatch} language={language} />
+                {useBetaControls ? (
+                  <ScoreboardControlsV2 state={state} dispatch={handleDispatch} language={language} />
+                ) : (
+                  <ScoreboardControls state={state} dispatch={handleDispatch} language={language} />
+                )}
             </div>
           )}
         </div>
@@ -606,6 +689,8 @@ export const App: React.FC = () => {
           isOpen={isSettingsModalOpen}
           onClose={() => setIsSettingsModalOpen(false)}
           language={language}
+          useBetaControls={useBetaControls}
+          onToggleBetaControls={handleToggleBetaControls}
         />
 
         {/* Pseudo Fullscreen Immersive Mode for iPhone / unsupported browsers */}
@@ -673,12 +758,13 @@ export const App: React.FC = () => {
             )}
 
             {/* Scoreboard display */}
-            <div className="w-full h-full max-w-full aspect-video flex items-center justify-center">
+            <div className={`w-full h-full max-w-full flex items-center justify-center ${isPortrait ? 'py-10 px-2' : 'aspect-video'}`}>
               <div className="w-full transform scale-95 md:scale-100 origin-center h-full">
                 <ScoreboardDisplay 
                   state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
                   dispatch={handleDispatch} 
                   language={language} 
+                  isVerticalFullscreen={isPortrait}
                 />
               </div>
             </div>

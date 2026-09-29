@@ -20,28 +20,31 @@ export function parseLineupText(text: string) {
         '外野手': 'OF', '外野': 'OF',
         '內野手': 'IF', '內野': 'IF',
         '代打': 'PH', '代跑': 'PR',
+        '板凳': 'BN', '後備': 'BN', '替補': 'BN', '後補': 'BN',
         // Japanese multi-char
         'ピッチャー': 'P', 'キャッチャー': 'C', 'ファースト': '1B', 'セカンド': '2B',
         'サード': '3B', 'ショート': 'SS', 'レフト': 'LF', 'センター': 'CF', 'ライト': 'RF',
         '指名打者': 'DH',
         '一塁手': '1B', '二塁手': '2B', '三塁手': '3B', '遊撃手': 'SS', '左翼手': 'LF', '中堅手': 'CF', '右翼手': 'RF',
-        '一塁': '1B', '二塁': '2B', '三塁': '3B', '遊撃': 'SS', '左翼': 'LF', '中堅': 'CF', '右翼': 'RF'
+        '一塁': '1B', '二塁': '2B', '三塁': '3B', '遊撃': 'SS', '左翼': 'LF', '中堅': 'CF', '右翼': 'RF',
+        '控え': 'BN', 'ベンチ': 'BN'
     };
 
     const SINGLE_CH_POS_MAP: Record<string, string> = {
         '投': 'P', '捕': 'C', '一': '1B', '二': '2B', '三': '3B',
-        '游': 'SS', '遊': 'SS', '左': 'LF', '中': 'CF', '右': 'RF', '指': 'DH'
+        '游': 'SS', '遊': 'SS', '左': 'LF', '中': 'CF', '右': 'RF', '指': 'DH', '凳': 'BN'
     };
 
     const EN_POS_MAP: Record<string, string> = {
         '1B': '1B', '2B': '2B', '3B': '3B', 'SS': 'SS', 'LF': 'LF', 'CF': 'CF', 'RF': 'RF',
         'DH': 'DH', 'OF': 'OF', 'IF': 'IF', 'SP': 'P', 'RP': 'P', 'CP': 'P', 'PH': 'PH', 'PR': 'PR',
-        'P': 'P', 'C': 'C'
+        'P': 'P', 'C': 'C',
+        '0B': 'BN', 'BENCH': 'BN', 'BN': 'BN'
     };
 
     for (const rawLine of rawLines) {
-        // ignore obvious headers
-        if (rawLine.match(/^(先發名單|lineup|打線|打擊順序|先發|bench|板凳|order|roster|away|home)/i) && rawLine.length < 15) continue;
+        // ignore obvious solitary headers (e.g. "先發名單", "Lineup:", "Order") without player data
+        if (rawLine.match(/^\s*(先發名單|lineup|打線|打擊順序|先發|order|roster|away|home)\s*[:：\-]?\s*$/i)) continue;
 
         // 1. Normalize line: fullwidth digits & letters & symbols
         let s = rawLine.replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
@@ -99,9 +102,9 @@ export function parseLineupText(text: string) {
             }
         }
 
-        // 5b. English position match with word boundaries (\bSS\b, \b2B\b, \bP\b, etc.)
+        // 5b. English position match with word boundaries (\bSS\b, \b2B\b, \b0B\b, \bBENCH\b, etc.)
         if (!position) {
-            const enPosRegex = /\b(1B|2B|3B|SS|LF|CF|RF|DH|OF|IF|SP|RP|CP|PH|PR|P|C)\b/i;
+            const enPosRegex = /\b(1B|2B|3B|0B|SS|LF|CF|RF|DH|OF|IF|SP|RP|CP|PH|PR|BENCH|BN|P|C)\b/i;
             const enMatch = s.match(enPosRegex);
             if (enMatch) {
                 const matchedUpper = enMatch[1].toUpperCase();
@@ -168,7 +171,8 @@ export function parseLineupText(text: string) {
 
         if (!name) name = 'Player';
 
-        results.push({ position, number, name, avg });
+        const isBench = position === 'BN' || position === '0B' || position.toUpperCase() === 'BENCH';
+        results.push({ position, number, name, avg, isBench });
     }
 
     return results;

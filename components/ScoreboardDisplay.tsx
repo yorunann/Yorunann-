@@ -25,7 +25,8 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 interface ScoreboardDisplayProps {
   state: GameState;
   dispatch: React.Dispatch<ActionType>;
-  language?: 'en' | 'zh';
+  language?: 'en' | 'zh' | 'ja';
+  isVerticalFullscreen?: boolean;
 }
 
 // Simple Audio Context Helper
@@ -319,7 +320,7 @@ const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: b
     );
 };
 
-export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayProps>(({ state, dispatch, language = 'zh' }, ref) => {
+export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayProps>(({ state, dispatch, language = 'zh', isVerticalFullscreen = false }, ref) => {
   const [showInningControls, setShowInningControls] = useState(false);
   const [showScoreControlsHome, setShowScoreControlsHome] = useState(false);
   const [showScoreControlsAway, setShowScoreControlsAway] = useState(false);
@@ -402,6 +403,10 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
   // Score Interaction Refs
   const scoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ignoreScoreClickRef = useRef(false);
+
+  // Broadcast Pinch Scaling Refs
+  const pinchStartDistRef = useRef<number | null>(null);
+  const pinchStartScaleRef = useRef<number>(1);
 
   // Audio Effects for Timer
   useEffect(() => {
@@ -534,10 +539,10 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
         <div className={`bg-slate-900 border-2 border-slate-700 rounded-xl overflow-hidden shadow-2xl relative font-display text-white w-full mx-auto flex flex-col h-full max-h-none`}>
         
         {/* Top Section */}
-        <div className={`flex flex-col sm:flex-row flex-1 min-h-0`}>
+        <div className={isVerticalFullscreen ? "flex flex-col flex-1 min-h-0" : "flex flex-row flex-1 min-h-0"}>
           
           {/* LEFT: Away Team */}
-          <div className="flex-1 sm:flex-none w-full sm:w-[35%] shrink-0 border-b-2 sm:border-b-0 sm:border-r-2 border-slate-700 relative group overflow-hidden order-1">
+          <div className={isVerticalFullscreen ? "flex-1 w-full shrink-0 border-b-2 border-slate-700 relative group overflow-hidden order-1" : "flex-none w-[35%] shrink-0 border-r-2 border-slate-700 relative group overflow-hidden"}>
              <div className="absolute inset-0 opacity-20 transition-colors duration-500" style={{ backgroundColor: state.awayTeam.color }}></div>
             
             <div className="flex h-full relative z-10 p-2 sm:p-4 lg:p-5 flex-col justify-between">
@@ -604,7 +609,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
           </div>
 
           {/* CENTER: Info */}
-          <div className="flex-1 sm:flex-none w-full sm:w-[30%] shrink-0 bg-slate-800 flex flex-col relative border-x-0 sm:border-x-2 border-slate-900 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] order-2">
+          <div className={isVerticalFullscreen ? "flex-1 w-full shrink-0 bg-slate-800 flex flex-col relative border-b-2 border-slate-700 order-2" : "flex-none w-[30%] shrink-0 bg-slate-800 flex flex-col relative border-r-2 border-slate-700 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]"}>
             
             {/* Top: Inning & Timer */}
             <div className="h-14 sm:h-20 lg:h-24 border-b border-slate-600 flex items-center justify-between px-3 bg-slate-800/80 shrink-0">
@@ -688,7 +693,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
             </div>
 
             {/* Middle: Bases & Counts */}
-            <div className="flex-1 flex flex-row sm:flex-col items-center justify-evenly w-full relative min-h-0">
+            <div className={isVerticalFullscreen ? "flex-1 flex flex-row items-center justify-evenly w-full relative min-h-0" : "flex-1 flex flex-col items-center justify-evenly w-full relative min-h-0"}>
                 <AnimatePresence>
                   {showKAnimation && (
                     <motion.div
@@ -726,7 +731,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     </motion.div>
                   )}
                 </AnimatePresence>
-                <div className="order-2 sm:order-1 w-1/2 sm:w-auto flex justify-start sm:justify-center shrink-0 transform scale-[0.85] sm:scale-80 lg:scale-100 origin-left sm:origin-center pl-4 sm:pl-0">
+                <div className={isVerticalFullscreen ? "order-2 w-1/2 flex justify-start shrink-0 transform scale-[0.85] origin-left pl-4" : "order-1 w-auto flex justify-center shrink-0 transform scale-[0.85] lg:scale-100 origin-center"}>
                    <Diamond 
                       bases={state.bases} 
                       onToggle={(idx) => dispatch({type: 'TOGGLE_BASE', baseIndex: idx})}
@@ -735,7 +740,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                    />
                 </div>
 
-                <div className="order-1 sm:order-2 w-1/2 sm:w-full flex justify-end sm:justify-center shrink-0 pr-2 sm:pr-0">
+                <div className={isVerticalFullscreen ? "order-1 w-1/2 flex justify-end shrink-0 pr-2" : "order-2 w-full flex justify-center shrink-0"}>
                     <div className="flex flex-col space-y-2 items-start">
                         {/* Balls */}
                         <div className="flex items-center gap-3 sm:gap-4 cursor-pointer group" onClick={handleBallClick}>
@@ -788,7 +793,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
           </div>
 
           {/* RIGHT: Home Team */}
-          <div className={`flex-1 sm:flex-none w-full sm:w-[35%] shrink-0 border-t-2 sm:border-t-0 sm:border-l-2 border-slate-700 relative group overflow-hidden order-3`}>
+          <div className={isVerticalFullscreen ? "flex-1 w-full shrink-0 border-t-2 border-slate-700 relative group overflow-hidden order-3" : "flex-none w-[35%] shrink-0 relative group overflow-hidden"}>
              <div className="absolute inset-0 opacity-20 transition-colors duration-500" style={{ backgroundColor: state.homeTeam.color }}></div>
 
              <div className="flex h-full p-2 sm:p-4 lg:p-5 flex-col justify-between text-right relative z-10">
@@ -876,15 +881,15 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
     const homeRuns = state.homeTeam.inningScores.reduce((sum, score) => sum + (score || 0), 0);
 
     return (
-        <div className="w-full h-full bg-slate-900 border-2 border-slate-700 rounded-xl overflow-hidden shadow-2xl flex flex-col sm:flex-row font-display text-white">
+        <div className={`w-full h-full bg-slate-900 border-2 border-slate-700 rounded-xl overflow-hidden shadow-2xl flex font-display text-white ${isVerticalFullscreen ? "flex-col" : "flex-row"}`}>
             
             {/* Left: Away Lineup */}
-            <div className="flex-1 sm:flex-none w-full sm:w-[26%] shrink-0 sm:h-full min-w-0 border-b-2 sm:border-b-0 sm:border-r-2 border-slate-700 order-2 sm:order-1">
+            <div className={isVerticalFullscreen ? "flex-1 w-full shrink-0 min-w-0 border-b-2 border-slate-700 order-2" : "flex-none w-[26%] shrink-0 h-full min-w-0 border-r-2 border-slate-700 order-1"}>
                 <LineupColumn team={state.awayTeam} isAway={true} state={state} dispatch={dispatch} />
             </div>
 
             {/* Center: Simplified Scoreboard */}
-            <div className="flex-1 sm:flex-none w-full sm:w-[48%] shrink-0 sm:h-full flex flex-col bg-slate-800 min-w-0 border-x-0 sm:border-x-2 border-slate-900 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] order-1 sm:order-2">
+            <div className={isVerticalFullscreen ? "flex-1 w-full shrink-0 flex flex-col bg-slate-800 min-w-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] order-1" : "flex-none w-[48%] shrink-0 h-full flex flex-col bg-slate-800 min-w-0 border-x-2 border-slate-900 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] order-2"}>
                 {/* Score Strip */}
                 <div className="h-[72px] sm:h-[88px] lg:h-[104px] bg-slate-950 flex border-b-2 border-slate-600 shrink-0">
                     {/* Away Score */}
@@ -1102,7 +1107,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
             </div>
 
             {/* Right: Home Lineup */}
-            <div className="flex-1 sm:flex-none w-full sm:w-[26%] shrink-0 sm:h-full min-w-0 border-t-2 sm:border-t-0 sm:border-l-2 border-slate-700 order-3">
+            <div className={isVerticalFullscreen ? "flex-1 w-full shrink-0 min-w-0 border-t-2 border-slate-700 order-3" : "flex-none w-[26%] shrink-0 h-full min-w-0 border-l-2 border-slate-700 order-3"}>
                 <LineupColumn team={state.homeTeam} isAway={false} state={state} dispatch={dispatch} />
             </div>
 
@@ -1302,12 +1307,43 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
       window.addEventListener('touchend', onUp);
     };
 
+    const handleBroadcastTouchStart = (e: React.TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        pinchStartDistRef.current = dist;
+        pinchStartScaleRef.current = state.meta.broadcastScale ?? 1;
+      } else if (e.touches.length === 1 && state.isAdjustmentMode) {
+        handleDrag(e);
+      }
+    };
+
+    const handleBroadcastTouchMove = (e: React.TouchEvent) => {
+      if (e.touches.length === 2 && pinchStartDistRef.current !== null) {
+        e.preventDefault();
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const factor = dist / pinchStartDistRef.current;
+        const newScale = Math.max(0.3, Math.min(2.5, Number((pinchStartScaleRef.current * factor).toFixed(2))));
+        dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: newScale });
+      }
+    };
+
+    const handleBroadcastTouchEnd = () => {
+      pinchStartDistRef.current = null;
+    };
+
     const handleScale = (e: React.WheelEvent) => {
       if (!state.isAdjustmentMode) return;
       e.preventDefault();
       const currentScale = state.meta.broadcastScale ?? 1;
       const delta = e.deltaY > 0 ? -0.05 : 0.05;
-      const newScale = Math.max(0.5, Math.min(2, currentScale + delta));
+      const newScale = Math.max(0.3, Math.min(2.5, Number((currentScale + delta).toFixed(2))));
       dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: newScale });
     };
 
@@ -1336,7 +1372,52 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
     const effectiveH = showHomePlayer ? homePlayerHeight : 0;
 
     return (
-      <div className="w-full h-full relative pointer-events-none animate-in slide-in-from-left duration-500 overflow-hidden select-none">
+      <div 
+        className="w-full h-full relative pointer-events-none animate-in slide-in-from-left duration-500 overflow-hidden select-none"
+        onTouchStart={handleBroadcastTouchStart}
+        onTouchMove={handleBroadcastTouchMove}
+        onTouchEnd={handleBroadcastTouchEnd}
+      >
+        {/* Mobile-Friendly Floating Broadcast Scaler: Always visible on mobile or adjustment mode */}
+        <div className="absolute top-3 right-3 z-50 flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 px-2.5 py-1.5 rounded-xl shadow-2xl backdrop-blur-md text-xs font-bold text-white pointer-events-auto">
+          <span className="text-slate-400 text-[10px] hidden sm:inline">{language === 'en' ? 'Scale' : language === 'zh' ? '縮放' : 'サイズ'}:</span>
+          <button 
+            onClick={() => dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: Math.max(0.3, Number(((state.meta.broadcastScale ?? 1) - 0.1).toFixed(2))) })}
+            className="w-7 h-7 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 rounded-lg flex items-center justify-center text-sm font-black border border-slate-600 active:scale-95 transition-transform"
+            title="Scale down -10%"
+          >
+            -
+          </button>
+          <span className="min-w-[42px] text-center text-yellow-400 font-mono text-xs font-bold">
+            {Math.round((state.meta.broadcastScale ?? 1) * 100)}%
+          </span>
+          <button 
+            onClick={() => dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: Math.min(2.5, Number(((state.meta.broadcastScale ?? 1) + 0.1).toFixed(2))) })}
+            className="w-7 h-7 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 rounded-lg flex items-center justify-center text-sm font-black border border-slate-600 active:scale-95 transition-transform"
+            title="Scale up +10%"
+          >
+            +
+          </button>
+          <button 
+            onClick={() => dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: 1.0 })}
+            className="px-2 py-1 text-[10px] text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded border border-slate-600 ml-0.5 active:scale-95"
+            title="Reset 100%"
+          >
+            100%
+          </button>
+          <button
+            onClick={() => dispatch({ type: 'TOGGLE_VISIBILITY', field: 'isAdjustmentMode' })}
+            className={`px-2 py-1 text-[10px] rounded border transition-colors ml-1 ${
+              state.isAdjustmentMode 
+                ? 'bg-blue-600 text-white border-blue-400 shadow-sm' 
+                : 'text-slate-400 hover:text-white bg-slate-800 border-slate-600'
+            }`}
+            title={language === 'zh' ? '版面位置拖曳調整' : 'Position Drag Mode'}
+          >
+            {language === 'zh' ? (state.isAdjustmentMode ? '拖曳中' : '拖曳') : 'Drag'}
+          </button>
+        </div>
+
         <div 
           className={`absolute bg-gradient-to-br from-cyan-950/30 via-slate-900/50 to-teal-950/30 backdrop-blur-xl border border-white/20 text-white font-display shadow-2xl shadow-black/50 pointer-events-auto overflow-hidden flex flex-col origin-top-left select-none ${state.isAdjustmentMode ? 'cursor-move ring-4 ring-blue-500 ring-offset-4 ring-offset-transparent' : ''}`} 
           style={{ 
@@ -1352,7 +1433,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
           {/* Width Resizer */}
           {state.isAdjustmentMode && (
             <div 
-              className="absolute right-0 top-0 bottom-0 w-4 cursor-ew-resize z-50 hover:bg-blue-500/50"
+              className="absolute right-0 top-0 bottom-0 w-6 cursor-ew-resize z-50 hover:bg-blue-500/50 touch-none"
               onMouseDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1374,12 +1455,30 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                 window.addEventListener('mousemove', onMove);
                 window.addEventListener('mouseup', onUp);
               }}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const touch = e.touches[0];
+                const startX = touch.clientX;
+                const startWidth = state.meta.broadcastWidth ?? 450;
+                const onTouchMove = (moveEvent: TouchEvent) => {
+                  if (!moveEvent.touches[0]) return;
+                  const newWidth = Math.max(300, startWidth + (moveEvent.touches[0].clientX - startX) / (state.meta.broadcastScale ?? 1));
+                  dispatch({ type: 'UPDATE_META', field: 'broadcastWidth', value: newWidth });
+                };
+                const onTouchEnd = () => {
+                  window.removeEventListener('touchmove', onTouchMove);
+                  window.removeEventListener('touchend', onTouchEnd);
+                };
+                window.addEventListener('touchmove', onTouchMove, { passive: false });
+                window.addEventListener('touchend', onTouchEnd);
+              }}
             />
           )}
           {/* Column Resizer */}
           {state.isAdjustmentMode && (
             <div 
-              className="absolute top-0 bottom-0 w-4 cursor-ew-resize z-50 hover:bg-blue-500/50"
+              className="absolute top-0 bottom-0 w-6 cursor-ew-resize z-50 hover:bg-blue-500/50 touch-none"
               style={{ right: `${(state.meta.broadcastRightColumnWidth ?? 150) - 8}px` }}
               onMouseDown={(e) => {
                 e.preventDefault();
@@ -1402,13 +1501,31 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                 window.addEventListener('mousemove', onMove);
                 window.addEventListener('mouseup', onUp);
               }}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const touch = e.touches[0];
+                const startX = touch.clientX;
+                const startWidth = state.meta.broadcastRightColumnWidth ?? 150;
+                const onTouchMove = (moveEvent: TouchEvent) => {
+                  if (!moveEvent.touches[0]) return;
+                  const newWidth = Math.max(100, startWidth - (moveEvent.touches[0].clientX - startX) / (state.meta.broadcastScale ?? 1));
+                  dispatch({ type: 'UPDATE_META', field: 'broadcastRightColumnWidth', value: newWidth });
+                };
+                const onTouchEnd = () => {
+                  window.removeEventListener('touchmove', onTouchMove);
+                  window.removeEventListener('touchend', onTouchEnd);
+                };
+                window.addEventListener('touchmove', onTouchMove, { passive: false });
+                window.addEventListener('touchend', onTouchEnd);
+              }}
             />
           )}
           
           {/* Corner Scaler */}
           {state.isAdjustmentMode && (
             <div 
-              className="absolute right-0 bottom-0 w-6 h-6 cursor-se-resize z-50 bg-blue-500/80 rounded-tl-lg flex items-center justify-center"
+              className="absolute right-0 bottom-0 w-8 h-8 cursor-se-resize z-50 bg-blue-500/90 rounded-tl-xl flex items-center justify-center shadow-lg active:bg-blue-600 touch-none"
               onMouseDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1419,7 +1536,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                 const startScale = state.meta.broadcastScale ?? 1;
                 const onMove = (moveEvent: MouseEvent) => {
                   const deltaY = moveEvent.clientY - startY;
-                  const newScale = Math.max(0.2, Math.min(3, startScale + deltaY * 0.005));
+                  const newScale = Math.max(0.2, Math.min(3, Number((startScale + deltaY * 0.005).toFixed(2))));
                   dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: newScale });
                 };
                 const onUp = () => {
@@ -1431,8 +1548,27 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                 window.addEventListener('mousemove', onMove);
                 window.addEventListener('mouseup', onUp);
               }}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const touch = e.touches[0];
+                const startY = touch.clientY;
+                const startScale = state.meta.broadcastScale ?? 1;
+                const onTouchMove = (moveEvent: TouchEvent) => {
+                  if (!moveEvent.touches[0]) return;
+                  const deltaY = moveEvent.touches[0].clientY - startY;
+                  const newScale = Math.max(0.2, Math.min(3, Number((startScale + deltaY * 0.005).toFixed(2))));
+                  dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: newScale });
+                };
+                const onTouchEnd = () => {
+                  window.removeEventListener('touchmove', onTouchMove);
+                  window.removeEventListener('touchend', onTouchEnd);
+                };
+                window.addEventListener('touchmove', onTouchMove, { passive: false });
+                window.addEventListener('touchend', onTouchEnd);
+              }}
             >
-              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" className="text-white transform rotate-90"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" className="text-white transform rotate-90"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
             </div>
           )}
 

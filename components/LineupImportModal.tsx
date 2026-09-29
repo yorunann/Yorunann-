@@ -6,7 +6,7 @@ import { parseLineupText } from '../utils/parseLineupText';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (players: Player[]) => void;
+  onImport: (players: Player[], benchPlayers?: Player[]) => void;
   language?: 'en' | 'zh' | 'ja';
   currentPlayers?: Player[];
 }
@@ -106,16 +106,33 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
     setPreviewData(prev => prev.filter((_, idx) => idx !== index));
   };
 
-  const handleImportReplace = () => {
-    if (confirm(language === 'en' ? 'Are you sure you want to clear the current lineup and import?' : language === 'zh' ? '確定要清空現有名單並匯入嗎？' : '現在のラインナップをクリアしてインポートしますか？')) {
-      const players: Player[] = previewData.map((p, index) => ({
-        id: Math.random().toString(36).substring(2, 9),
+  const separatePlayers = (data: Partial<Player>[]) => {
+    const lineupPlayers: Player[] = [];
+    const benchPlayers: Player[] = [];
+
+    data.forEach((p, index) => {
+      const isB = (p as any).isBench || p.position === 'BN' || p.position === '0B' || p.position?.toUpperCase() === 'BENCH' || p.position === '板凳';
+      const playerObj: Player = {
+        id: p.id || Math.random().toString(36).substring(2, 9),
         name: p.name || `Player ${index + 1}`,
         number: p.number || '00',
-        stat: p.stat || p.avg || '.000',
-        position: p.position || 'DH'
-      }));
-      onImport(players);
+        stat: p.stat || (p as any).avg || '.000',
+        position: isB ? 'BN' : (p.position || 'DH')
+      };
+      if (isB) {
+        benchPlayers.push(playerObj);
+      } else {
+        lineupPlayers.push(playerObj);
+      }
+    });
+
+    return { lineupPlayers, benchPlayers };
+  };
+
+  const handleImportReplace = () => {
+    if (confirm(language === 'en' ? 'Are you sure you want to clear the current lineup and import?' : language === 'zh' ? '確定要清空現有名單並匯入嗎？' : '現在のラインナップをクリアしてインポートしますか？')) {
+      const { lineupPlayers, benchPlayers } = separatePlayers(previewData);
+      onImport(lineupPlayers, benchPlayers);
       setPreviewData([]);
       setText('');
       onClose();
@@ -129,14 +146,8 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
       : (language === 'en' ? 'Append these players to the current lineup?' : language === 'zh' ? '確定要直接接續現有名單並匯入嗎？' : '現在のラインナップに追加してインポートしますか？');
       
     if (confirm(msg)) {
-      const players: Player[] = previewData.map((p, index) => ({
-        id: Math.random().toString(36).substring(2, 9),
-        name: p.name || `Player ${index + 1}`,
-        number: p.number || '00',
-        stat: p.stat || p.avg || '.000',
-        position: p.position || 'DH'
-      }));
-      onImport([...localCurrentPlayers, ...players]);
+      const { lineupPlayers, benchPlayers } = separatePlayers(previewData);
+      onImport([...localCurrentPlayers, ...lineupPlayers], benchPlayers);
       setPreviewData([]);
       setText('');
       onClose();
@@ -366,8 +377,14 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
                         </td>
                       </tr>
                     ) : previewData.map((p, idx) => (
-                    <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="px-2 py-1.5 text-center font-bold text-slate-500 shrink-0">{idx + 1}</td>
+                    <tr key={idx} className={`hover:bg-slate-800/40 transition-colors ${(p as any).isBench || p.position === 'BN' || p.position === '0B' ? 'bg-amber-950/20' : ''}`}>
+                      <td className="px-2 py-1.5 text-center font-bold text-slate-500 shrink-0">
+                        {(p as any).isBench || p.position === 'BN' || p.position === '0B' ? (
+                          <span className="bg-amber-600/80 text-white text-[9px] px-1 py-0.5 rounded font-bold">板凳</span>
+                        ) : (
+                          idx + 1
+                        )}
+                      </td>
                       <td className="px-1.5 py-1.5 shrink-0">
                         <input 
                           type="text" 

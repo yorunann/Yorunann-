@@ -142,7 +142,7 @@ export type ActionType =
   | { type: 'UPDATE_PLAYER'; team: 'home' | 'away'; role: 'pitcher' | 'batter'; field: keyof Player; value: string }
   | { type: 'INCREMENT_PLAYER_STAT'; role: 'pitcher' | 'batter' }
   | { type: 'DECREMENT_PLAYER_STAT'; role: 'pitcher' | 'batter' }
-  | { type: 'UPDATE_TEAM'; team: 'home' | 'away'; field: keyof Team; value: any } // value can be string or number or array
+  | { type: 'UPDATE_TEAM'; team: 'home' | 'away'; field?: keyof Team; value?: any; data?: Partial<Team> }
   | { type: 'APPLY_TEAM_CONFIG'; team: 'home' | 'away'; config: Partial<Team> }
   | { type: 'UPDATE_PITCH'; field: keyof PitchInfo; value: string }
   | { type: 'SET_TIMER'; value: number }
@@ -155,13 +155,19 @@ export type ActionType =
   | { type: 'ADD_PLAYER_TO_LINEUP'; team: 'home' | 'away' }
   | { type: 'UPDATE_LINEUP_PLAYER'; team: 'home' | 'away'; index: number; field: keyof Player; value: string }
   | { type: 'REMOVE_PLAYER_FROM_LINEUP'; team: 'home' | 'away'; index: number }
+  | { type: 'ADD_PLAYER_TO_BENCH'; team: 'home' | 'away'; player?: Partial<Player> }
+  | { type: 'UPDATE_BENCH_PLAYER'; team: 'home' | 'away'; index: number; field: keyof Player; value: string }
+  | { type: 'REMOVE_PLAYER_FROM_BENCH'; team: 'home' | 'away'; index: number }
+  | { type: 'SWAP_LINEUP_BENCH'; team: 'home' | 'away'; lineupIndex: number; benchIndex: number }
   | { type: 'MOVE_TO_BENCH'; team: 'home' | 'away'; index: number }
   | { type: 'MOVE_TO_LINEUP'; team: 'home' | 'away'; index: number }
   | { type: 'REORDER_LINEUP'; team: 'home' | 'away'; startIndex: number; endIndex: number }
   | { type: 'REORDER_BENCH'; team: 'home' | 'away'; startIndex: number; endIndex: number }
+  | { type: 'SET_INNING_SCORE'; team: 'home' | 'away'; inningIndex: number; score: number | null }
+  | { type: 'THREE_UP_THREE_DOWN' }
   | { type: 'UPDATE_META'; field: keyof GameMeta; value: any }
-  | { type: 'TOGGLE_VISIBILITY'; field: 'showPlayerStat' | 'showBatterInfo' | 'showPitcherInfo' | 'showPitchInfo' | 'showCount' | 'showTimer' }
-  | { type: 'SET_VISIBILITY'; field: 'showBatterInfo' | 'showPitcherInfo' | 'showPitchInfo' | 'showCount' | 'showTimer'; value: boolean }
+  | { type: 'TOGGLE_VISIBILITY'; field: 'showPlayerStat' | 'showBatterInfo' | 'showPitcherInfo' | 'showPitchInfo' | 'showCount' | 'showTimer' | 'isAdjustmentMode' }
+  | { type: 'SET_VISIBILITY'; field: 'showPlayerStat' | 'showBatterInfo' | 'showPitcherInfo' | 'showPitchInfo' | 'showCount' | 'showTimer'; value: boolean }
   | { type: 'SET_DISPLAY_MODE'; mode: 'default' | 'lineup' | 'rhe' | 'broadcast' }
   | { type: 'TOGGLE_DISPLAY_MODE' }
   | { type: 'TOGGLE_LINEUP_MODE' }

@@ -8,7 +8,7 @@ interface ImageCropperModalProps {
   imageSrc: string;
   onClose: () => void;
   onCropComplete: (croppedImage: string) => void;
-  language?: 'en' | 'zh';
+  language?: 'en' | 'zh' | 'ja';
 }
 
 export const ImageCropperModal: React.FC<ImageCropperModalProps> = ({
