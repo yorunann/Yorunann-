@@ -6,6 +6,11 @@ export interface Player {
   number: string;
   stat: string; // e.g., "1-1" for batter, "P:60" for pitcher
   position?: string;
+  atBats?: string[];
+  avg?: string;
+  inningsPitched?: string;
+  strikeouts?: number;
+  pitchCount?: number;
 }
 
 export interface Team {
@@ -56,6 +61,7 @@ export interface GameMeta {
   broadcastLogoSize?: number;
   broadcastCountGap?: number;
   broadcastPlayerNumberStyle?: 'normal' | 'gray' | 'hidden';
+  swapSides?: boolean;
   settingsVersion?: number;
 }
 
@@ -116,11 +122,13 @@ export type ActionType =
   | { type: 'DECREMENT_BALL' }
   | { type: 'INCREMENT_STRIKE' }
   | { type: 'DECREMENT_STRIKE' }
+  | { type: 'TRIGGER_K' }
   | { type: 'INCREMENT_OUT' }
   | { type: 'DECREMENT_OUT' }
   | { type: 'RESET_COUNT' }
   | { type: 'TOGGLE_BASE'; baseIndex: 0 | 1 | 2 }
   | { type: 'ADD_SCORE'; team: 'home' | 'away'; amount: number }
+  | { type: 'ADD_HIT'; team: 'home' | 'away'; amount?: number }
   | { type: 'RESET_SCORE' }
   | { type: 'RESET_GAME' }
   | { type: 'RESET_TEAM'; team: 'home' | 'away' }
@@ -165,6 +173,8 @@ export type ActionType =
   | { type: 'REORDER_BENCH'; team: 'home' | 'away'; startIndex: number; endIndex: number }
   | { type: 'SET_INNING_SCORE'; team: 'home' | 'away'; inningIndex: number; score: number | null }
   | { type: 'THREE_UP_THREE_DOWN' }
+  | { type: 'RECORD_AT_BAT'; team?: 'home' | 'away'; playerIndex?: number; result: string }
+  | { type: 'CLEAR_ALL_AT_BATS' }
   | { type: 'UPDATE_META'; field: keyof GameMeta; value: any }
   | { type: 'TOGGLE_VISIBILITY'; field: 'showPlayerStat' | 'showBatterInfo' | 'showPitcherInfo' | 'showPitchInfo' | 'showCount' | 'showTimer' | 'isAdjustmentMode' }
   | { type: 'SET_VISIBILITY'; field: 'showPlayerStat' | 'showBatterInfo' | 'showPitcherInfo' | 'showPitchInfo' | 'showCount' | 'showTimer'; value: boolean }

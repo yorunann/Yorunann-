@@ -21,7 +21,8 @@ import {
   ArrowDown,
   ArrowUp,
   Flame,
-  Check
+  Check,
+  X
 } from 'lucide-react';
 import { LineupImportModal } from './LineupImportModal';
 import { ImageCropperModal } from './ImageCropperModal';
@@ -42,6 +43,8 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [cropModalOpen, setCropModalOpen] = useState(false);
   const [tempImageSrc, setTempImageSrc] = useState('');
+  const [isWalkModalOpen, setIsWalkModalOpen] = useState(false);
+  const [isOutModalOpen, setIsOutModalOpen] = useState(false);
 
   // Customizable Timer Presets (stored in localStorage)
   const [preset1, setPreset1] = useState<number>(() => {
@@ -94,6 +97,70 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
     ? (state.awayTeam.baseColor || state.awayTeam.color || '#facc15')
     : (state.homeTeam.baseColor || state.homeTeam.color || '#facc15');
 
+  // Confirm Walk from Modal
+  const handleConfirmWalk = (walkType: '四球' | '觸身' | '不死三振') => {
+    if (!state.bases[0]) {
+      dispatch({ type: 'TOGGLE_BASE', baseIndex: 0 });
+    } else if (!state.bases[1]) {
+      dispatch({ type: 'TOGGLE_BASE', baseIndex: 1 });
+    } else if (!state.bases[2]) {
+      dispatch({ type: 'TOGGLE_BASE', baseIndex: 2 });
+    } else {
+      dispatch({ type: 'ADD_SCORE', team: isTop ? 'away' : 'home', amount: 1 });
+    }
+    dispatch({ type: 'RESET_COUNT' });
+    dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
+    dispatch({ type: 'RECORD_AT_BAT', result: walkType });
+    dispatch({ type: 'NEXT_BATTER' });
+    setIsWalkModalOpen(false);
+  };
+
+  // Confirm Out from Modal
+  const handleConfirmOut = (outType: '高飛' | '滾地' | '野選' | '雙殺' | '三振' | '出局') => {
+    if (outType === '雙殺') {
+      dispatch({ type: 'RECORD_AT_BAT', result: '雙殺' });
+      if (state.outs >= 1) {
+        dispatch({ type: 'RESET_COUNT' });
+        dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
+        dispatch({ type: 'NEXT_BATTER' });
+        dispatch({ type: 'NEXT_INNING' });
+      } else {
+        dispatch({ type: 'INCREMENT_OUT' });
+        dispatch({ type: 'INCREMENT_OUT' });
+        if (state.bases[0]) {
+          dispatch({ type: 'TOGGLE_BASE', baseIndex: 0 });
+        }
+        dispatch({ type: 'RESET_COUNT' });
+        dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
+        dispatch({ type: 'NEXT_BATTER' });
+      }
+    } else if (outType === '野選') {
+      dispatch({ type: 'RECORD_AT_BAT', result: '野選' });
+      if (!state.bases[0]) {
+        dispatch({ type: 'TOGGLE_BASE', baseIndex: 0 });
+      }
+      dispatch({ type: 'INCREMENT_OUT' });
+      dispatch({ type: 'RESET_COUNT' });
+      dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
+      dispatch({ type: 'NEXT_BATTER' });
+    } else if (outType === '三振') {
+      dispatch({ type: 'RECORD_AT_BAT', result: '三振' });
+      dispatch({ type: 'TRIGGER_K' });
+      dispatch({ type: 'INCREMENT_OUT' });
+      dispatch({ type: 'RESET_COUNT' });
+      dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
+      dispatch({ type: 'NEXT_BATTER' });
+    } else {
+      // 高飛, 滾地, 出局
+      dispatch({ type: 'RECORD_AT_BAT', result: outType });
+      dispatch({ type: 'INCREMENT_OUT' });
+      dispatch({ type: 'RESET_COUNT' });
+      dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
+      dispatch({ type: 'NEXT_BATTER' });
+    }
+    setIsOutModalOpen(false);
+  };
+
   // Quick Hit/Outcome dispatch
   const handleQuickOutcome = (type: '1B' | '2B' | '3B' | 'HR' | 'BB' | 'OUT' | '3OUT') => {
     switch (type) {
@@ -107,6 +174,8 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
         if (state.bases[2] !== newBases[2]) dispatch({ type: 'TOGGLE_BASE', baseIndex: 2 });
         dispatch({ type: 'RESET_COUNT' });
         dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
+        dispatch({ type: 'ADD_HIT', team: isTop ? 'away' : 'home' });
+        dispatch({ type: 'RECORD_AT_BAT', result: '一安' });
         dispatch({ type: 'NEXT_BATTER' });
         break;
       }
@@ -119,6 +188,8 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
         if (state.bases[2] !== newB[2]) dispatch({ type: 'TOGGLE_BASE', baseIndex: 2 });
         dispatch({ type: 'RESET_COUNT' });
         dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
+        dispatch({ type: 'ADD_HIT', team: isTop ? 'away' : 'home' });
+        dispatch({ type: 'RECORD_AT_BAT', result: '二安' });
         dispatch({ type: 'NEXT_BATTER' });
         break;
       }
@@ -130,37 +201,29 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
         if (!state.bases[2]) dispatch({ type: 'TOGGLE_BASE', baseIndex: 2 });
         dispatch({ type: 'RESET_COUNT' });
         dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
+        dispatch({ type: 'ADD_HIT', team: isTop ? 'away' : 'home' });
+        dispatch({ type: 'RECORD_AT_BAT', result: '三安' });
         dispatch({ type: 'NEXT_BATTER' });
         break;
       }
       case 'HR': {
-        // Reducer handles score calculation, runners clear, and trigger full celebration animation!
+        // Reducer handles score calculation, team hits +1, atBat '全壘打', runners clear, and celebration animation!
         dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
         dispatch({ type: 'HOME_RUN' });
         break;
       }
       case 'BB': {
-        if (!state.bases[0]) {
-          dispatch({ type: 'TOGGLE_BASE', baseIndex: 0 });
-        } else if (!state.bases[1]) {
-          dispatch({ type: 'TOGGLE_BASE', baseIndex: 1 });
-        } else if (!state.bases[2]) {
-          dispatch({ type: 'TOGGLE_BASE', baseIndex: 2 });
-        } else {
-          dispatch({ type: 'ADD_SCORE', team: isTop ? 'away' : 'home', amount: 1 });
-        }
-        dispatch({ type: 'RESET_COUNT' });
-        dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
-        dispatch({ type: 'NEXT_BATTER' });
+        // Opens Walk Type Selection Modal
+        setIsWalkModalOpen(true);
         break;
       }
       case 'OUT': {
-        dispatch({ type: 'INCREMENT_OUT' });
-        dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
-        dispatch({ type: 'NEXT_BATTER' });
+        // Opens Out Type Selection Modal
+        setIsOutModalOpen(true);
         break;
       }
       case '3OUT': {
+        dispatch({ type: 'RECORD_AT_BAT', result: '出局' });
         dispatch({ type: 'THREE_UP_THREE_DOWN' });
         break;
       }
@@ -1406,6 +1469,246 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
         onCropComplete={handleCropComplete}
         language={language}
       />
+
+      {/* WALK TYPE SELECTION MODAL (保送類型彈窗) */}
+      {isWalkModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-lg font-black text-white flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+                  <span>{language === 'zh' ? '選擇保送類型' : language === 'ja' ? '四死球タイプの選択' : 'Select Walk Type'}</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {language === 'zh' ? `打者：第 ${battingTeam.currentBatterIndex + 1} 棒 ${activeBatter.name}` : language === 'ja' ? `打者：${battingTeam.currentBatterIndex + 1}番 ${activeBatter.name}` : `Batter: #${battingTeam.currentBatterIndex + 1} ${activeBatter.name}`}
+                </p>
+              </div>
+              <button 
+                onClick={() => setIsWalkModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2.5">
+              <button
+                onClick={() => handleConfirmWalk('四球')}
+                className="flex items-center justify-between p-3.5 bg-slate-800/80 hover:bg-sky-950/60 border border-slate-700 hover:border-sky-500/80 rounded-xl transition-all group text-left active:scale-98"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-black px-2.5 py-1 rounded bg-sky-500/20 text-sky-300 border border-sky-500/40">
+                    BB
+                  </span>
+                  <div>
+                    <div className="text-sm font-bold text-white group-hover:text-sky-300 transition-colors">
+                      {language === 'zh' ? '四球 (四壞保送)' : language === 'ja' ? '四球 (フォアボール)' : 'Base on Balls (BB)'}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      {language === 'zh' ? '投手累計 4 顆壞球，壘上跑者強制推進，打者上至一壘' : language === 'ja' ? '4ボールによる出塁、走者押し出し進塁' : '4 balls, forced runners advance, batter to 1st'}
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-slate-500 group-hover:text-sky-400 group-hover:translate-x-0.5 transition-all" />
+              </button>
+
+              <button
+                onClick={() => handleConfirmWalk('觸身')}
+                className="flex items-center justify-between p-3.5 bg-slate-800/80 hover:bg-cyan-950/60 border border-slate-700 hover:border-cyan-500/80 rounded-xl transition-all group text-left active:scale-98"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-black px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                    HBP
+                  </span>
+                  <div>
+                    <div className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
+                      {language === 'zh' ? '觸身 (觸身球保送)' : language === 'ja' ? '死球 (デッドボール)' : 'Hit by Pitch (HBP)'}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      {language === 'zh' ? '投球擊中打者身體，直接保送上一壘' : language === 'ja' ? '投球が打者に直撃、打者1塁へ進塁' : 'Pitch hits batter, batter awarded 1st base'}
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all" />
+              </button>
+
+              <button
+                onClick={() => handleConfirmWalk('不死三振')}
+                className="flex items-center justify-between p-3.5 bg-slate-800/80 hover:bg-purple-950/60 border border-slate-700 hover:border-purple-500/80 rounded-xl transition-all group text-left active:scale-98"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-black px-2.5 py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                    D3K
+                  </span>
+                  <div>
+                    <div className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors">
+                      {language === 'zh' ? '不死三振 (暴投/捕逸上壘)' : language === 'ja' ? '振り逃げ (暴投・捕逸)' : 'Uncaught 3rd Strike (D3K)'}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      {language === 'zh' ? '捕手第三好球未確實接捕，打者跑上一壘' : language === 'ja' ? '第3ストライク捕球失敗により打者出塁' : 'Catcher misses 3rd strike, batter safely reaches 1st'}
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-slate-500 group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all" />
+              </button>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-800">
+              <button
+                onClick={() => setIsWalkModalOpen(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition-colors"
+              >
+                {language === 'zh' ? '取消' : language === 'ja' ? 'キャンセル' : 'Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OUT TYPE SELECTION MODAL (出局方式彈窗) */}
+      {isOutModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-lg font-black text-white flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                  <span>{language === 'zh' ? '選擇出局類型' : language === 'ja' ? 'アウト種別の選択' : 'Select Out Type'}</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {language === 'zh' ? `打者：第 ${battingTeam.currentBatterIndex + 1} 棒 ${activeBatter.name} | 目前：${state.outs} 出局` : language === 'ja' ? `打者：${battingTeam.currentBatterIndex + 1}番 ${activeBatter.name} | 現在：${state.outs} アウト` : `Batter: #${battingTeam.currentBatterIndex + 1} ${activeBatter.name} | Current: ${state.outs} OUT`}
+                </p>
+              </div>
+              <button 
+                onClick={() => setIsOutModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                onClick={() => handleConfirmOut('高飛')}
+                className="p-3 bg-slate-800/80 hover:bg-blue-950/60 border border-slate-700 hover:border-blue-500/80 rounded-xl transition-all group text-left active:scale-98"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-black px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                    FO
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono">+1 OUT</span>
+                </div>
+                <div className="text-sm font-bold text-white group-hover:text-blue-300 transition-colors">
+                  {language === 'zh' ? '高飛' : language === 'ja' ? 'フライ' : 'Flyout'}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {language === 'zh' ? '外野或內野高飛球接殺' : language === 'ja' ? '飛球捕球' : 'Catch on fly'}
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleConfirmOut('滾地')}
+                className="p-3 bg-slate-800/80 hover:bg-amber-950/60 border border-slate-700 hover:border-amber-500/80 rounded-xl transition-all group text-left active:scale-98"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-black px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    GO
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono">+1 OUT</span>
+                </div>
+                <div className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
+                  {language === 'zh' ? '滾地' : language === 'ja' ? 'ゴロ' : 'Groundout'}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {language === 'zh' ? '內野滾地球傳一壘刺殺' : language === 'ja' ? 'ゴロ送球刺殺' : 'Grounder to base'}
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleConfirmOut('野選')}
+                className="p-3 bg-slate-800/80 hover:bg-orange-950/60 border border-slate-700 hover:border-orange-500/80 rounded-xl transition-all group text-left active:scale-98"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-black px-2 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/40">
+                    FC
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono">+1 OUT</span>
+                </div>
+                <div className="text-sm font-bold text-white group-hover:text-orange-300 transition-colors">
+                  {language === 'zh' ? '野選' : language === 'ja' ? '野選' : "Fielder's Choice"}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {language === 'zh' ? '前位跑者出局，打者上一壘' : language === 'ja' ? '野選による打者出塁' : 'Lead runner out, batter safe'}
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleConfirmOut('雙殺')}
+                className="p-3 bg-slate-800/80 hover:bg-rose-950/70 border border-slate-700 hover:border-rose-500/80 rounded-xl transition-all group text-left active:scale-98"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-black px-2 py-0.5 rounded bg-rose-500/30 text-rose-300 border border-rose-500/50">
+                    DP
+                  </span>
+                  <span className="text-[10px] text-rose-400 font-mono font-bold">+2 OUT</span>
+                </div>
+                <div className="text-sm font-black text-rose-200 group-hover:text-rose-100 transition-colors">
+                  {language === 'zh' ? '雙殺' : language === 'ja' ? '併殺' : 'Double Play'}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {language === 'zh' ? '出局數 +2，一壘跑者出局' : language === 'ja' ? '併殺 (2アウト計上)' : 'Double play (2 outs)'}
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleConfirmOut('三振')}
+                className="p-3 bg-slate-800/80 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-500/80 rounded-xl transition-all group text-left active:scale-98"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-black px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                    K
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono">+1 OUT</span>
+                </div>
+                <div className="text-sm font-bold text-white group-hover:text-rose-300 transition-colors">
+                  {language === 'zh' ? '三振' : language === 'ja' ? '三振' : 'Strikeout'}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {language === 'zh' ? '揮空或定裝三振出局' : language === 'ja' ? '奪三振' : 'Strikeout (K)'}
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleConfirmOut('出局')}
+                className="p-3 bg-slate-800/80 hover:bg-slate-700/60 border border-slate-700 hover:border-slate-500 rounded-xl transition-all group text-left active:scale-98"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-black px-2 py-0.5 rounded bg-slate-700 text-slate-300 border border-slate-600">
+                    OUT
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono">+1 OUT</span>
+                </div>
+                <div className="text-sm font-bold text-white group-hover:text-slate-200 transition-colors">
+                  {language === 'zh' ? '一般出局' : language === 'ja' ? 'アウト' : 'Out'}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {language === 'zh' ? '普通出局數 +1' : language === 'ja' ? '1アウト追加' : 'Standard 1 out'}
+                </div>
+              </button>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-800">
+              <button
+                onClick={() => setIsOutModalOpen(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition-colors"
+              >
+                {language === 'zh' ? '取消' : language === 'ja' ? 'キャンセル' : 'Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

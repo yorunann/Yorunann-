@@ -29,6 +29,93 @@ interface ScoreboardDisplayProps {
   isVerticalFullscreen?: boolean;
 }
 
+export const formatAtBatChinese = (ab: string, lang: 'en' | 'zh' | 'ja' = 'zh'): { label: string; style: string } => {
+    switch (ab) {
+        case '1B':
+        case '一安':
+            return { 
+                label: lang === 'en' ? '1B' : lang === 'ja' ? '単打' : '一安', 
+                style: 'text-emerald-300 bg-emerald-950/80 border-emerald-500/70 font-bold' 
+            };
+        case '2B':
+        case '二安':
+            return { 
+                label: lang === 'en' ? '2B' : lang === 'ja' ? '二塁打' : '二安', 
+                style: 'text-emerald-300 bg-emerald-950/80 border-emerald-500/70 font-bold' 
+            };
+        case '3B':
+        case '三安':
+            return { 
+                label: lang === 'en' ? '3B' : lang === 'ja' ? '三塁打' : '三安', 
+                style: 'text-emerald-300 bg-emerald-950/80 border-emerald-500/70 font-bold' 
+            };
+        case 'HR':
+        case '全壘打':
+            return { 
+                label: lang === 'en' ? 'HR' : lang === 'ja' ? '本塁打' : '全壘打', 
+                style: 'text-amber-300 bg-amber-950/90 border-amber-400 font-black shadow-[0_0_10px_rgba(251,191,36,0.3)]' 
+            };
+        case 'BB':
+        case '四球':
+        case '四壞':
+            return { 
+                label: lang === 'en' ? 'BB' : lang === 'ja' ? '四球' : '四球', 
+                style: 'text-sky-300 bg-sky-950/80 border-sky-500/70 font-bold' 
+            };
+        case 'HBP':
+        case '觸身':
+            return { 
+                label: lang === 'en' ? 'HBP' : lang === 'ja' ? '死球' : '觸身', 
+                style: 'text-cyan-300 bg-cyan-950/80 border-cyan-500/70 font-bold' 
+            };
+        case 'D3K':
+        case '不死三振':
+        case '不死':
+            return { 
+                label: lang === 'en' ? 'D3K' : lang === 'ja' ? '振逃' : '不死', 
+                style: 'text-purple-300 bg-purple-950/80 border-purple-500/70 font-black' 
+            };
+        case 'K':
+        case '三振':
+            return { 
+                label: lang === 'en' ? 'K' : lang === 'ja' ? '三振' : '三振', 
+                style: 'text-rose-300 bg-rose-950/80 border-rose-500/70 font-bold' 
+            };
+        case '高飛':
+        case 'FO':
+            return { 
+                label: lang === 'en' ? 'FO' : lang === 'ja' ? '飛球' : '高飛', 
+                style: 'text-slate-200 bg-slate-800/90 border-slate-600 font-bold' 
+            };
+        case '滾地':
+        case 'GO':
+            return { 
+                label: lang === 'en' ? 'GO' : lang === 'ja' ? 'ゴロ' : '滾地', 
+                style: 'text-slate-200 bg-slate-800/90 border-slate-600 font-bold' 
+            };
+        case '野選':
+        case 'FC':
+            return { 
+                label: lang === 'en' ? 'FC' : lang === 'ja' ? '野選' : '野選', 
+                style: 'text-orange-300 bg-orange-950/80 border-orange-500/70 font-bold' 
+            };
+        case '雙殺':
+        case 'DP':
+            return { 
+                label: lang === 'en' ? 'DP' : lang === 'ja' ? '併殺' : '雙殺', 
+                style: 'text-rose-400 bg-red-950/90 border-rose-600 font-black shadow-[0_0_10px_rgba(244,63,94,0.3)]' 
+            };
+        case 'OUT':
+        case '出局':
+            return { 
+                label: lang === 'en' ? 'OUT' : lang === 'ja' ? '凡退' : '出局', 
+                style: 'text-slate-300 bg-slate-800/80 border-slate-700 font-medium' 
+            };
+        default:
+            return { label: ab, style: 'text-slate-300 bg-slate-800/80 border-slate-700' };
+    }
+};
+
 // Simple Audio Context Helper
 const playBeep = (freq: number, duration: number, type: 'sine' | 'square' | 'triangle' = 'sine') => {
   try {
@@ -106,8 +193,25 @@ const TeamLogo = ({ team, isActive }: { team: Team, isActive?: boolean }) => {
     );
 };
 
-interface SortablePlayerItemProps { p: Player; idx: number; activeBatterId: string | undefined; isAway: boolean; isBench?: boolean; state?: any; dispatch?: any; }
-const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({ p, idx, activeBatterId, isAway, isBench, state }) => {
+interface SortablePlayerItemProps { 
+  p: Player; 
+  idx: number; 
+  activeBatterId: string | undefined; 
+  isAway: boolean; 
+  isBench?: boolean; 
+  state?: any; 
+  dispatch?: any; 
+  scaleMode?: 'large' | 'medium' | 'compact';
+}
+
+const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({ 
+  p, 
+  idx, 
+  activeBatterId, 
+  isAway, 
+  isBench, 
+  scaleMode = 'medium' 
+}) => {
     const {
         attributes,
         listeners,
@@ -124,22 +228,43 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({ p, idx, activeB
         opacity: isDragging ? 0.5 : 1
     };
 
+    const isLarge = scaleMode === 'large';
+    const isCompact = scaleMode === 'compact';
+
+    const rowPadding = isLarge ? "px-2 py-0.5 sm:py-1" : isCompact ? "px-1 py-0" : "px-1.5 py-0.5";
+    const orderTextSize = isLarge ? "text-xs sm:text-sm font-black w-4 sm:w-5" : isCompact ? "text-[9px] w-3" : "text-[10px] sm:text-xs w-3.5";
+    const nameTextSize = isLarge ? "text-xs sm:text-base lg:text-lg font-black" : isCompact ? "text-[10px] font-bold" : "text-xs sm:text-sm font-bold";
+    const numberTextSize = isLarge ? "text-xs sm:text-sm text-slate-400 font-semibold" : isCompact ? "text-[8px] text-slate-400" : "text-[9px] sm:text-[10px] text-slate-400";
+    const posTextSize = isLarge ? "text-xs sm:text-sm font-mono font-black" : isCompact ? "text-[9px] font-mono font-bold" : "text-[10px] sm:text-xs font-mono font-bold";
+
     return (
         <div 
             ref={setNodeRef} 
             style={style} 
             {...attributes} 
             {...listeners} 
-            className={`flex justify-between items-center px-1.5 sm:px-2 py-1 rounded transition-colors cursor-grab active:cursor-grabbing ${activeBatterId === p.id && !isBench ? "bg-blue-600/30 ring-1 ring-blue-500" : "hover:bg-slate-700/50"}`}
+            className={`flex-1 min-h-0 flex justify-between items-center ${rowPadding} rounded-lg transition-colors cursor-grab active:cursor-grabbing ${activeBatterId === p.id && !isBench ? "bg-blue-600/35 ring-1.5 ring-blue-400 shadow-md" : "hover:bg-slate-700/50"}`}
         >
-            <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
-                {!isBench && <span className="text-[10px] sm:text-xs text-slate-400 font-mono w-3 sm:w-4 shrink-0">{idx + 1}.</span>}
-                <span className={`text-[10px] sm:text-xs font-bold truncate ${activeBatterId === p.id && !isBench ? "text-white" : "text-slate-300"}`}>
-                    {p.name}
-                    {p.number && <span className="ml-1 text-[9px] sm:text-[10px] text-slate-500">#{p.number}</span>}
-                </span>
+            <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1 overflow-hidden">
+                {!isBench && (
+                    <span className={`${orderTextSize} text-slate-400 font-mono shrink-0`}>
+                        {idx + 1}.
+                    </span>
+                )}
+                <div className="flex-1 min-w-0 overflow-hidden flex items-center">
+                    <AutoCondenseText 
+                        text={p.name} 
+                        className={`${nameTextSize} leading-tight ${activeBatterId === p.id && !isBench ? "text-white" : "text-slate-200"}`} 
+                        align="left" 
+                    />
+                    {p.number && <span className={`ml-1 ${numberTextSize} shrink-0`}>#{p.number}</span>}
+                </div>
             </div>
-            {((isBench) || (state?.showPlayerStat ?? true)) && <span className="text-[9px] sm:text-[10px] font-mono text-slate-500 shrink-0 ml-2">{p.stat}</span>}
+
+            {/* Position Display (replaces batting average) */}
+            <span className={`${posTextSize} text-amber-400 shrink-0 ml-1.5`}>
+                {p.position || (isBench ? 'BN' : 'DH')}
+            </span>
         </div>
     );
 };
@@ -230,15 +355,20 @@ const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: b
         }
     };
 
+    const totalItems = team.lineup.length + 1;
+    const isFewPlayers = totalItems <= 10;
+    const scaleMode: 'large' | 'medium' | 'compact' = 
+        totalItems <= 10 ? 'large' : 
+        totalItems <= 13 ? 'medium' : 'compact';
+
     return (
         <div className="flex-1 flex flex-col h-full bg-slate-950 border-r-2 border-slate-800 relative min-h-0">
-            {/* Header */}
-            <div className="h-[72px] sm:h-[88px] lg:h-[104px] p-3 border-b-2 border-slate-800 flex items-center gap-3 relative overflow-hidden shrink-0">
+            {/* Header (Aligned perfectly with center score strip: h-[72px] sm:h-[88px] lg:h-[100px] border-b-2 border-slate-600) */}
+            <div className="h-[72px] sm:h-[88px] lg:h-[100px] p-2.5 sm:p-3 border-b-2 border-slate-600 flex items-center gap-2.5 relative overflow-hidden shrink-0">
                  <div className="absolute inset-0 opacity-20" style={{ backgroundColor: team.color }}></div>
                  <TeamLogo team={team} />
-                 <div className="flex flex-col relative z-10 min-w-0 flex-1">
-                     <AutoScalingText text={team.name} className="text-3xl font-bold leading-none" align="left" />
-                     <AutoScalingText text={team.fullName} className="text-xs text-slate-400 font-bold uppercase" align="left" />
+                 <div className="flex flex-col relative z-10 min-w-0 flex-1 overflow-hidden">
+                     <AutoScalingText text={team.name} className="text-2xl sm:text-3xl lg:text-4xl font-black leading-none" align="left" />
                  </div>
             </div>
 
@@ -248,9 +378,8 @@ const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: b
                 onDragEnd={handleDragEnd}
                 modifiers={[restrictToVerticalAxis]}
             >
-                {/* Lineup List */}
-                <div className="flex-1 flex flex-col p-2 gap-1 overflow-y-auto no-scrollbar min-h-0">
-                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 px-1">Lineup</div>
+                {/* Lineup List (100% fitted vertically without scrolling) */}
+                <div className={`flex-1 flex flex-col p-1 sm:p-1.5 min-h-0 overflow-hidden justify-between`}>
                     <SortableContext 
                         items={team.lineup.map(p => p.id)}
                         strategy={verticalListSortingStrategy}
@@ -265,24 +394,33 @@ const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: b
                                 state={state}
                                 dispatch={dispatch}
                                 isBench={false}
+                                scaleMode={scaleMode}
                             />
                         ))}
                     </SortableContext>
 
-                    {/* Pitcher */}
-                    <div className="mt-2 pt-2 border-t border-slate-800">
-                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 px-1">Pitcher</div>
-                        <div className={`flex justify-between items-center px-1.5 sm:px-2 py-1 rounded transition-colors ${isTeamPitching ? "bg-blue-600/30 ring-1 ring-blue-500" : "bg-slate-900"}`}>
-                            <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
-                                <span className="text-[10px] sm:text-xs text-slate-400 font-mono w-3 sm:w-4 shrink-0">P.</span>
-                                <span className={`text-[10px] sm:text-xs font-bold truncate ${isTeamPitching ? "text-white" : "text-slate-300"}`}>
-                                    {team.pitcher.name}
-                                    {team.pitcher.number && <span className="ml-1 text-[9px] sm:text-[10px] text-slate-500">#{team.pitcher.number}</span>}
-                                </span>
+                    {/* Pitcher Row (Fitted dynamically in column with AutoCondenseText) */}
+                    <div className={`flex-1 min-h-0 flex justify-between items-center ${scaleMode === 'large' ? "px-2 py-0.5 sm:py-1" : scaleMode === 'compact' ? "px-1 py-0" : "px-1.5 py-0.5"} rounded-lg transition-colors border-t border-slate-700/60 ${isTeamPitching ? "bg-blue-600/35 ring-1.5 ring-blue-400 shadow-md" : "hover:bg-slate-700/50"}`}>
+                        <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1 overflow-hidden">
+                            <span className={`${scaleMode === 'large' ? "text-xs sm:text-sm font-black w-4 sm:w-5" : scaleMode === 'compact' ? "text-[9px] w-3" : "text-[10px] sm:text-xs w-3.5"} text-slate-400 font-mono shrink-0`}>
+                                P.
+                            </span>
+                            <div className="flex-1 min-w-0 overflow-hidden flex items-center">
+                                <AutoCondenseText 
+                                    text={team.pitcher.name} 
+                                    className={`${scaleMode === 'large' ? "text-xs sm:text-base lg:text-lg font-black" : scaleMode === 'compact' ? "text-[10px] font-bold" : "text-xs sm:text-sm font-bold"} leading-tight ${isTeamPitching ? "text-white" : "text-slate-300"}`} 
+                                    align="left" 
+                                />
+                                {team.pitcher.number && <span className={`ml-1 ${scaleMode === 'large' ? "text-xs sm:text-sm text-slate-400 font-semibold" : "text-[9px] sm:text-[10px] text-slate-400"} shrink-0`}>#{team.pitcher.number}</span>}
                             </div>
-                            {(state.showCount ?? true) && <span className="text-[9px] sm:text-[10px] font-mono text-slate-500 shrink-0 ml-2">P: {team.pitcher.stat || 0}</span>}
                         </div>
+                        {(state.showCount ?? true) && (
+                            <span className={`${scaleMode === 'large' ? "text-xs sm:text-sm font-bold" : "text-[9px] sm:text-[10px]"} font-mono text-slate-400 shrink-0 ml-1.5`}>
+                                P: {team.pitcher.stat || 0}
+                            </span>
+                        )}
                     </div>
+                </div>
 
                     {/* Bench List */}
                     {!isLineupMode && (
@@ -314,7 +452,6 @@ const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: b
                             </SortableContext>
                         </div>
                     )}
-                </div>
             </DndContext>
         </div>
     );
@@ -865,15 +1002,17 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
   };
 
   const renderLineupView = () => {
-    const awayBatter = state.awayTeam.lineup[state.awayTeam.currentBatterIndex] || { name: '---', number: '', stat: '---' };
-    const homeBatter = state.homeTeam.lineup[state.homeTeam.currentBatterIndex] || { name: '---', number: '', stat: '---' };
-    const awayPitcher = state.awayTeam.pitcher || { name: '---', number: '', stat: '---' };
-    const homePitcher = state.homeTeam.pitcher || { name: '---', number: '', stat: '---' };
+    const awayBatter: Partial<Player> = state.awayTeam.lineup[state.awayTeam.currentBatterIndex] || { name: '---', number: '', stat: '---', position: 'DH' };
+    const homeBatter: Partial<Player> = state.homeTeam.lineup[state.homeTeam.currentBatterIndex] || { name: '---', number: '', stat: '---', position: 'DH' };
+    const awayPitcher: Partial<Player> = state.awayTeam.pitcher || { name: '---', number: '', stat: '---', position: 'P' };
+    const homePitcher: Partial<Player> = state.homeTeam.pitcher || { name: '---', number: '', stat: '---', position: 'P' };
 
     const batterIndex = state.isTop ? state.awayTeam.currentBatterIndex : state.homeTeam.currentBatterIndex;
     const batter = state.isTop ? awayBatter : homeBatter;
     const pitcher = state.isTop ? homePitcher : awayPitcher;
-    const activeBaseColor = state.isTop ? state.awayTeam.color : state.homeTeam.color;
+    const activeBaseColor = state.isTop 
+      ? (state.awayTeam.baseColor || state.awayTeam.color || '#facc15')
+      : (state.homeTeam.baseColor || state.homeTeam.color || '#facc15');
 
     const maxInnings = Math.max(9, state.awayTeam.inningScores.length, state.homeTeam.inningScores.length);
     const inningsArray = Array.from({ length: maxInnings }, (_, i) => i + 1);
@@ -883,15 +1022,15 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
     return (
         <div className={`w-full h-full bg-slate-900 border-2 border-slate-700 rounded-xl overflow-hidden shadow-2xl flex font-display text-white ${isVerticalFullscreen ? "flex-col" : "flex-row"}`}>
             
-            {/* Left: Away Lineup */}
-            <div className={isVerticalFullscreen ? "flex-1 w-full shrink-0 min-w-0 border-b-2 border-slate-700 order-2" : "flex-none w-[26%] shrink-0 h-full min-w-0 border-r-2 border-slate-700 order-1"}>
+            {/* Left: Away Lineup (23% width, safely inset) */}
+            <div className={isVerticalFullscreen ? "flex-1 w-full shrink-0 min-w-0 border-b-2 border-slate-700 order-2" : "flex-none w-[23%] shrink-0 h-full min-w-0 border-r-2 border-slate-700 order-1"}>
                 <LineupColumn team={state.awayTeam} isAway={true} state={state} dispatch={dispatch} />
             </div>
 
-            {/* Center: Simplified Scoreboard */}
-            <div className={isVerticalFullscreen ? "flex-1 w-full shrink-0 flex flex-col bg-slate-800 min-w-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] order-1" : "flex-none w-[48%] shrink-0 h-full flex flex-col bg-slate-800 min-w-0 border-x-2 border-slate-900 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] order-2"}>
+            {/* Center: Simplified Scoreboard (54% width, ample space for bases) */}
+            <div className={isVerticalFullscreen ? "flex-1 w-full shrink-0 flex flex-col bg-slate-800 min-w-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] order-1" : "flex-none w-[54%] shrink-0 h-full flex flex-col bg-slate-800 min-w-0 border-x-2 border-slate-900 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] order-2"}>
                 {/* Score Strip */}
-                <div className="h-[72px] sm:h-[88px] lg:h-[104px] bg-slate-950 flex border-b-2 border-slate-600 shrink-0">
+                <div className="h-[72px] sm:h-[88px] lg:h-[100px] bg-slate-950 flex border-b-2 border-slate-600 shrink-0">
                     {/* Away Score */}
                     <div 
                         className="flex-1 flex items-center justify-center text-5xl lg:text-7xl font-bold relative overflow-hidden cursor-pointer hover:bg-white/5 transition-colors" 
@@ -912,9 +1051,10 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                             </div>
                          )}
                     </div>
-                    {/* Inning */}
+
+                    {/* Center: Inning & Integrated Pitch Timer (No separate timer row!) */}
                     <div 
-                        className="w-24 bg-slate-900 flex flex-col items-center justify-center border-x-2 border-slate-700 cursor-pointer hover:bg-slate-800 transition-colors relative"
+                        className="w-28 sm:w-32 lg:w-36 bg-slate-900 flex flex-col items-center justify-center border-x-2 border-slate-700 cursor-pointer hover:bg-slate-800 transition-colors relative py-1 px-1"
                         onClick={(e) => {
                             e.stopPropagation();
                             setShowInningControls(true);
@@ -923,18 +1063,45 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                             dispatch({type: 'NEXT_INNING'});
                         }}
                     >
-                        <div className="flex flex-col gap-1.5 mb-1">
-                            <div className={`w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent ${state.isTop ? 'border-b-[8px] border-b-yellow-400' : 'border-b-[8px] border-b-slate-700'}`}></div>
-                            <div className={`w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent ${!state.isTop ? 'border-t-[8px] border-t-yellow-400' : 'border-t-[8px] border-t-slate-700'}`}></div>
-                         </div>
-                        <span className="text-3xl font-bold text-slate-200">{state.inning}</span>
+                        <div className="flex items-center gap-1.5">
+                            <div className="flex flex-col gap-1">
+                                <div className={`w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent ${state.isTop ? 'border-b-[7px] border-b-yellow-400' : 'border-b-[7px] border-b-slate-700'}`}></div>
+                                <div className={`w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent ${!state.isTop ? 'border-t-[7px] border-t-yellow-400' : 'border-t-[7px] border-t-slate-700'}`}></div>
+                            </div>
+                            <span className="text-2xl sm:text-3xl font-black text-slate-200 font-mono">{state.inning}</span>
+                        </div>
+
+                        {/* Integrated Pitch Timer */}
+                        {state.showTimer && (
+                            <div 
+                                className={`flex items-center gap-1 px-2 py-0.5 rounded border mt-1 cursor-pointer select-none active:scale-95 transition-all ${
+                                    state.timer <= 8 && state.isTimerRunning 
+                                        ? 'bg-rose-950/90 border-rose-500 text-rose-300 animate-pulse' 
+                                        : 'bg-black/60 border-slate-700 text-yellow-400'
+                                }`}
+                                onMouseDown={(e) => { e.stopPropagation(); handleTimerMouseDown(); }}
+                                onMouseUp={(e) => { e.stopPropagation(); handleTimerMouseUp(); }}
+                                onMouseLeave={handleTimerMouseUp}
+                                onTouchStart={(e) => { e.stopPropagation(); handleTimerMouseDown(); }}
+                                onTouchEnd={(e) => { e.stopPropagation(); handleTimerMouseUp(); }}
+                                onClick={(e) => { e.stopPropagation(); handleTimerClick(); }}
+                                title="投球計時器 (點擊暫停/開始，長按重設)"
+                            >
+                                <Timer size={11} className={state.isTimerRunning ? "text-green-400 animate-spin" : "text-slate-400"} />
+                                <span className="text-xs sm:text-sm font-bold font-mono min-w-[18px] text-center">
+                                    {state.timer}
+                                </span>
+                            </div>
+                        )}
+
                         {showInningControls && (
-                            <div className="absolute top-full mt-2 flex gap-2 bg-slate-900/95 p-2 rounded border-2 border-slate-500 shadow-2xl z-50 animate-in fade-in zoom-in duration-200">
+                            <div className="absolute top-full mt-2 flex gap-2 bg-slate-900/95 p-2 rounded border-2 border-slate-500 shadow-2xl z-50 animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
                                 <button className="p-2 bg-white/10 hover:bg-white/20 rounded text-green-400" onClick={(e) => { e.stopPropagation(); dispatch({type: 'NEXT_INNING'}) }}><Plus size={20}/></button>
                                 <button className="p-2 bg-white/10 hover:bg-white/20 rounded text-red-400" onClick={(e) => { e.stopPropagation(); dispatch({type: 'PREVIOUS_HALF_INNING'}) }}><Minus size={20}/></button>
                             </div>
                         )}
                     </div>
+
                     {/* Home Score */}
                     <div 
                         className="flex-1 flex items-center justify-center text-5xl lg:text-7xl font-bold relative overflow-hidden cursor-pointer hover:bg-white/5 transition-colors" 
@@ -957,105 +1124,230 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     </div>
                 </div>
 
-                {/* Top: Timer */}
-                <div className="h-10 lg:h-12 border-b-2 border-slate-600 flex items-center justify-center px-3 bg-slate-800/80 shrink-0">
-                   {state.showTimer && (<div 
-                      className={`flex items-center space-x-1 px-4 py-1 rounded border-2 cursor-pointer select-none active:scale-95 transition-all ${state.timer <= 8 && state.isTimerRunning ? 'bg-red-900/80 border-red-500 animate-pulse' : 'bg-black/40 border-slate-600/50'}`}
-                      onMouseDown={handleTimerMouseDown}
-                      onMouseUp={handleTimerMouseUp}
-                      onMouseLeave={handleTimerMouseUp}
-                      onTouchStart={handleTimerMouseDown}
-                      onTouchEnd={handleTimerMouseUp}
-                      onClick={handleTimerClick}
-                   >
-                        <Timer size={16} className={state.isTimerRunning ? "text-green-400 animate-spin" : "text-slate-400"} />
-                        <span className={`text-2xl lg:text-3xl font-display font-bold w-[40px] lg:w-[60px] text-center ${state.timer <= 8 ? 'text-white' : 'text-yellow-400'}`}>
-                          {state.timer}
-                        </span>
-                   </div>)}
+                {/* AT BAT & PITCHING (Fixed Left = Away Team, Fixed Right = Home Team) */}
+                <div className="flex bg-slate-900 border-b-2 border-slate-700 shrink-0 text-white min-h-[64px] sm:min-h-[72px] lg:min-h-[80px]">
+                    {/* Fixed Left Box: Away Team */}
+                    <div className="flex-1 flex flex-col justify-between py-1.5 px-3 sm:px-4 border-r-2 border-slate-700 min-w-0">
+                        {/* Top: Role & Team Name vs Stat */}
+                        <div className="flex items-center justify-between min-w-0">
+                            <span className="font-bold tracking-widest text-[10px] flex items-center gap-1.5" style={{ color: state.awayTeam.color }}>
+                                <span>{state.isTop ? (language === 'zh' ? '打擊' : language === 'ja' ? '打撃' : 'AT BAT') : (language === 'zh' ? '投球' : language === 'ja' ? '投球' : 'PITCHING')}</span>
+                                <span className="text-white/40">· {state.awayTeam.name}</span>
+                            </span>
+                            {(state.isTop ? (state?.showPlayerStat ?? true) : (state.showCount ?? true)) && (
+                                <span className="text-xs sm:text-sm font-mono text-yellow-500 font-bold shrink-0 ml-1">
+                                    {state.isTop ? `AVG: ${awayBatter.stat || '.000'}` : `P: ${awayPitcher.stat || 0}`}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Middle: Player Name & Number */}
+                        <div className="flex items-center gap-1.5 min-w-0 my-0.5">
+                            <div className="flex-1 min-w-0 overflow-hidden">
+                                <AutoCondenseText 
+                                    text={state.isTop 
+                                        ? `${state.awayTeam.currentBatterIndex + 1}. ${awayBatter.name}`
+                                        : awayPitcher.name || '---'
+                                    } 
+                                    className="text-base sm:text-lg lg:text-xl font-black text-white" 
+                                    align="left" 
+                                />
+                            </div>
+                            {(state.isTop ? awayBatter.number : awayPitcher.number) && (
+                                <span className="text-xs text-slate-400 shrink-0">
+                                    #{state.isTop ? awayBatter.number : awayPitcher.number}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Bottom: Underneath Batter (At-Bat Results, max 4 latest) OR Underneath Pitcher (IP, K, NP) */}
+                        <div className="flex items-center min-w-0 pt-0.5">
+                            {state.isTop ? (
+                                /* Batter At-Bats (Max 4 latest) */
+                                <div className="flex items-center gap-1 overflow-hidden">
+                                    {((awayBatter.atBats || []).length === 0) ? (
+                                        <span className="text-[10px] sm:text-xs text-slate-500 font-mono">
+                                            {language === 'zh' ? '首打席' : language === 'ja' ? '初打席' : '1st AB'}
+                                        </span>
+                                    ) : (
+                                        (awayBatter.atBats || []).slice(-4).map((ab, idx) => {
+                                            const item = formatAtBatChinese(ab, language);
+                                            return (
+                                                <span 
+                                                    key={idx} 
+                                                    className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded border ${item.style} shadow-sm font-bold tracking-tight shrink-0`}
+                                                >
+                                                    {item.label}
+                                                </span>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            ) : (
+                                /* Pitcher Stats: 局數, 三振, 用球數 */
+                                <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-slate-300 font-mono">
+                                    <span className="flex items-center gap-0.5">
+                                        <span className="text-slate-500 font-bold">{language === 'zh' ? '局數' : language === 'ja' ? '回数' : 'IP'}</span>
+                                        <span className="text-yellow-400 font-bold">
+                                            {awayPitcher.inningsPitched || (state.isTop ? '0.0' : `${Math.max(0, state.inning - 1)}${state.outs > 0 ? `.${state.outs}` : ''}`)}
+                                        </span>
+                                    </span>
+                                    <span className="text-slate-600">·</span>
+                                    <span className="flex items-center gap-0.5">
+                                        <span className="text-slate-500 font-bold">{language === 'zh' ? '三振' : language === 'ja' ? '奪三振' : 'K'}</span>
+                                        <span className="text-rose-400 font-bold">{awayPitcher.strikeouts ?? 0}</span>
+                                    </span>
+                                    <span className="text-slate-600">·</span>
+                                    <span className="flex items-center gap-0.5">
+                                        <span className="text-slate-500 font-bold">{language === 'zh' ? '用球' : language === 'ja' ? '球数' : 'NP'}</span>
+                                        <span className="text-sky-300 font-bold">
+                                            {awayPitcher.pitchCount ?? (parseInt(awayPitcher.stat?.replace(/[^0-9]/g, '') || '0', 10))}
+                                        </span>
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Fixed Right Box: Home Team */}
+                    <div className="flex-1 flex flex-col justify-between py-1.5 px-3 sm:px-4 min-w-0">
+                        {/* Top: Role & Team Name vs Stat */}
+                        <div className="flex items-center justify-between min-w-0">
+                            <span className="font-bold tracking-widest text-[10px] flex items-center gap-1.5" style={{ color: state.homeTeam.color }}>
+                                <span>{!state.isTop ? (language === 'zh' ? '打擊' : language === 'ja' ? '打撃' : 'AT BAT') : (language === 'zh' ? '投球' : language === 'ja' ? '投球' : 'PITCHING')}</span>
+                                <span className="text-white/40">· {state.homeTeam.name}</span>
+                            </span>
+                            {(!state.isTop ? (state?.showPlayerStat ?? true) : (state.showCount ?? true)) && (
+                                <span className="text-xs sm:text-sm font-mono text-yellow-500 font-bold shrink-0 ml-1">
+                                    {!state.isTop ? `AVG: ${homeBatter.stat || '.000'}` : `P: ${homePitcher.stat || 0}`}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Middle: Player Name & Number */}
+                        <div className="flex items-center gap-1.5 min-w-0 my-0.5">
+                            <div className="flex-1 min-w-0 overflow-hidden">
+                                <AutoCondenseText 
+                                    text={!state.isTop 
+                                        ? `${state.homeTeam.currentBatterIndex + 1}. ${homeBatter.name}`
+                                        : homePitcher.name || '---'
+                                    } 
+                                    className="text-base sm:text-lg lg:text-xl font-black text-white" 
+                                    align="left" 
+                                />
+                            </div>
+                            {(!state.isTop ? homeBatter.number : homePitcher.number) && (
+                                <span className="text-xs text-slate-400 shrink-0">
+                                    #{!state.isTop ? homeBatter.number : homePitcher.number}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Bottom: Underneath Batter (At-Bat Results, max 4 latest) OR Underneath Pitcher (IP, K, NP) */}
+                        <div className="flex items-center min-w-0 pt-0.5">
+                            {!state.isTop ? (
+                                /* Batter At-Bats (Max 4 latest) */
+                                <div className="flex items-center gap-1 overflow-hidden">
+                                    {((homeBatter.atBats || []).length === 0) ? (
+                                        <span className="text-[10px] sm:text-xs text-slate-500 font-mono">
+                                            {language === 'zh' ? '首打席' : language === 'ja' ? '初打席' : '1st AB'}
+                                        </span>
+                                    ) : (
+                                        (homeBatter.atBats || []).slice(-4).map((ab, idx) => {
+                                            const item = formatAtBatChinese(ab, language);
+                                            return (
+                                                <span 
+                                                    key={idx} 
+                                                    className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded border ${item.style} shadow-sm font-bold tracking-tight shrink-0`}
+                                                >
+                                                    {item.label}
+                                                </span>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            ) : (
+                                /* Pitcher Stats: 局數, 三振, 用球數 */
+                                <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-slate-300 font-mono">
+                                    <span className="flex items-center gap-0.5">
+                                        <span className="text-slate-500 font-bold">{language === 'zh' ? '局數' : language === 'ja' ? '回数' : 'IP'}</span>
+                                        <span className="text-yellow-400 font-bold">
+                                            {homePitcher.inningsPitched || (!state.isTop ? '0.0' : `${Math.max(0, state.inning - 1)}${state.outs > 0 ? `.${state.outs}` : ''}`)}
+                                        </span>
+                                    </span>
+                                    <span className="text-slate-600">·</span>
+                                    <span className="flex items-center gap-0.5">
+                                        <span className="text-slate-500 font-bold">{language === 'zh' ? '三振' : language === 'ja' ? '奪三振' : 'K'}</span>
+                                        <span className="text-rose-400 font-bold">{homePitcher.strikeouts ?? 0}</span>
+                                    </span>
+                                    <span className="text-slate-600">·</span>
+                                    <span className="flex items-center gap-0.5">
+                                        <span className="text-slate-500 font-bold">{language === 'zh' ? '用球' : language === 'ja' ? '球数' : 'NP'}</span>
+                                        <span className="text-sky-300 font-bold">
+                                            {homePitcher.pitchCount ?? (parseInt(homePitcher.stat?.replace(/[^0-9]/g, '') || '0', 10))}
+                                        </span>
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
-                {/* AT BAT & PITCHING */}
-                <div className="flex h-16 sm:h-20 bg-slate-900 border-b-2 border-slate-700 shrink-0 text-white">
-                    <div className="flex-1 flex justify-between items-center px-4 border-r-2 border-slate-700 min-w-0">
-                        <div className="flex flex-col min-w-0 mr-2">
-                            <span className="font-bold tracking-widest text-white/50 text-[10px] sm:text-xs">AT BAT</span>
-                            <div className="flex items-baseline gap-2 truncate">
-                                <span className="text-xl sm:text-2xl font-bold truncate">{batter.name}</span>
-                                <span className="text-sm text-slate-400">{batterIndex + 1}. {batter.number ? `#${batter.number}` : ''}</span>
-                            </div>
-                        </div>
-                        {(state?.showPlayerStat ?? true) && (
-                            <span className="text-2xl sm:text-3xl font-display text-yellow-500 shrink-0">{batter.stat}</span>
-                        )}
+                {/* Middle: Bases & Counts (No overflow, scaled gracefully) */}
+                <div className="flex-1 flex flex-row items-center justify-center w-full relative min-h-0 px-2 sm:px-4 overflow-hidden">
+                    <div className="w-1/2 flex items-center justify-end shrink-0 pr-3 sm:pr-6 border-r border-slate-700/50">
+                       <div className="flex items-center justify-center origin-right scale-[0.72] sm:scale-[0.82] lg:scale-[0.9] xl:scale-95">
+                          <Diamond 
+                             bases={state.bases} 
+                             onToggle={(idx) => dispatch({type: 'TOGGLE_BASE', baseIndex: idx})}
+                             className="shrink-0" 
+                             activeColor={activeBaseColor}
+                          />
+                       </div>
                     </div>
-                    <div className="flex-1 flex justify-between items-center px-4 min-w-0">
-                        <div className="flex flex-col min-w-0 mr-2">
-                            <span className="font-bold tracking-widest text-white/50 text-[10px] sm:text-xs">PITCHING</span>
-                            <div className="flex items-baseline gap-2 truncate">
-                                <span className="text-xl sm:text-2xl font-bold truncate">{pitcher.name}</span>
-                                {pitcher.number && <span className="text-sm text-slate-400">#{pitcher.number}</span>}
-                            </div>
-                        </div>
-                        {(state.showCount ?? true) && (
-                            <span className="text-2xl sm:text-3xl font-display text-yellow-500 shrink-0">{pitcher.stat}</span>
-                        )}
-                    </div>
-                </div>
-
-                {/* Middle: Bases & Counts */}
-                <div className="flex-1 flex flex-row items-center justify-center w-full relative min-h-0">
-                    <div className="w-1/2 flex justify-end shrink-0 pr-4 sm:pr-8 border-r border-slate-700/50">
-                       <Diamond 
-                          bases={state.bases} 
-                          onToggle={(idx) => dispatch({type: 'TOGGLE_BASE', baseIndex: idx})}
-                          className="scale-[0.85] lg:scale-100" 
-                          activeColor={activeBaseColor}
-                       />
-                    </div>
-                    <div className="w-1/2 flex justify-start shrink-0 pl-4 sm:pl-8">
-                        <div className="flex flex-col space-y-2 lg:space-y-4 items-start">
+                    <div className="w-1/2 flex items-center justify-start shrink-0 pl-3 sm:pl-6">
+                        <div className="flex flex-col space-y-2 lg:space-y-3 items-start">
                             {/* Balls */}
-                            <div className="flex items-center gap-3 sm:gap-4 cursor-pointer group" onClick={handleBallClick}>
-                                <span className="text-2xl lg:text-4xl font-bold text-slate-500 group-hover:text-white transition-colors w-6 lg:w-8 text-center">B</span>
-                                <div className="flex space-x-2 sm:space-x-3">
+                            <div className="flex items-center gap-2 sm:gap-3 cursor-pointer group" onClick={handleBallClick}>
+                                <span className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-500 group-hover:text-white transition-colors w-5 sm:w-6 text-center">B</span>
+                                <div className="flex space-x-1.5 sm:space-x-2">
                                     {[0, 1, 2].map(i => (
                                         <AnimatedIndicator 
                                             key={i}
                                             active={i < state.balls} 
                                             colorClass="bg-led-green" 
                                             shadowClass="shadow-[0_0_20px_#00ff41]" 
-                                            baseClass="w-5 h-5 lg:w-8 lg:h-8 rounded-full border-2"
+                                            baseClass="w-4 h-4 sm:w-5 sm:h-5 lg:w-7 lg:h-7 rounded-full border-2"
                                         />
                                     ))}
                                 </div>
                             </div>
                             {/* Strikes */}
-                            <div className="flex items-center gap-3 sm:gap-4 cursor-pointer group" onClick={handleStrikeClick}>
-                                <span className="text-2xl lg:text-4xl font-bold text-slate-500 group-hover:text-white transition-colors w-6 lg:w-8 text-center">S</span>
-                                <div className="flex space-x-2 sm:space-x-3">
+                            <div className="flex items-center gap-2 sm:gap-3 cursor-pointer group" onClick={handleStrikeClick}>
+                                <span className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-500 group-hover:text-white transition-colors w-5 sm:w-6 text-center">S</span>
+                                <div className="flex space-x-1.5 sm:space-x-2">
                                     {[0, 1].map(i => (
                                         <AnimatedIndicator 
                                             key={i}
                                             active={i < state.strikes} 
                                             colorClass="bg-led-yellow" 
                                             shadowClass="shadow-[0_0_20px_#ffcc00]" 
-                                            baseClass="w-5 h-5 lg:w-8 lg:h-8 rounded-full border-2"
+                                            baseClass="w-4 h-4 sm:w-5 sm:h-5 lg:w-7 lg:h-7 rounded-full border-2"
                                         />
                                     ))}
                                 </div>
                             </div>
                             {/* Outs */}
-                            <div className="flex items-center gap-3 sm:gap-4 cursor-pointer group" onClick={handleOutClick}>
-                                <span className="text-2xl lg:text-4xl font-bold text-slate-500 group-hover:text-white transition-colors w-6 lg:w-8 text-center">O</span>
-                                <div className="flex space-x-2 sm:space-x-3">
+                            <div className="flex items-center gap-2 sm:gap-3 cursor-pointer group" onClick={handleOutClick}>
+                                <span className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-500 group-hover:text-white transition-colors w-5 sm:w-6 text-center">O</span>
+                                <div className="flex space-x-1.5 sm:space-x-2">
                                     {[0, 1].map(i => (
                                         <AnimatedIndicator 
                                             key={i}
                                             active={i < state.outs} 
                                             colorClass="bg-led-red" 
                                             shadowClass="shadow-[0_0_20px_#ff3b30]" 
-                                            baseClass="w-5 h-5 lg:w-8 lg:h-8 rounded-full border-2"
+                                            baseClass="w-4 h-4 sm:w-5 sm:h-5 lg:w-7 lg:h-7 rounded-full border-2"
                                         />
                                     ))}
                                 </div>
@@ -1106,8 +1398,8 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                 </div>
             </div>
 
-            {/* Right: Home Lineup */}
-            <div className={isVerticalFullscreen ? "flex-1 w-full shrink-0 min-w-0 border-t-2 border-slate-700 order-3" : "flex-none w-[26%] shrink-0 h-full min-w-0 border-l-2 border-slate-700 order-3"}>
+            {/* Right: Home Lineup (23% width, safely inset) */}
+            <div className={isVerticalFullscreen ? "flex-1 w-full shrink-0 min-w-0 border-t-2 border-slate-700 order-3" : "flex-none w-[23%] shrink-0 h-full min-w-0 border-l-2 border-slate-700 order-3"}>
                 <LineupColumn team={state.homeTeam} isAway={false} state={state} dispatch={dispatch} />
             </div>
 

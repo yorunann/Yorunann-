@@ -8,7 +8,7 @@ interface Props {
   onClose: () => void;
   shortcuts: ShortcutMap;
   onSave: (newShortcuts: ShortcutMap) => void;
-  language?: 'en' | 'zh';
+  language?: 'en' | 'zh' | 'ja';
 }
 
 const ACTION_LABELS: Record<ShortcutAction, { en: string, zh: string }> = {

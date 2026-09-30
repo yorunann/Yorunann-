@@ -78,6 +78,14 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         const teamObj = state[teamKey];
         const nextIndex = teamObj.lineup.length > 0 ? (teamObj.currentBatterIndex + 1) % teamObj.lineup.length : teamObj.currentBatterIndex;
         
+        const newLineup = [...teamObj.lineup];
+        if (newLineup[teamObj.currentBatterIndex]) {
+          newLineup[teamObj.currentBatterIndex] = {
+            ...newLineup[teamObj.currentBatterIndex],
+            atBats: [...(newLineup[teamObj.currentBatterIndex].atBats || []), '四球']
+          };
+        }
+
         let newBases = [...state.bases] as [boolean, boolean, boolean];
         let runsScored = 0;
         
@@ -103,6 +111,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           [teamKey]: {
             ...teamObj,
             score: teamObj.score + runsScored,
+            lineup: newLineup,
             currentBatterIndex: nextIndex,
             inningScores: runsScored > 0 ? updateInningScore(teamObj, state.inning, runsScored) : teamObj.inningScores
           }
@@ -133,6 +142,16 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       // It's a strikeout
       const isThirdOut = state.outs >= 2;
       
+      const battingTeamKey = state.isTop ? 'awayTeam' : 'homeTeam';
+      const curBatterIdx = state[battingTeamKey].currentBatterIndex;
+      const updatedBattingLineup = [...state[battingTeamKey].lineup];
+      if (updatedBattingLineup[curBatterIdx]) {
+        updatedBattingLineup[curBatterIdx] = {
+          ...updatedBattingLineup[curBatterIdx],
+          atBats: [...(updatedBattingLineup[curBatterIdx].atBats || []), '三振']
+        };
+      }
+
       const nextAwayIndex = state.isTop 
         ? (state.awayTeam.currentBatterIndex + 1) % Math.max(1, state.awayTeam.lineup.length) 
         : state.awayTeam.currentBatterIndex;
@@ -140,6 +159,13 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const nextHomeIndex = !state.isTop 
         ? (state.homeTeam.currentBatterIndex + 1) % Math.max(1, state.homeTeam.lineup.length) 
         : state.homeTeam.currentBatterIndex;
+
+      const pitchingTeamKey = state.isTop ? 'homeTeam' : 'awayTeam';
+      const curPitcher = state[pitchingTeamKey].pitcher;
+      const updatedPitcher = curPitcher ? {
+        ...curPitcher,
+        strikeouts: (curPitcher.strikeouts || 0) + 1
+      } : curPitcher;
 
       return { 
         ...state, 
@@ -150,10 +176,14 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         strikeoutAnimationTrigger: (state.strikeoutAnimationTrigger || 0) + 1,
         awayTeam: {
           ...state.awayTeam,
+          lineup: state.isTop ? updatedBattingLineup : state.awayTeam.lineup,
+          pitcher: !state.isTop ? (updatedPitcher || state.awayTeam.pitcher) : state.awayTeam.pitcher,
           currentBatterIndex: nextAwayIndex
         },
         homeTeam: {
           ...state.homeTeam,
+          lineup: !state.isTop ? updatedBattingLineup : state.homeTeam.lineup,
+          pitcher: state.isTop ? (updatedPitcher || state.homeTeam.pitcher) : state.homeTeam.pitcher,
           currentBatterIndex: nextHomeIndex
         }
       };
@@ -164,6 +194,23 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         ...state,
         strikes: Math.max(0, state.strikes - 1),
       };
+
+    case 'TRIGGER_K': {
+      const pitchingTeamKey = state.isTop ? 'homeTeam' : 'awayTeam';
+      const curPitcher = state[pitchingTeamKey].pitcher;
+      const updatedPitcher = curPitcher ? {
+        ...curPitcher,
+        strikeouts: (curPitcher.strikeouts || 0) + 1
+      } : curPitcher;
+      return {
+        ...state,
+        strikeoutAnimationTrigger: (state.strikeoutAnimationTrigger || 0) + 1,
+        [pitchingTeamKey]: {
+          ...state[pitchingTeamKey],
+          pitcher: updatedPitcher || state[pitchingTeamKey].pitcher
+        }
+      };
+    }
     
     case 'INCREMENT_OUT':
       if (state.outs >= 2) {
@@ -214,6 +261,19 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           } 
         };
       }
+
+    case 'ADD_HIT': {
+      const teamKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
+      const currentHits = state[teamKey].hits || 0;
+      const amount = action.amount ?? 1;
+      return {
+        ...state,
+        [teamKey]: {
+          ...state[teamKey],
+          hits: Math.max(0, currentHits + amount)
+        }
+      };
+    }
 
     case 'RESET_SCORE':
       return {
@@ -316,7 +376,8 @@ function baseReducer(state: GameState, action: ActionType): GameState {
     case 'WALK': {
       const teamKey = state.isTop ? 'awayTeam' : 'homeTeam';
       const teamObj = state[teamKey];
-      const nextIndex = teamObj.lineup.length > 0 ? (teamObj.currentBatterIndex + 1) % teamObj.lineup.length : teamObj.currentBatterIndex;
+      const curIndex = teamObj.currentBatterIndex;
+      const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
       
       let newBases = [...state.bases] as [boolean, boolean, boolean];
       let runsScored = 0;
@@ -335,6 +396,14 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         newBases[0] = true;
       }
 
+      const newLineup = [...teamObj.lineup];
+      if (newLineup[curIndex]) {
+        newLineup[curIndex] = {
+          ...newLineup[curIndex],
+          atBats: [...(newLineup[curIndex].atBats || []), '四球']
+        };
+      }
+
       return {
         ...state,
         balls: 0,
@@ -343,6 +412,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         [teamKey]: {
           ...teamObj,
           score: teamObj.score + runsScored,
+          lineup: newLineup,
           currentBatterIndex: nextIndex,
           inningScores: runsScored > 0 ? updateInningScore(teamObj, state.inning, runsScored) : teamObj.inningScores
         }
@@ -352,14 +422,24 @@ function baseReducer(state: GameState, action: ActionType): GameState {
     case 'BATTER_OUT': {
       const teamKey = state.isTop ? 'awayTeam' : 'homeTeam';
       const teamObj = state[teamKey];
-      const nextIndex = teamObj.lineup.length > 0 ? (teamObj.currentBatterIndex + 1) % teamObj.lineup.length : teamObj.currentBatterIndex;
+      const curIndex = teamObj.currentBatterIndex;
+      const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
       
       const willResetInning = state.outs >= 2;
+
+      const newLineup = [...teamObj.lineup];
+      if (newLineup[curIndex]) {
+        newLineup[curIndex] = {
+          ...newLineup[curIndex],
+          atBats: [...(newLineup[curIndex].atBats || []), '出局']
+        };
+      }
 
       return {
         ...state,
         [teamKey]: {
           ...teamObj,
+          lineup: newLineup,
           currentBatterIndex: nextIndex
         },
         outs: willResetInning ? 0 : state.outs + 1,
@@ -374,13 +454,24 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const runsScored = state.bases[2] ? 1 : 0;
       const newBases1 = [true, state.bases[0], state.bases[1]] as [boolean, boolean, boolean];
       const teamObj1 = state[teamKey];
-      const nextIndex1 = teamObj1.lineup.length > 0 ? (teamObj1.currentBatterIndex + 1) % teamObj1.lineup.length : teamObj1.currentBatterIndex;
+      const curIndex1 = teamObj1.currentBatterIndex;
+      const nextIndex1 = teamObj1.lineup.length > 0 ? (curIndex1 + 1) % teamObj1.lineup.length : curIndex1;
       
+      const newLineup1 = [...teamObj1.lineup];
+      if (newLineup1[curIndex1]) {
+        newLineup1[curIndex1] = {
+          ...newLineup1[curIndex1],
+          atBats: [...(newLineup1[curIndex1].atBats || []), '一安']
+        };
+      }
+
       return {
         ...state,
         [teamKey]: { 
           ...teamObj1, 
           score: teamObj1.score + runsScored, 
+          hits: teamObj1.hits + 1,
+          lineup: newLineup1,
           currentBatterIndex: nextIndex1,
           inningScores: runsScored > 0 ? updateInningScore(teamObj1, state.inning, runsScored) : teamObj1.inningScores
         },
@@ -395,13 +486,24 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const runsScored = (state.bases[1] ? 1 : 0) + (state.bases[2] ? 1 : 0);
       const newBases2 = [false, true, state.bases[0]] as [boolean, boolean, boolean];
       const teamObj2 = state[teamKey];
-      const nextIndex2 = teamObj2.lineup.length > 0 ? (teamObj2.currentBatterIndex + 1) % teamObj2.lineup.length : teamObj2.currentBatterIndex;
+      const curIndex2 = teamObj2.currentBatterIndex;
+      const nextIndex2 = teamObj2.lineup.length > 0 ? (curIndex2 + 1) % teamObj2.lineup.length : curIndex2;
       
+      const newLineup2 = [...teamObj2.lineup];
+      if (newLineup2[curIndex2]) {
+        newLineup2[curIndex2] = {
+          ...newLineup2[curIndex2],
+          atBats: [...(newLineup2[curIndex2].atBats || []), '二安']
+        };
+      }
+
       return {
         ...state,
         [teamKey]: { 
           ...teamObj2, 
           score: teamObj2.score + runsScored, 
+          hits: teamObj2.hits + 1,
+          lineup: newLineup2,
           currentBatterIndex: nextIndex2,
           inningScores: runsScored > 0 ? updateInningScore(teamObj2, state.inning, runsScored) : teamObj2.inningScores
         },
@@ -416,13 +518,24 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const runsScored = (state.bases[0] ? 1 : 0) + (state.bases[1] ? 1 : 0) + (state.bases[2] ? 1 : 0);
       const newBases3 = [false, false, true] as [boolean, boolean, boolean];
       const teamObj3 = state[teamKey];
-      const nextIndex3 = teamObj3.lineup.length > 0 ? (teamObj3.currentBatterIndex + 1) % teamObj3.lineup.length : teamObj3.currentBatterIndex;
+      const curIndex3 = teamObj3.currentBatterIndex;
+      const nextIndex3 = teamObj3.lineup.length > 0 ? (curIndex3 + 1) % teamObj3.lineup.length : curIndex3;
       
+      const newLineup3 = [...teamObj3.lineup];
+      if (newLineup3[curIndex3]) {
+        newLineup3[curIndex3] = {
+          ...newLineup3[curIndex3],
+          atBats: [...(newLineup3[curIndex3].atBats || []), '三安']
+        };
+      }
+
       return {
         ...state,
         [teamKey]: { 
           ...teamObj3, 
           score: teamObj3.score + runsScored, 
+          hits: teamObj3.hits + 1,
+          lineup: newLineup3,
           currentBatterIndex: nextIndex3,
           inningScores: runsScored > 0 ? updateInningScore(teamObj3, state.inning, runsScored) : teamObj3.inningScores
         },
@@ -437,21 +550,32 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const runsScored = runnersOnBase + 1;
       const teamKey = state.isTop ? 'awayTeam' : 'homeTeam';
       const teamObj = state[teamKey];
-      const nextIndex = teamObj.lineup.length > 0 ? (teamObj.currentBatterIndex + 1) % teamObj.lineup.length : teamObj.currentBatterIndex;
+      const curIndex = teamObj.currentBatterIndex;
+      const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
       
       let animationType: 'homerun' | '2-run-homer' | '3-run-homer' | 'grand-slam' = 'homerun';
       if (runnersOnBase === 1) animationType = '2-run-homer';
       else if (runnersOnBase === 2) animationType = '3-run-homer';
       else if (runnersOnBase >= 3) animationType = 'grand-slam';
 
-      const batter = teamObj.lineup[teamObj.currentBatterIndex];
+      const batter = teamObj.lineup[curIndex];
       const playerName = batter ? (batter.number ? `${batter.name} #${batter.number}` : batter.name) : (state.isTop ? '客隊打者' : '主隊打者');
+
+      const newLineup = [...teamObj.lineup];
+      if (newLineup[curIndex]) {
+        newLineup[curIndex] = {
+          ...newLineup[curIndex],
+          atBats: [...(newLineup[curIndex].atBats || []), '全壘打']
+        };
+      }
 
       return {
         ...state,
         [teamKey]: { 
           ...teamObj, 
           score: teamObj.score + runsScored, 
+          hits: teamObj.hits + 1,
+          lineup: newLineup,
           currentBatterIndex: nextIndex,
           inningScores: updateInningScore(teamObj, state.inning, runsScored)
         },
@@ -621,13 +745,18 @@ function baseReducer(state: GameState, action: ActionType): GameState {
     case 'INCREMENT_PLAYER_STAT':
       if (action.role === 'pitcher') {
         const pitchingTeam = state.isTop ? 'homeTeam' : 'awayTeam';
+        const curPitcher = state[pitchingTeam].pitcher;
+        const currentPitches = curPitcher?.pitchCount !== undefined
+          ? curPitcher.pitchCount
+          : parseInt(curPitcher?.stat?.replace(/[^0-9]/g, '') || '0', 10);
         return { 
           ...state, 
           [pitchingTeam]: { 
             ...state[pitchingTeam], 
             pitcher: { 
-              ...state[pitchingTeam].pitcher, 
-              stat: incrementPitchStat(state[pitchingTeam].pitcher.stat) 
+              ...curPitcher, 
+              stat: incrementPitchStat(curPitcher.stat),
+              pitchCount: currentPitches + 1
             } 
           } 
         };
@@ -637,13 +766,18 @@ function baseReducer(state: GameState, action: ActionType): GameState {
     case 'DECREMENT_PLAYER_STAT':
       if (action.role === 'pitcher') {
         const pitchingTeam = state.isTop ? 'homeTeam' : 'awayTeam';
+        const curPitcher = state[pitchingTeam].pitcher;
+        const currentPitches = curPitcher?.pitchCount !== undefined
+          ? curPitcher.pitchCount
+          : parseInt(curPitcher?.stat?.replace(/[^0-9]/g, '') || '0', 10);
         return { 
           ...state, 
           [pitchingTeam]: { 
             ...state[pitchingTeam], 
             pitcher: { 
-              ...state[pitchingTeam].pitcher, 
-              stat: decrementPitchStat(state[pitchingTeam].pitcher.stat) 
+              ...curPitcher, 
+              stat: decrementPitchStat(curPitcher.stat),
+              pitchCount: Math.max(0, currentPitches - 1)
             } 
           } 
         };
@@ -880,6 +1014,43 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           ...state[tKey],
           score: totalScore,
           inningScores: newInningScores
+        }
+      };
+    }
+
+    case 'RECORD_AT_BAT': {
+      const teamKey = (action.team ? (action.team === 'home' ? 'homeTeam' : 'awayTeam') : (state.isTop ? 'awayTeam' : 'homeTeam'));
+      const teamObj = state[teamKey];
+      const pIdx = action.playerIndex !== undefined ? action.playerIndex : teamObj.currentBatterIndex;
+      const newLineup = [...teamObj.lineup];
+      if (newLineup[pIdx]) {
+        const curPlayer = newLineup[pIdx];
+        newLineup[pIdx] = {
+          ...curPlayer,
+          atBats: [...(curPlayer.atBats || []), action.result]
+        };
+      }
+      return {
+        ...state,
+        [teamKey]: {
+          ...teamObj,
+          lineup: newLineup
+        }
+      };
+    }
+
+    case 'CLEAR_ALL_AT_BATS': {
+      return {
+        ...state,
+        awayTeam: {
+          ...state.awayTeam,
+          lineup: state.awayTeam.lineup.map(p => ({ ...p, atBats: [] })),
+          bench: state.awayTeam.bench.map(p => ({ ...p, atBats: [] }))
+        },
+        homeTeam: {
+          ...state.homeTeam,
+          lineup: state.homeTeam.lineup.map(p => ({ ...p, atBats: [] })),
+          bench: state.homeTeam.bench.map(p => ({ ...p, atBats: [] }))
         }
       };
     }
