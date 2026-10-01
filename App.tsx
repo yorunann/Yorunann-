@@ -6,12 +6,13 @@ import { INITIAL_STATE } from './constants';
 import { ScoreboardDisplay } from './components/ScoreboardDisplay';
 import { ScoreboardControls } from './components/ScoreboardControls';
 import { ScoreboardControlsV2 } from './components/ScoreboardControlsV2';
-import { MonitorPlay, Maximize, Minimize, Keyboard, Settings, ExternalLink, RotateCcw, Gamepad2, BookOpen, Plus, Minus, Menu, X } from 'lucide-react';
+import { MonitorPlay, Maximize, Minimize, Keyboard, Settings, ExternalLink, RotateCcw, Gamepad2, BookOpen, Plus, Minus, Menu, X, FileSpreadsheet } from 'lucide-react';
 import { useShortcuts, DEFAULT_SHORTCUTS, ShortcutMap } from './hooks/useShortcuts';
 import { useGamepad } from './hooks/useGamepad';
 import { ShortcutSettingsModal } from './components/ShortcutSettingsModal';
 import { UserGuideModal } from './components/UserGuideModal';
 import { SettingsModal } from './components/SettingsModal';
+import { GameRecordModal } from './components/GameRecordModal';
 
 import { reducer } from './reducer';
 
@@ -41,6 +42,7 @@ export const App: React.FC = () => {
   const [isUserGuideModalOpen, setIsUserGuideModalOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isGameRecordModalOpen, setIsGameRecordModalOpen] = useState(false);
   const [shortcuts, setShortcuts] = useState<ShortcutMap>(DEFAULT_SHORTCUTS);
   const [language, setLanguage] = useState<'en' | 'zh' | 'ja'>('zh');
   const [history, setHistory] = useState<GameState[]>([]);
@@ -456,6 +458,7 @@ export const App: React.FC = () => {
               <MonitorPlay className="text-yellow-400" />
               <h1 className="text-white font-bold text-xl hidden md:block">Pro Baseball Scoreboard</h1>
               <h1 className="text-white font-bold text-xl md:hidden">PBS</h1>
+              <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-600/30 text-blue-400 border border-blue-500/30 font-mono tracking-tight">v3.0</span>
             </div>
             <select 
               value={language}
@@ -520,6 +523,14 @@ export const App: React.FC = () => {
             >
               <Keyboard size={18} />
               {isToolbarExpanded && <span className="text-xs font-medium ml-1">Shortcuts</span>}
+            </button>
+            <button
+              onClick={() => setIsGameRecordModalOpen(true)}
+              className="p-1.5 rounded-md text-emerald-400 hover:text-white hover:bg-emerald-800/50 transition-colors flex items-center space-x-1"
+              title={language === 'zh' ? '攻守紀錄表與歷史管理' : language === 'ja' ? '試合スコアブックと記録' : 'Game Records & Box Score'}
+            >
+              <FileSpreadsheet size={18} />
+              <span className="text-xs font-bold ml-1">{language === 'zh' ? '紀錄表' : language === 'ja' ? '記録表' : 'Records'}</span>
             </button>
             <button
               onClick={() => setIsResetConfirmOpen(true)}
@@ -650,15 +661,25 @@ export const App: React.FC = () => {
           {/* Right/Bottom: Controls */}
           {!isDisplayMode && (
             <div 
-              className={`flex-1 overflow-y-auto overscroll-contain shadow-inner min-h-0 ${
+              className={`flex-1 overflow-y-auto overscroll-contain shadow-inner min-h-0 relative ${
                 useBetaControls ? 'w-full md:w-auto bg-slate-900' : 'bg-gray-100'
               }`}
               style={{ flexBasis: (isPortrait && typeof window !== 'undefined' && window.innerWidth < 768) ? undefined : `${controlPanelWidth}%` }}
             >
                 {useBetaControls ? (
-                  <ScoreboardControlsV2 state={state} dispatch={handleDispatch} language={language} />
+                  <ScoreboardControlsV2 
+                    state={state} 
+                    dispatch={handleDispatch} 
+                    language={language} 
+                    onOpenRecordModal={() => setIsGameRecordModalOpen(true)}
+                  />
                 ) : (
-                  <ScoreboardControls state={state} dispatch={handleDispatch} language={language} />
+                  <ScoreboardControls 
+                    state={state} 
+                    dispatch={handleDispatch} 
+                    language={language} 
+                    onOpenRecordModal={() => setIsGameRecordModalOpen(true)}
+                  />
                 )}
             </div>
           )}
@@ -668,7 +689,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v26.9.23.0</span>
+          <span className="text-slate-600 ml-2">v3.0</span>
        </footer>
 
         <ShortcutSettingsModal
@@ -691,6 +712,14 @@ export const App: React.FC = () => {
           language={language}
           useBetaControls={useBetaControls}
           onToggleBetaControls={handleToggleBetaControls}
+        />
+
+        <GameRecordModal
+          isOpen={isGameRecordModalOpen}
+          onClose={() => setIsGameRecordModalOpen(false)}
+          state={state}
+          dispatch={handleDispatch}
+          language={language}
         />
 
         {/* Pseudo Fullscreen Immersive Mode for iPhone / unsupported browsers */}

@@ -1033,8 +1033,8 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                 <div className="h-[72px] sm:h-[88px] lg:h-[100px] bg-slate-950 flex border-b-2 border-slate-600 shrink-0">
                     {/* Away Score */}
                     <div 
-                        className="flex-1 flex items-center justify-center text-5xl lg:text-7xl font-bold relative overflow-hidden cursor-pointer hover:bg-white/5 transition-colors" 
-                        style={{ color: state.awayTeam.color }}
+                        className="flex-1 flex items-center justify-center text-5xl lg:text-7xl font-bold relative overflow-hidden cursor-pointer hover:brightness-110 transition-all" 
+                        style={{ backgroundColor: state.awayTeam.color }}
                         onMouseDown={() => handleScoreMouseDown('away')}
                         onMouseUp={handleScoreMouseUp}
                         onMouseLeave={handleScoreMouseLeave}
@@ -1042,8 +1042,10 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         onTouchEnd={handleScoreMouseUp}
                         onClick={(e) => handleScoreClick(e, 'away')}
                     >
-                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-20"></div>
-                         <div className="z-10"><AnimatedScore score={state.awayTeam.score} color={state.awayTeam.color} sizeClass="text-3xl lg:text-4xl" /></div>
+                         {/* Deeper score background overlay matching broadcast mode */}
+                         <div className="absolute inset-0 bg-black/45 pointer-events-none"></div>
+                         <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-black/35 pointer-events-none"></div>
+                         <div className="z-10"><AnimatedScore score={state.awayTeam.score} color="#ffffff" sizeClass="text-5xl sm:text-6xl lg:text-7xl font-black drop-shadow-md" /></div>
                          {showScoreControlsAway && (
                             <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 flex gap-2 bg-slate-900/95 p-2 rounded border-2 border-slate-500 shadow-2xl z-50 animate-in fade-in zoom-in duration-200">
                                 <button className="p-2 bg-white/10 hover:bg-white/20 rounded text-green-400" onClick={(e) => { e.stopPropagation(); dispatch({type: 'ADD_SCORE', team: 'away', amount: 1})}}><Plus size={20}/></button>
@@ -1063,12 +1065,13 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                             dispatch({type: 'NEXT_INNING'});
                         }}
                     >
-                        <div className="flex items-center gap-1.5">
-                            <div className="flex flex-col gap-1">
-                                <div className={`w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent ${state.isTop ? 'border-b-[7px] border-b-yellow-400' : 'border-b-[7px] border-b-slate-700'}`}></div>
-                                <div className={`w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent ${!state.isTop ? 'border-t-[7px] border-t-yellow-400' : 'border-t-[7px] border-t-slate-700'}`}></div>
-                            </div>
-                            <span className="text-2xl sm:text-3xl font-black text-slate-200 font-mono">{state.inning}</span>
+                        <div className="flex items-center gap-1.5 sm:gap-2 select-none leading-none">
+                            <span className="text-3xl sm:text-4xl lg:text-5xl font-black text-yellow-400 font-mono leading-none select-none">
+                                {state.isTop ? '▲' : '▼'}
+                            </span>
+                            <span className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-100 font-mono leading-none select-none">
+                                {state.inning}
+                            </span>
                         </div>
 
                         {/* Integrated Pitch Timer */}
@@ -1104,8 +1107,8 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
 
                     {/* Home Score */}
                     <div 
-                        className="flex-1 flex items-center justify-center text-5xl lg:text-7xl font-bold relative overflow-hidden cursor-pointer hover:bg-white/5 transition-colors" 
-                        style={{ color: state.homeTeam.color }}
+                        className="flex-1 flex items-center justify-center text-5xl lg:text-7xl font-bold relative overflow-hidden cursor-pointer hover:brightness-110 transition-all" 
+                        style={{ backgroundColor: state.homeTeam.color }}
                         onMouseDown={() => handleScoreMouseDown('home')}
                         onMouseUp={handleScoreMouseUp}
                         onMouseLeave={handleScoreMouseLeave}
@@ -1113,9 +1116,11 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         onTouchEnd={handleScoreMouseUp}
                         onClick={(e) => handleScoreClick(e, 'home')}
                     >
-                        <div className="absolute inset-0 bg-gradient-to-l from-transparent via-white/5 to-transparent opacity-20"></div>
-                        <div className="z-10"><AnimatedScore score={state.homeTeam.score} color={state.homeTeam.color} sizeClass="text-3xl lg:text-4xl" /></div>
-                         {showScoreControlsHome && (
+                         {/* Deeper score background overlay matching broadcast mode */}
+                         <div className="absolute inset-0 bg-black/45 pointer-events-none"></div>
+                         <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-black/35 pointer-events-none"></div>
+                         <div className="z-10"><AnimatedScore score={state.homeTeam.score} color="#ffffff" sizeClass="text-5xl sm:text-6xl lg:text-7xl font-black drop-shadow-md" /></div>
+                          {showScoreControlsHome && (
                             <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 flex gap-2 bg-slate-900/95 p-2 rounded border-2 border-slate-500 shadow-2xl z-50 animate-in fade-in zoom-in duration-200">
                                 <button className="p-2 bg-white/10 hover:bg-white/20 rounded text-green-400" onClick={(e) => { e.stopPropagation(); dispatch({type: 'ADD_SCORE', team: 'home', amount: 1})}}><Plus size={20}/></button>
                                 <button className="p-2 bg-white/10 hover:bg-white/20 rounded text-red-400" onClick={(e) => { e.stopPropagation(); dispatch({type: 'ADD_SCORE', team: 'home', amount: -1})}}><Minus size={20}/></button>
@@ -1125,17 +1130,17 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                 </div>
 
                 {/* AT BAT & PITCHING (Fixed Left = Away Team, Fixed Right = Home Team) */}
-                <div className="flex bg-slate-900 border-b-2 border-slate-700 shrink-0 text-white min-h-[64px] sm:min-h-[72px] lg:min-h-[80px]">
+                <div className="flex bg-slate-900 border-b-2 border-slate-700 shrink-0 text-white min-h-[76px] sm:min-h-[84px] lg:min-h-[92px]">
                     {/* Fixed Left Box: Away Team */}
-                    <div className="flex-1 flex flex-col justify-between py-1.5 px-3 sm:px-4 border-r-2 border-slate-700 min-w-0">
+                    <div className="flex-1 flex flex-col justify-between py-2 px-3 sm:px-4 border-r-2 border-slate-700 min-w-0">
                         {/* Top: Role & Team Name vs Stat */}
                         <div className="flex items-center justify-between min-w-0">
-                            <span className="font-bold tracking-widest text-[10px] flex items-center gap-1.5" style={{ color: state.awayTeam.color }}>
+                            <span className="font-bold tracking-widest text-[11px] sm:text-xs flex items-center gap-1.5" style={{ color: state.awayTeam.color }}>
                                 <span>{state.isTop ? (language === 'zh' ? '打擊' : language === 'ja' ? '打撃' : 'AT BAT') : (language === 'zh' ? '投球' : language === 'ja' ? '投球' : 'PITCHING')}</span>
                                 <span className="text-white/40">· {state.awayTeam.name}</span>
                             </span>
                             {(state.isTop ? (state?.showPlayerStat ?? true) : (state.showCount ?? true)) && (
-                                <span className="text-xs sm:text-sm font-mono text-yellow-500 font-bold shrink-0 ml-1">
+                                <span className="text-sm sm:text-base font-mono text-yellow-400 font-black shrink-0 ml-1">
                                     {state.isTop ? `AVG: ${awayBatter.stat || '.000'}` : `P: ${awayPitcher.stat || 0}`}
                                 </span>
                             )}
@@ -1149,12 +1154,12 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                         ? `${state.awayTeam.currentBatterIndex + 1}. ${awayBatter.name}`
                                         : awayPitcher.name || '---'
                                     } 
-                                    className="text-base sm:text-lg lg:text-xl font-black text-white" 
+                                    className="text-lg sm:text-xl lg:text-2xl font-black text-white" 
                                     align="left" 
                                 />
                             </div>
                             {(state.isTop ? awayBatter.number : awayPitcher.number) && (
-                                <span className="text-xs text-slate-400 shrink-0">
+                                <span className="text-sm sm:text-base text-slate-300 font-bold shrink-0">
                                     #{state.isTop ? awayBatter.number : awayPitcher.number}
                                 </span>
                             )}
@@ -1164,43 +1169,43 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         <div className="flex items-center min-w-0 pt-0.5">
                             {state.isTop ? (
                                 /* Batter At-Bats (Max 4 latest) */
-                                <div className="flex items-center gap-1 overflow-hidden">
+                                <div className="flex items-center gap-1.5 overflow-hidden">
                                     {((awayBatter.atBats || []).length === 0) ? (
-                                        <span className="text-[10px] sm:text-xs text-slate-500 font-mono">
+                                        <span className="text-xs sm:text-sm text-slate-400 font-mono font-bold">
                                             {language === 'zh' ? '首打席' : language === 'ja' ? '初打席' : '1st AB'}
                                         </span>
                                     ) : (
                                         (awayBatter.atBats || []).slice(-4).map((ab, idx) => {
-                                            const item = formatAtBatChinese(ab, language);
-                                            return (
-                                                <span 
-                                                    key={idx} 
-                                                    className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded border ${item.style} shadow-sm font-bold tracking-tight shrink-0`}
-                                                >
-                                                    {item.label}
-                                                </span>
-                                            );
-                                        })
-                                    )}
+                                             const item = formatAtBatChinese(ab, language);
+                                             return (
+                                                 <span 
+                                                     key={idx} 
+                                                     className={`text-xs sm:text-sm px-2 sm:px-2.5 py-0.5 sm:py-1 rounded border ${item.style} shadow-sm font-bold tracking-tight shrink-0`}
+                                                 >
+                                                     {item.label}
+                                                 </span>
+                                             );
+                                         })
+                                     )}
                                 </div>
                             ) : (
                                 /* Pitcher Stats: 局數, 三振, 用球數 */
-                                <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-slate-300 font-mono">
-                                    <span className="flex items-center gap-0.5">
-                                        <span className="text-slate-500 font-bold">{language === 'zh' ? '局數' : language === 'ja' ? '回数' : 'IP'}</span>
-                                        <span className="text-yellow-400 font-bold">
+                                <div className="flex items-center gap-2 sm:gap-2.5 text-xs sm:text-sm lg:text-base text-slate-200 font-mono">
+                                    <span className="flex items-center gap-1">
+                                        <span className="text-xs sm:text-sm text-slate-400 font-bold">{language === 'zh' ? '局數' : language === 'ja' ? '回数' : 'IP'}</span>
+                                        <span className="text-sm sm:text-base text-yellow-400 font-bold">
                                             {awayPitcher.inningsPitched || (state.isTop ? '0.0' : `${Math.max(0, state.inning - 1)}${state.outs > 0 ? `.${state.outs}` : ''}`)}
                                         </span>
                                     </span>
                                     <span className="text-slate-600">·</span>
-                                    <span className="flex items-center gap-0.5">
-                                        <span className="text-slate-500 font-bold">{language === 'zh' ? '三振' : language === 'ja' ? '奪三振' : 'K'}</span>
-                                        <span className="text-rose-400 font-bold">{awayPitcher.strikeouts ?? 0}</span>
+                                    <span className="flex items-center gap-1">
+                                        <span className="text-xs sm:text-sm text-slate-400 font-bold">{language === 'zh' ? '三振' : language === 'ja' ? '奪三振' : 'K'}</span>
+                                        <span className="text-sm sm:text-base text-rose-400 font-bold">{awayPitcher.strikeouts ?? 0}</span>
                                     </span>
                                     <span className="text-slate-600">·</span>
-                                    <span className="flex items-center gap-0.5">
-                                        <span className="text-slate-500 font-bold">{language === 'zh' ? '用球' : language === 'ja' ? '球数' : 'NP'}</span>
-                                        <span className="text-sky-300 font-bold">
+                                    <span className="flex items-center gap-1">
+                                        <span className="text-xs sm:text-sm text-slate-400 font-bold">{language === 'zh' ? '用球' : language === 'ja' ? '球数' : 'NP'}</span>
+                                        <span className="text-sm sm:text-base text-sky-300 font-bold">
                                             {awayPitcher.pitchCount ?? (parseInt(awayPitcher.stat?.replace(/[^0-9]/g, '') || '0', 10))}
                                         </span>
                                     </span>
@@ -1210,15 +1215,15 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     </div>
 
                     {/* Fixed Right Box: Home Team */}
-                    <div className="flex-1 flex flex-col justify-between py-1.5 px-3 sm:px-4 min-w-0">
+                    <div className="flex-1 flex flex-col justify-between py-2 px-3 sm:px-4 min-w-0">
                         {/* Top: Role & Team Name vs Stat */}
                         <div className="flex items-center justify-between min-w-0">
-                            <span className="font-bold tracking-widest text-[10px] flex items-center gap-1.5" style={{ color: state.homeTeam.color }}>
+                            <span className="font-bold tracking-widest text-[11px] sm:text-xs flex items-center gap-1.5" style={{ color: state.homeTeam.color }}>
                                 <span>{!state.isTop ? (language === 'zh' ? '打擊' : language === 'ja' ? '打撃' : 'AT BAT') : (language === 'zh' ? '投球' : language === 'ja' ? '投球' : 'PITCHING')}</span>
                                 <span className="text-white/40">· {state.homeTeam.name}</span>
                             </span>
                             {(!state.isTop ? (state?.showPlayerStat ?? true) : (state.showCount ?? true)) && (
-                                <span className="text-xs sm:text-sm font-mono text-yellow-500 font-bold shrink-0 ml-1">
+                                <span className="text-sm sm:text-base font-mono text-yellow-400 font-black shrink-0 ml-1">
                                     {!state.isTop ? `AVG: ${homeBatter.stat || '.000'}` : `P: ${homePitcher.stat || 0}`}
                                 </span>
                             )}
@@ -1232,12 +1237,12 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                         ? `${state.homeTeam.currentBatterIndex + 1}. ${homeBatter.name}`
                                         : homePitcher.name || '---'
                                     } 
-                                    className="text-base sm:text-lg lg:text-xl font-black text-white" 
+                                    className="text-lg sm:text-xl lg:text-2xl font-black text-white" 
                                     align="left" 
                                 />
                             </div>
                             {(!state.isTop ? homeBatter.number : homePitcher.number) && (
-                                <span className="text-xs text-slate-400 shrink-0">
+                                <span className="text-sm sm:text-base text-slate-300 font-bold shrink-0">
                                     #{!state.isTop ? homeBatter.number : homePitcher.number}
                                 </span>
                             )}
@@ -1247,43 +1252,43 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         <div className="flex items-center min-w-0 pt-0.5">
                             {!state.isTop ? (
                                 /* Batter At-Bats (Max 4 latest) */
-                                <div className="flex items-center gap-1 overflow-hidden">
+                                <div className="flex items-center gap-1.5 overflow-hidden">
                                     {((homeBatter.atBats || []).length === 0) ? (
-                                        <span className="text-[10px] sm:text-xs text-slate-500 font-mono">
+                                        <span className="text-xs sm:text-sm text-slate-400 font-mono font-bold">
                                             {language === 'zh' ? '首打席' : language === 'ja' ? '初打席' : '1st AB'}
                                         </span>
                                     ) : (
                                         (homeBatter.atBats || []).slice(-4).map((ab, idx) => {
-                                            const item = formatAtBatChinese(ab, language);
-                                            return (
-                                                <span 
-                                                    key={idx} 
-                                                    className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded border ${item.style} shadow-sm font-bold tracking-tight shrink-0`}
-                                                >
-                                                    {item.label}
-                                                </span>
-                                            );
-                                        })
-                                    )}
+                                             const item = formatAtBatChinese(ab, language);
+                                             return (
+                                                 <span 
+                                                     key={idx} 
+                                                     className={`text-xs sm:text-sm px-2 sm:px-2.5 py-0.5 sm:py-1 rounded border ${item.style} shadow-sm font-bold tracking-tight shrink-0`}
+                                                 >
+                                                     {item.label}
+                                                 </span>
+                                             );
+                                         })
+                                     )}
                                 </div>
                             ) : (
                                 /* Pitcher Stats: 局數, 三振, 用球數 */
-                                <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-slate-300 font-mono">
-                                    <span className="flex items-center gap-0.5">
-                                        <span className="text-slate-500 font-bold">{language === 'zh' ? '局數' : language === 'ja' ? '回数' : 'IP'}</span>
-                                        <span className="text-yellow-400 font-bold">
+                                <div className="flex items-center gap-2 sm:gap-2.5 text-xs sm:text-sm lg:text-base text-slate-200 font-mono">
+                                    <span className="flex items-center gap-1">
+                                        <span className="text-xs sm:text-sm text-slate-400 font-bold">{language === 'zh' ? '局數' : language === 'ja' ? '回数' : 'IP'}</span>
+                                        <span className="text-sm sm:text-base text-yellow-400 font-bold">
                                             {homePitcher.inningsPitched || (!state.isTop ? '0.0' : `${Math.max(0, state.inning - 1)}${state.outs > 0 ? `.${state.outs}` : ''}`)}
                                         </span>
                                     </span>
                                     <span className="text-slate-600">·</span>
-                                    <span className="flex items-center gap-0.5">
-                                        <span className="text-slate-500 font-bold">{language === 'zh' ? '三振' : language === 'ja' ? '奪三振' : 'K'}</span>
-                                        <span className="text-rose-400 font-bold">{homePitcher.strikeouts ?? 0}</span>
+                                    <span className="flex items-center gap-1">
+                                        <span className="text-xs sm:text-sm text-slate-400 font-bold">{language === 'zh' ? '三振' : language === 'ja' ? '奪三振' : 'K'}</span>
+                                        <span className="text-sm sm:text-base text-rose-400 font-bold">{homePitcher.strikeouts ?? 0}</span>
                                     </span>
                                     <span className="text-slate-600">·</span>
-                                    <span className="flex items-center gap-0.5">
-                                        <span className="text-slate-500 font-bold">{language === 'zh' ? '用球' : language === 'ja' ? '球数' : 'NP'}</span>
-                                        <span className="text-sky-300 font-bold">
+                                    <span className="flex items-center gap-1">
+                                        <span className="text-xs sm:text-sm text-slate-400 font-bold">{language === 'zh' ? '用球' : language === 'ja' ? '球数' : 'NP'}</span>
+                                        <span className="text-sm sm:text-base text-sky-300 font-bold">
                                             {homePitcher.pitchCount ?? (parseInt(homePitcher.stat?.replace(/[^0-9]/g, '') || '0', 10))}
                                         </span>
                                     </span>

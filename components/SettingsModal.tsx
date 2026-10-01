@@ -70,13 +70,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         Beta
                       </span>
                     </div>
-                    <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
-                      {language === 'en' 
-                        ? 'Optimized for mobile touch operation. Features extra-large pitch count buttons (球數 +1 / -1), tactile BSO keys, and automatic top/bottom layout on phone screens to prevent overflow.' 
-                        : language === 'zh' 
-                        ? '專為手機觸控量身打造。大幅加大用球數按鈕（簡潔「球數 +1 / -1」）、好壞球大觸控鍵，並在手機直向自動切換為上下佈局，按鍵超好按且不超出螢幕。' 
-                        : 'スマホ操作に最適化。大きな投球数ボタン（球数 +1 / -1）、見やすいカウントキー、画面崩れを防ぐ縦型自動レイアウトを搭載。'}
-                    </p>
                   </div>
                 </div>
 
@@ -102,11 +95,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Status Note */}
               <div className="mt-3 pt-3 border-t border-slate-200/80 flex items-center justify-between text-[11px]">
                 <span className="text-slate-500">
-                  {language === 'en' ? 'Current Mode:' : language === 'zh' ? '目前使用版本：' : '現在のバージョン：'}
+                  {language === 'en' ? 'Current Version: v3.0 | ' : language === 'zh' ? '目前版本：v3.0 | ' : '現在のバージョン：v3.0 | '}
                   <strong className={useBetaControls ? 'text-blue-600 ml-1' : 'text-slate-700 ml-1'}>
                     {useBetaControls 
-                      ? (language === 'en' ? 'New Touch Console (Beta)' : language === 'zh' ? '新版觸控控制台 (Beta)' : '新版コンソール (Beta)')
-                      : (language === 'en' ? 'Classic Scoreboard Controls' : language === 'zh' ? '經典版控制台' : 'クラシック版')}
+                      ? (language === 'en' ? 'Touch Console (v3.0)' : language === 'zh' ? '新版觸控控制台 (v3.0)' : '新版コンソール (v3.0)')
+                      : (language === 'en' ? 'Classic Controls (v3.0)' : language === 'zh' ? '經典版控制台 (v3.0)' : 'クラシック版 (v3.0)')}
                   </strong>
                 </span>
                 <span className="text-emerald-600 font-medium flex items-center gap-1">

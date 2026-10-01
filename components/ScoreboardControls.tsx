@@ -3,7 +3,7 @@ import { LineupImportModal } from './LineupImportModal';
 
 import React, { useRef, useEffect, useState } from 'react';
 import { GameState, ActionType, Player, Team, PitchInfo, GameMeta } from '../types';
-import { Play, Pause, RotateCcw, Eye, EyeOff, User, Trash2, Plus, PenTool, Tv, LayoutTemplate, Square, Image as ImageIcon, RefreshCw, ArrowDown, ArrowUp, GripVertical, Settings, Check, CircleDot, ChevronDown, ChevronUp, ChevronRight, X, Flame } from 'lucide-react';
+import { Play, Pause, RotateCcw, Eye, EyeOff, User, Trash2, Plus, PenTool, Tv, LayoutTemplate, Square, Image as ImageIcon, RefreshCw, ArrowDown, ArrowUp, GripVertical, Settings, Check, CircleDot, ChevronDown, ChevronUp, ChevronRight, X, Flame, FileSpreadsheet } from 'lucide-react';
 import { ImageCropperModal } from './ImageCropperModal';
 import { 
   DndContext, 
@@ -27,6 +27,7 @@ interface ControlsProps {
   state: GameState;
   dispatch: React.Dispatch<ActionType>;
   language?: 'en' | 'zh' | 'ja';
+  onOpenRecordModal?: () => void;
 }
 
 const SortablePlayerRow = ({ 
@@ -764,7 +765,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
   );
 };
 
-export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, language = 'zh' }) => {
+export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, language = 'zh', onOpenRecordModal }) => {
   const [activeTab, setActiveTab] = useState<'controls' | 'info'>('controls');
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
   const [isFontSizesOpen, setIsFontSizesOpen] = useState(true);
@@ -1005,7 +1006,7 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
 
 
   return (
-    <div className="flex flex-col min-h-full bg-gray-100">
+    <div className="flex flex-col min-h-full h-full bg-gray-100 relative overflow-hidden">
       <div className="flex border-b border-gray-300 bg-white shrink-0">
         <button
           className={`flex-1 py-3 text-sm font-bold uppercase transition-colors ${activeTab === 'controls' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}
@@ -1019,6 +1020,16 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
         >
           {language === 'en' ? 'Teams & Info' : language === 'zh' ? '比賽資訊與名單' : '試合情報と名簿'}
         </button>
+        {onOpenRecordModal && (
+          <button
+            className="py-3 px-3.5 text-sm font-bold uppercase text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-1.5 shrink-0 border-l border-gray-200 cursor-pointer"
+            onClick={onOpenRecordModal}
+            title={language === 'zh' ? '攻守紀錄表與歷史存檔管理' : 'Game Records & Box Score'}
+          >
+            <FileSpreadsheet size={16} />
+            <span className="hidden sm:inline">{language === 'en' ? 'Records' : language === 'zh' ? '紀錄表' : '記録表'}</span>
+          </button>
+        )}
       </div>
 
       <div className="p-4 flex-1 overflow-y-auto">
@@ -1026,105 +1037,6 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
         
         {activeTab === 'controls' && (
           <div className="flex flex-col gap-6">
-            {/* Current Matchup Duel & Substitutions Card */}
-            <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-3.5 shadow-sm space-y-2.5">
-              <div className="flex items-center justify-between border-b pb-2">
-                <span className="text-xs font-black text-gray-800 flex items-center gap-1.5">
-                  <Flame size={15} className="text-amber-500" />
-                  <span>{language === 'zh' ? '現正投打對決' : language === 'ja' ? '現在の対決' : 'Current Matchup'}</span>
-                </span>
-
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => dispatch({ type: 'PREVIOUS_BATTER' })}
-                    className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs font-bold active:scale-95 transition-transform flex items-center gap-1"
-                    title={language === 'zh' ? '上一棒' : language === 'ja' ? '前の打者' : 'Prev Batter'}
-                  >
-                    <span>◀</span>
-                    <span>{language === 'zh' ? '上一棒' : language === 'ja' ? '前' : 'Prev'}</span>
-                  </button>
-                  <button
-                    onClick={() => dispatch({ type: 'NEXT_BATTER' })}
-                    className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold active:scale-95 transition-transform flex items-center gap-1"
-                    title={language === 'zh' ? '下一棒' : language === 'ja' ? '次の打者' : 'Next Batter'}
-                  >
-                    <span>{language === 'zh' ? '下一棒' : language === 'ja' ? '次' : 'Next'}</span>
-                    <span>▶</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                {/* Pitcher Card */}
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-2.5 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-bold text-gray-600 flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: activePitcherTeamObj.color }} />
-                      <span className="truncate">{activePitcherTeamObj.name} {language === 'zh' ? '投手' : language === 'ja' ? '投手' : 'Pitcher'}</span>
-                    </span>
-                    <span className="text-[10px] bg-gray-200 text-gray-800 font-mono font-bold px-1.5 py-0.5 rounded shrink-0">
-                      {language === 'zh' ? '用球' : language === 'ja' ? '球数' : 'PC'}: {activePitcher?.pitchCount ?? (activePitcher?.stat?.replace(/[^0-9]/g, '') || '0')}
-                    </span>
-                  </div>
-                  <div className="font-bold text-gray-900 text-sm truncate my-0.5">
-                    {activePitcher?.name || '---'} {activePitcher?.number ? `#${activePitcher.number}` : ''}
-                  </div>
-                  {/* Bench Substitution */}
-                  <select
-                    className="w-full bg-white border border-gray-300 text-gray-700 text-xs rounded px-2 py-1 mt-1 outline-none cursor-pointer hover:border-gray-400"
-                    onChange={(e) => {
-                      if (e.target.value !== '') {
-                        handleSubstitutePitcher(parseInt(e.target.value, 10));
-                        e.target.value = '';
-                      }
-                    }}
-                    defaultValue=""
-                  >
-                    <option value="" disabled>{language === 'zh' ? '換投手 (選板凳)' : language === 'ja' ? '投手交代 (ベンチ)' : 'Change Pitcher (Bench)'}</option>
-                    {activePitcherTeamObj.bench.map((p, idx) => (
-                      <option key={p.id || idx} value={idx}>
-                        #{p.number} {p.name} ({p.position || 'P'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Batter Card */}
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-2.5 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-bold text-gray-600 flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: activeBatterTeamObj.color }} />
-                      <span className="truncate">{activeBatterTeamObj.name} {language === 'zh' ? `第${activeBatterTeamObj.currentBatterIndex + 1}棒` : language === 'ja' ? `${activeBatterTeamObj.currentBatterIndex + 1}番打者` : `#${activeBatterTeamObj.currentBatterIndex + 1} Batter`}</span>
-                    </span>
-                    <span className="text-[10px] bg-blue-100 text-blue-800 font-mono font-bold px-1.5 py-0.5 rounded shrink-0">
-                      AVG: {activeBatter?.stat || '.000'}
-                    </span>
-                  </div>
-                  <div className="font-bold text-gray-900 text-sm truncate my-0.5">
-                    {activeBatter?.name || '---'} {activeBatter?.number ? `#${activeBatter.number}` : ''}
-                  </div>
-                  {/* Bench Substitution */}
-                  <select
-                    className="w-full bg-white border border-gray-300 text-gray-700 text-xs rounded px-2 py-1 mt-1 outline-none cursor-pointer hover:border-gray-400"
-                    onChange={(e) => {
-                      if (e.target.value !== '') {
-                        handleSubstituteBatter(parseInt(e.target.value, 10));
-                        e.target.value = '';
-                      }
-                    }}
-                    defaultValue=""
-                  >
-                    <option value="" disabled>{language === 'zh' ? '代打/代跑 (選板凳)' : language === 'ja' ? '代打/代走 (ベンチ)' : 'Pinch Hit/Run (Bench)'}</option>
-                    {activeBatterTeamObj.bench.map((p, idx) => (
-                      <option key={p.id || idx} value={idx}>
-                        #{p.number} {p.name} ({p.position || 'BN'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
             {/* Game State Actions */}
           <div className="space-y-3">
             <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide border-b pb-1">
@@ -1142,7 +1054,7 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                 >
                   <span className="text-lg">{language === 'ja' ? 'ボール' : language === 'zh' ? '壞球' : 'BALL'}</span>
                 </button>
-                <button
+                <button 
                   className="bg-green-700 hover:bg-green-800 text-white font-bold px-4 rounded-r shadow flex items-center justify-center transition-transform active:scale-95 border-l border-green-800 text-xl"
                   onClick={() => dispatch({ type: 'DECREMENT_BALL' })}
                   title={language === 'en' ? 'Decrease Ball' : language === 'zh' ? '減少壞球' : 'ボール-1'}
@@ -1158,7 +1070,7 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                 >
                   <span className="text-lg">{language === 'ja' ? 'ストライク' : language === 'zh' ? '好球' : 'STRIKE'}</span>
                 </button>
-                <button
+                <button 
                   className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold px-4 rounded-r shadow flex items-center justify-center transition-transform active:scale-95 border-l border-yellow-700 text-xl"
                   onClick={() => dispatch({ type: 'DECREMENT_STRIKE' })}
                   title={language === 'en' ? 'Decrease Strike' : language === 'zh' ? '減少好球' : 'ストライク-1'}
@@ -1174,7 +1086,7 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                 >
                   <span className="text-lg">{language === 'ja' ? 'アウト' : language === 'zh' ? '出局' : 'OUT'}</span>
                 </button>
-                <button
+                <button 
                   className="bg-red-700 hover:bg-red-800 text-white font-bold px-4 rounded-r shadow flex items-center justify-center transition-transform active:scale-95 border-l border-red-800 text-xl"
                   onClick={() => dispatch({ type: 'DECREMENT_OUT' })}
                   title={language === 'en' ? 'Decrease Out' : language === 'zh' ? '減少出局' : 'アウト-1'}
@@ -1243,8 +1155,6 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
               </div>
             </div>
 
-
-            
             {/* Right Column (Event Controls) */}
             <div className="flex flex-col gap-2 h-full">
               <button 
@@ -1322,6 +1232,82 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
               </div>
             </div>
           </div>
+
+            {/* Current Matchup Duel & Substitutions Card (Moved below HR and Pitch Count) */}
+            <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-3.5 shadow-sm space-y-2.5">
+              <div className="flex items-center justify-between border-b pb-2">
+                <span className="text-xs font-black text-gray-800 flex items-center gap-1.5">
+                  <span>{language === 'zh' ? '現正投打對決' : language === 'ja' ? '現在の対決' : 'Current Matchup'}</span>
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {/* Pitcher Card */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-2.5 flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold text-gray-600 flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: activePitcherTeamObj.color }} />
+                      <span className="truncate">{activePitcherTeamObj.name} {language === 'zh' ? '投手' : language === 'ja' ? '投手' : 'Pitcher'}</span>
+                    </span>
+                    <span className="text-[10px] bg-gray-200 text-gray-800 font-mono font-bold px-1.5 py-0.5 rounded shrink-0">
+                      {language === 'zh' ? '用球' : language === 'ja' ? '球数' : 'PC'}: {activePitcher?.pitchCount ?? (activePitcher?.stat?.replace(/[^0-9]/g, '') || '0')}
+                    </span>
+                  </div>
+                  <div className="font-bold text-gray-900 text-sm truncate my-0.5">
+                    {activePitcher?.name || '---'} {activePitcher?.number ? `#${activePitcher.number}` : ''}
+                  </div>
+                  {/* Bench Substitution */}
+                  <select
+                    className="w-full bg-white border border-gray-300 text-gray-700 text-xs rounded px-2 py-1 mt-1 outline-none cursor-pointer hover:border-gray-400"
+                    onChange={(e) => {
+                      if (e.target.value !== '') {
+                        handleSubstitutePitcher(parseInt(e.target.value, 10));
+                        e.target.value = '';
+                      }
+                    }}
+                    defaultValue=""
+                  >
+                    <option value="" disabled>{language === 'zh' ? '換投手 (選板凳)' : language === 'ja' ? '投手交代 (ベンチ)' : 'Change Pitcher (Bench)'}</option>
+                    {activePitcherTeamObj.bench.map((p, idx) => (
+                      <option key={p.id || idx} value={idx}>
+                        #{p.number} {p.name} ({p.position || 'P'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Batter Card */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-2.5 flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold text-gray-600 flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: activeBatterTeamObj.color }} />
+                      <span className="truncate">{activeBatterTeamObj.name} {language === 'zh' ? `第${activeBatterTeamObj.currentBatterIndex + 1}棒` : language === 'ja' ? `${activeBatterTeamObj.currentBatterIndex + 1}番打者` : `#${activeBatterTeamObj.currentBatterIndex + 1} Batter`}</span>
+                    </span>
+                  </div>
+                  <div className="font-bold text-gray-900 text-sm truncate my-0.5">
+                    {activeBatter?.name || '---'} {activeBatter?.number ? `#${activeBatter.number}` : ''}
+                  </div>
+                  {/* Bench Substitution */}
+                  <select
+                    className="w-full bg-white border border-gray-300 text-gray-700 text-xs rounded px-2 py-1 mt-1 outline-none cursor-pointer hover:border-gray-400"
+                    onChange={(e) => {
+                      if (e.target.value !== '') {
+                        handleSubstituteBatter(parseInt(e.target.value, 10));
+                        e.target.value = '';
+                      }
+                    }}
+                    defaultValue=""
+                  >
+                    <option value="" disabled>{language === 'zh' ? '代打/代跑 (選板凳)' : language === 'ja' ? '代打/代走 (ベンチ)' : 'Pinch Hit/Run (Bench)'}</option>
+                    {activeBatterTeamObj.bench.map((p, idx) => (
+                      <option key={p.id || idx} value={idx}>
+                        #{p.number} {p.name} ({p.position || 'BN'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
 
       {/* Settings & Timer */}
           <div className="space-y-3">
@@ -1999,8 +1985,8 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
 
       {/* WALK TYPE SELECTION MODAL */}
       {isWalkModalOpen && (
-        <div className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4 text-white">
+        <div className="absolute inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl space-y-4 max-h-[90%] overflow-y-auto text-white">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <h3 className="text-lg font-black text-white flex items-center gap-2">
@@ -2083,8 +2069,8 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
 
       {/* OUT TYPE SELECTION MODAL */}
       {isOutModalOpen && (
-        <div className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4 text-white">
+        <div className="absolute inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl space-y-4 max-h-[90%] overflow-y-auto text-white">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <h3 className="text-lg font-black text-white flex items-center gap-2">

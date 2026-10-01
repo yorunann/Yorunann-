@@ -22,7 +22,8 @@ import {
   ArrowUp,
   Flame,
   Check,
-  X
+  X,
+  FileSpreadsheet
 } from 'lucide-react';
 import { LineupImportModal } from './LineupImportModal';
 import { ImageCropperModal } from './ImageCropperModal';
@@ -31,12 +32,14 @@ interface ScoreboardControlsV2Props {
   state: GameState;
   dispatch: React.Dispatch<ActionType>;
   language?: 'en' | 'zh' | 'ja';
+  onOpenRecordModal?: () => void;
 }
 
 export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
   state,
   dispatch,
-  language = 'zh'
+  language = 'zh',
+  onOpenRecordModal
 }) => {
   const [activeTab, setActiveTab] = useState<'match' | 'lineups' | 'innings' | 'display'>('match');
   const [editingTeamKey, setEditingTeamKey] = useState<'away' | 'home'>('away');
@@ -272,7 +275,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 text-slate-100 select-none overflow-hidden font-sans">
+    <div className="flex flex-col h-full bg-slate-900 text-slate-100 select-none overflow-hidden font-sans relative">
       {/* Top Segmented Navigation Tabs (No inning button here so tabs are never covered or squished!) */}
       <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-2.5 py-1.5 shrink-0 gap-1.5">
         <div className="flex items-center gap-1.5 w-full">
@@ -296,7 +299,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
             }`}
           >
             <Users size={14} />
-            <span>{language === 'en' ? 'Teams & Lineup' : language === 'zh' ? '球隊打線' : 'スタメン'}</span>
+            <span>{language === 'en' ? 'Lineup' : language === 'zh' ? '打線名單' : 'スタメン'}</span>
           </button>
 
           <button
@@ -322,6 +325,17 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
             <Tv size={14} />
             <span>{language === 'en' ? 'Display' : language === 'zh' ? '轉播版面' : '表示設定'}</span>
           </button>
+
+          {onOpenRecordModal && (
+            <button
+              onClick={onOpenRecordModal}
+              className="flex items-center justify-center gap-1 py-2 px-2.5 rounded-lg text-xs font-bold transition-all bg-emerald-700 hover:bg-emerald-600 text-white shrink-0 shadow-md cursor-pointer"
+              title={language === 'zh' ? '開啟完整攻守紀錄表與歷史存檔管理' : 'Open Game Records & Box Score'}
+            >
+              <FileSpreadsheet size={14} />
+              <span className="hidden sm:inline">{language === 'zh' ? '紀錄表' : 'Records'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -329,106 +343,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
       <div className="flex-1 overflow-y-auto overscroll-contain p-2.5 sm:p-3.5 space-y-3">
         {activeTab === 'match' && (
           <>
-            {/* 1. RESTORED: 現正投打對決 (Current Matchup Duel Area) */}
-            <div className="bg-slate-800/95 border border-slate-700/80 rounded-2xl p-2.5 sm:p-3 shadow-lg space-y-2">
-              <div className="flex items-center justify-between border-b border-slate-700/60 pb-1.5">
-                <span className="text-xs font-black text-amber-400 flex items-center gap-1.5">
-                  <Flame size={14} className="text-amber-400" />
-                  <span>{language === 'zh' ? '現正投打對決' : 'Current Matchup'}</span>
-                </span>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => dispatch({ type: 'PREVIOUS_BATTER' })}
-                    className="p-1 bg-slate-700 hover:bg-slate-600 text-white rounded-md text-xs font-bold active:scale-95 transition-transform"
-                    title="上一棒"
-                  >
-                    <ChevronLeft size={14} />
-                  </button>
-                  <button
-                    onClick={() => dispatch({ type: 'NEXT_BATTER' })}
-                    className="flex items-center gap-0.5 px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded-md text-xs font-bold active:scale-95 transition-transform"
-                    title="下一棒"
-                  >
-                    <span>{language === 'zh' ? '下一棒' : 'Next'}</span>
-                    <ChevronRight size={14} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Pitcher vs Batter Split Cards */}
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {/* Pitcher Card */}
-                <div className="bg-slate-900/80 border border-slate-700/60 rounded-xl p-2 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: fieldingTeam.color }} />
-                      <span>{fieldingTeam.name} 投手</span>
-                    </span>
-                    <span className="text-[10px] bg-slate-800 text-yellow-400 font-mono font-bold px-1.5 py-0.5 rounded">
-                      用球: {activePitcher.stat || '0'}
-                    </span>
-                  </div>
-                  <div className="font-bold text-white text-sm sm:text-base truncate my-0.5">
-                    {activePitcher.name} {activePitcher.number ? `#${activePitcher.number}` : ''}
-                  </div>
-                  {/* Bench Pitcher Substitution Select */}
-                  <select
-                    className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-[10px] rounded px-1.5 py-1 mt-1 outline-none cursor-pointer"
-                    onChange={(e) => {
-                      if (e.target.value !== '') {
-                        handleSubstitutePitcher(parseInt(e.target.value, 10));
-                        e.target.value = '';
-                      }
-                    }}
-                    defaultValue=""
-                  >
-                    <option value="" disabled>{language === 'zh' ? '換投手 (選板凳)' : 'Change Pitcher'}</option>
-                    {fieldingTeam.bench.map((p, idx) => (
-                      <option key={p.id || idx} value={idx}>
-                        #{p.number} {p.name} ({p.position || 'P'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Batter Card */}
-                <div className="bg-slate-900/80 border border-slate-700/60 rounded-xl p-2 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: battingTeam.color }} />
-                      <span>{battingTeam.name} 第{battingTeam.currentBatterIndex + 1}棒</span>
-                    </span>
-                    <span className="text-[10px] bg-slate-800 text-blue-300 font-mono font-bold px-1.5 py-0.5 rounded">
-                      AVG: {activeBatter.stat || '.000'}
-                    </span>
-                  </div>
-                  <div className="font-bold text-white text-sm sm:text-base truncate my-0.5">
-                    {activeBatter.name} {activeBatter.number ? `#${activeBatter.number}` : ''}
-                  </div>
-                  {/* Bench Pinch Hit / Run Select */}
-                  <select
-                    className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-[10px] rounded px-1.5 py-1 mt-1 outline-none cursor-pointer"
-                    onChange={(e) => {
-                      if (e.target.value !== '') {
-                        handleSubstituteBatter(parseInt(e.target.value, 10));
-                        e.target.value = '';
-                      }
-                    }}
-                    defaultValue=""
-                  >
-                    <option value="" disabled>{language === 'zh' ? '代打/代跑 (選板凳)' : 'Pinch Hit/Run'}</option>
-                    {battingTeam.bench.map((p, idx) => (
-                      <option key={p.id || idx} value={idx}>
-                        #{p.number} {p.name} ({p.position || 'BN'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* 2. INNING CONTROL & 換局按鈕 + BSO BALLS/STRIKES/OUTS + PITCH COUNT */}
+            {/* 1. INNING CONTROL & 換局按鈕 + BSO BALLS/STRIKES/OUTS + PITCH COUNT */}
             <div className="bg-slate-800/95 border border-slate-700/80 rounded-2xl p-2.5 sm:p-3 shadow-lg space-y-2.5">
               {/* Inning Status & Repositioned 換局 Button */}
               <div className="flex items-center justify-between bg-slate-900/90 border border-slate-700/80 px-3 py-2 rounded-xl">
@@ -609,7 +524,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
               </div>
             </div>
 
-            {/* 3. 打席快速結算 (Refined Quick Outcomes: Strikeout removed, HR & 3-Up-3-Down added!) */}
+            {/* 2. 打席快速結算 (Refined Quick Outcomes: Strikeout removed, HR & 3-Up-3-Down added!) */}
             <div className="bg-slate-800/95 border border-slate-700/80 rounded-2xl p-2.5 sm:p-3 shadow-md space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-300">
@@ -669,6 +584,83 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                 >
                   三上三下
                 </button>
+              </div>
+            </div>
+
+            {/* 3. 現正投打對決 (Moved below HR & Pitch Count) */}
+            <div className="bg-slate-800/95 border border-slate-700/80 rounded-2xl p-2.5 sm:p-3 shadow-lg space-y-2">
+              <div className="flex items-center justify-between border-b border-slate-700/60 pb-1.5">
+                <span className="text-xs font-black text-amber-400 flex items-center gap-1.5">
+                  <span>{language === 'zh' ? '現正投打對決' : 'Current Matchup'}</span>
+                </span>
+              </div>
+
+              {/* Pitcher vs Batter Split Cards */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {/* Pitcher Card */}
+                <div className="bg-slate-900/80 border border-slate-700/60 rounded-xl p-2 flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: fieldingTeam.color }} />
+                      <span>{fieldingTeam.name} 投手</span>
+                    </span>
+                    <span className="text-[10px] bg-slate-800 text-yellow-400 font-mono font-bold px-1.5 py-0.5 rounded">
+                      用球: {activePitcher.stat || '0'}
+                    </span>
+                  </div>
+                  <div className="font-bold text-white text-sm sm:text-base truncate my-0.5">
+                    {activePitcher.name} {activePitcher.number ? `#${activePitcher.number}` : ''}
+                  </div>
+                  {/* Bench Pitcher Substitution Select */}
+                  <select
+                    className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-[10px] rounded px-1.5 py-1 mt-1 outline-none cursor-pointer"
+                    onChange={(e) => {
+                      if (e.target.value !== '') {
+                        handleSubstitutePitcher(parseInt(e.target.value, 10));
+                        e.target.value = '';
+                      }
+                    }}
+                    defaultValue=""
+                  >
+                    <option value="" disabled>{language === 'zh' ? '換投手 (選板凳)' : 'Change Pitcher'}</option>
+                    {fieldingTeam.bench.map((p, idx) => (
+                      <option key={p.id || idx} value={idx}>
+                        #{p.number} {p.name} ({p.position || 'P'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Batter Card */}
+                <div className="bg-slate-900/80 border border-slate-700/60 rounded-xl p-2 flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: battingTeam.color }} />
+                      <span>{battingTeam.name} 第{battingTeam.currentBatterIndex + 1}棒</span>
+                    </span>
+                  </div>
+                  <div className="font-bold text-white text-sm sm:text-base truncate my-0.5">
+                    {activeBatter.name} {activeBatter.number ? `#${activeBatter.number}` : ''}
+                  </div>
+                  {/* Bench Pinch Hit / Run Select */}
+                  <select
+                    className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-[10px] rounded px-1.5 py-1 mt-1 outline-none cursor-pointer"
+                    onChange={(e) => {
+                      if (e.target.value !== '') {
+                        handleSubstituteBatter(parseInt(e.target.value, 10));
+                        e.target.value = '';
+                      }
+                    }}
+                    defaultValue=""
+                  >
+                    <option value="" disabled>{language === 'zh' ? '代打/代跑 (選板凳)' : 'Pinch Hit/Run'}</option>
+                    {battingTeam.bench.map((p, idx) => (
+                      <option key={p.id || idx} value={idx}>
+                        #{p.number} {p.name} ({p.position || 'BN'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -1289,6 +1281,18 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                   ))}
                 </div>
               </div>
+
+              {onOpenRecordModal && (
+                <div className="pt-2 border-t border-slate-700/80">
+                  <button
+                    onClick={onOpenRecordModal}
+                    className="w-full py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
+                  >
+                    <FileSpreadsheet size={16} />
+                    <span>{language === 'zh' ? '查看完整攻守紀錄表與數據管理 (存檔 / 更改)' : 'Open Full Box Score & Record Management'}</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1472,8 +1476,8 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
 
       {/* WALK TYPE SELECTION MODAL (保送類型彈窗) */}
       {isWalkModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+        <div className="absolute inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl space-y-4 max-h-[90%] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <h3 className="text-lg font-black text-white flex items-center gap-2">
@@ -1568,8 +1572,8 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
 
       {/* OUT TYPE SELECTION MODAL (出局方式彈窗) */}
       {isOutModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+        <div className="absolute inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl space-y-4 max-h-[90%] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <h3 className="text-lg font-black text-white flex items-center gap-2">

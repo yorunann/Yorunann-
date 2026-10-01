@@ -11,6 +11,27 @@ export interface Player {
   inningsPitched?: string;
   strikeouts?: number;
   pitchCount?: number;
+  runs?: number;
+  rbi?: number;
+  hits?: number;
+  walks?: number;
+  earnedRuns?: number;
+  hitsAllowed?: number;
+  runsAllowed?: number;
+}
+
+export interface SavedGameRecord {
+  id: string;
+  title: string;
+  date: string;
+  awayTeamName: string;
+  homeTeamName: string;
+  awayScore: number;
+  homeScore: number;
+  totalInnings: number;
+  gameState: GameState;
+  createdAt: number;
+  notes?: string;
 }
 
 export interface Team {
