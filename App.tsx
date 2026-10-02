@@ -6,7 +6,7 @@ import { INITIAL_STATE } from './constants';
 import { ScoreboardDisplay } from './components/ScoreboardDisplay';
 import { ScoreboardControls } from './components/ScoreboardControls';
 import { ScoreboardControlsV2 } from './components/ScoreboardControlsV2';
-import { MonitorPlay, Maximize, Minimize, Keyboard, Settings, ExternalLink, RotateCcw, Gamepad2, BookOpen, Plus, Minus, Menu, X, FileSpreadsheet } from 'lucide-react';
+import { MonitorPlay, Maximize, Minimize, Keyboard, Settings, ExternalLink, RotateCcw, Gamepad2, BookOpen, Plus, Minus, Menu, X } from 'lucide-react';
 import { useShortcuts, DEFAULT_SHORTCUTS, ShortcutMap } from './hooks/useShortcuts';
 import { useGamepad } from './hooks/useGamepad';
 import { ShortcutSettingsModal } from './components/ShortcutSettingsModal';
@@ -523,14 +523,6 @@ export const App: React.FC = () => {
             >
               <Keyboard size={18} />
               {isToolbarExpanded && <span className="text-xs font-medium ml-1">Shortcuts</span>}
-            </button>
-            <button
-              onClick={() => setIsGameRecordModalOpen(true)}
-              className="p-1.5 rounded-md text-emerald-400 hover:text-white hover:bg-emerald-800/50 transition-colors flex items-center space-x-1"
-              title={language === 'zh' ? '攻守紀錄表與歷史管理' : language === 'ja' ? '試合スコアブックと記録' : 'Game Records & Box Score'}
-            >
-              <FileSpreadsheet size={18} />
-              <span className="text-xs font-bold ml-1">{language === 'zh' ? '紀錄表' : language === 'ja' ? '記録表' : 'Records'}</span>
             </button>
             <button
               onClick={() => setIsResetConfirmOpen(true)}

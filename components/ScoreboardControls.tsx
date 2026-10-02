@@ -1081,7 +1081,7 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
               <div className="flex flex-1 min-h-[44px]">
                 <button 
                   className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-2 rounded-l shadow flex-1 flex flex-col items-center justify-center transition-transform active:scale-95"
-                  onClick={() => setIsOutModalOpen(true)}
+                  onClick={() => dispatch({ type: 'INCREMENT_OUT' })}
                   onContextMenu={(e) => { e.preventDefault(); dispatch({ type: 'DECREMENT_OUT' }); }}
                 >
                   <span className="text-lg">{language === 'ja' ? 'アウト' : language === 'zh' ? '出局' : 'OUT'}</span>

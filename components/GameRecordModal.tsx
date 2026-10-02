@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, Save, FileText, Download, Upload, Printer, Copy, Check, 
-  Edit2, Trash2, Plus, Minus, Calendar, Trophy, ChevronRight, 
-  Share2, RotateCcw, History, User, ListOrdered, Sparkles, CheckCircle2
+  Edit2, Trash2, Plus, Minus, Calendar, Trophy, ChevronRight, ChevronLeft,
+  Share2, RotateCcw, History, User, ListOrdered, Sparkles, CheckCircle2,
+  Search, CornerDownLeft
 } from 'lucide-react';
 import { GameState, Team, Player, SavedGameRecord } from '../types';
 
@@ -15,6 +16,128 @@ interface GameRecordModalProps {
 }
 
 const STORAGE_KEY = 'baseball_game_records_archive';
+
+export const AT_BAT_OUTCOMES_CATEGORIES = [
+  {
+    key: 'hits',
+    category: '安打 / 長打 (Hits)',
+    color: 'emerald',
+    badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+    items: [
+      { id: '一安', label: '一壘安打 (1B)', full: '一壘安打 (Single)' },
+      { id: '二安', label: '二壘安打 (2B)', full: '二壘安打 (Double)' },
+      { id: '三安', label: '三壘安打 (3B)', full: '三壘安打 (Triple)' },
+      { id: 'HR', label: '全壘打 (HR)', full: '全壘打 (Home Run)' },
+      { id: '滿貫砲', label: '滿貫全壘打 (GS)', full: '滿貫全壘打 (Grand Slam)' },
+      { id: '場內HR', label: '場內全壘打 (IPHR)', full: '場內全壘打 (Inside-the-park HR)' },
+      { id: '內安', label: '內野安打 (IFH)', full: '內野安打 (Infield Hit)' },
+      { id: '德州安', label: '德州安打 (TX)', full: '德州安打 (Texas Leaguer)' },
+      { id: '再見安', label: '再見安打 (WO)', full: '再見安打 (Walk-off Hit)' },
+      { id: '再見HR', label: '再見全壘打 (WOHR)', full: '再見全壘打 (Walk-off Home Run)' },
+      { id: '陽春砲', label: '陽春砲 (Solo)', full: '陽春全壘打 (Solo HR)' },
+      { id: '兩分砲', label: '兩分砲 (2R)', full: '兩分全壘打 (2-Run HR)' },
+      { id: '三分砲', label: '三分砲 (3R)', full: '三分全壘打 (3-Run HR)' },
+    ]
+  },
+  {
+    key: 'walks',
+    category: '四死球 / 上壘 (Walks & Safe)',
+    color: 'sky',
+    badgeColor: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
+    items: [
+      { id: '四球', label: '四壞保送 (BB)', full: '四壞球保送 (Base on Balls)' },
+      { id: '觸身', label: '觸身球 (HBP)', full: '觸身球保送 (Hit by Pitch)' },
+      { id: '敬遠', label: '故意四壞 (IBB)', full: '故意四壞保送 (Intentional Walk)' },
+      { id: '不死K', label: '不死三振 (D3K)', full: '不死三振上壘 (Dropped 3rd Strike)' },
+      { id: '野選', label: '野手選擇 (FC)', full: '野手選擇上壘 (Fielder Choice)' },
+      { id: '失誤', label: '守備失誤 (E)', full: '守備失誤上壘 (Error)' },
+      { id: '暴投', label: '暴投上壘 (WP)', full: '暴投進壘/上壘 (Wild Pitch)' },
+      { id: '捕逸', label: '捕逸上壘 (PB)', full: '捕逸進壘/上壘 (Passed Ball)' },
+      { id: '妨礙打擊', label: '妨礙打擊 (CI)', full: '妨礙打擊上壘 (Catcher Interference)' },
+      { id: '妨礙守備', label: '妨礙守備 (OBS)', full: '妨礙守備 (Obstruction)' },
+    ]
+  },
+  {
+    key: 'outs',
+    category: '出局 / 三振 (Outs & Ks)',
+    color: 'rose',
+    badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+    items: [
+      { id: '三振', label: '揮空三振 (K)', full: '揮棒落空三振 (Strikeout Swinging)' },
+      { id: '見三振', label: '見定三振 (ꓘ)', full: '站著看好球三振 (Strikeout Looking)' },
+      { id: '界外K', label: '擦棒被捕 (FTK)', full: '擦棒被捕三振 (Foul Tip Strikeout)' },
+      { id: '滾地', label: '滾地出局 (GO)', full: '滾地球出局 (Groundout)' },
+      { id: '高飛', label: '高飛出局 (FO)', full: '外野高飛出局 (Flyout)' },
+      { id: '平飛', label: '平飛出局 (LO)', full: '平飛球出局 (Lineout)' },
+      { id: '內飛', label: '內野高飛 (IFF)', full: '內野高飛必死球 (Infield Fly)' },
+      { id: '界外飛', label: '界外接殺 (FFO)', full: '界外球接殺出局 (Foul Flyout)' },
+      { id: '雙殺', label: '雙殺打 (DP/GDP)', full: '雙殺打 (Double Play)' },
+      { id: '三殺', label: '三殺打 (TP/GTP)', full: '三殺打 (Triple Play)' },
+      { id: '刺殺', label: '刺殺出局 (PO)', full: '刺殺/封殺出局 (Putout / Force)' },
+      { id: '出局', label: '一般出局 (OUT)', full: '一般出局 (Generic Out)' },
+    ]
+  },
+  {
+    key: 'pos_outs',
+    category: '守位出局細項 (Positional Outs)',
+    color: 'purple',
+    badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+    items: [
+      { id: '投滾', label: '投手滾地 (1-3)', full: '投手滾地球出局 (1-3)' },
+      { id: '捕滾', label: '捕手滾地 (2-3)', full: '捕手滾地球出局 (2-3)' },
+      { id: '一滾', label: '一壘滾地 (3-1)', full: '一壘滾地球出局 (3-1 / 3U)' },
+      { id: '二滾', label: '二壘滾地 (4-3)', full: '二壘滾地球出局 (4-3)' },
+      { id: '三滾', label: '三壘滾地 (5-3)', full: '三壘滾地球出局 (5-3)' },
+      { id: '游滾', label: '游擊滾地 (6-3)', full: '游擊滾地球出局 (6-3)' },
+      { id: '左飛', label: '左外飛球 (F7)', full: '左外野高飛接殺 (F7)' },
+      { id: '中飛', label: '中外飛球 (F8)', full: '中外野高飛接殺 (F8)' },
+      { id: '右飛', label: '右外飛球 (F9)', full: '右外野高飛接殺 (F9)' },
+      { id: '捕飛', label: '捕手飛球 (F2)', full: '捕手界外/飛球接殺 (F2)' },
+      { id: '一飛', label: '一壘飛球 (F3)', full: '一壘平飛/飛球接殺 (F3)' },
+      { id: '二飛', label: '二壘飛球 (F4)', full: '二壘平飛/飛球接殺 (F4)' },
+      { id: '三飛', label: '三壘飛球 (F5)', full: '三壘平飛/飛球接殺 (F5)' },
+      { id: '游飛', label: '游擊飛球 (F6)', full: '游擊平飛/飛球接殺 (F6)' },
+    ]
+  },
+  {
+    key: 'sac',
+    category: '戰術 / 推進 (Sacrifices)',
+    color: 'amber',
+    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+    items: [
+      { id: '犧打', label: '犧牲短打 (SAC)', full: '犧牲觸擊短打 (Sacrifice Bunt)' },
+      { id: '犧飛', label: '犧牲飛球 (SF)', full: '外野犧牲飛球 (Sacrifice Fly)' },
+      { id: '短安', label: '觸擊安打 (BUH)', full: '突襲短打安打 (Bunt Single)' },
+      { id: '短打雙殺', label: '短打雙殺 (SDP)', full: '短打雙殺 (Bunt Double Play)' },
+      { id: '強迫取分', label: '強迫取分 (SQZ)', full: '強迫取分戰術 (Squeeze)' },
+    ]
+  },
+  {
+    key: 'base',
+    category: '跑壘 / 刺殺 (Baserunning)',
+    color: 'teal',
+    badgeColor: 'bg-teal-500/20 text-teal-300 border-teal-500/40',
+    items: [
+      { id: '牽制刺', label: '牽制出局 (PO)', full: '投手/捕手牽制出局 (Pickoff Out)' },
+      { id: '盜壘刺', label: '盜壘刺殺 (CS)', full: '盜壘被阻殺出局 (Caught Stealing)' },
+      { id: '夾殺', label: '夾殺出局 (Rundown)', full: '壘間夾殺出局 (Rundown Out)' },
+      { id: '跑壘刺', label: '跑壘出局 (OOB)', full: '跑壘過壘出局 (Out on Bases)' },
+      { id: '觸身出局', label: '碰觸跑者 (Hit Runner)', full: '擊球碰觸跑者出局' },
+    ]
+  },
+  {
+    key: 'other',
+    category: '調度與清除 (Actions)',
+    color: 'slate',
+    badgeColor: 'bg-slate-500/20 text-slate-300 border-slate-500/40',
+    items: [
+      { id: '代打', label: '代打登場 (PH)', full: '代打登場 (Pinch Hitter)' },
+      { id: '代跑', label: '代跑登場 (PR)', full: '代跑登場 (Pinch Runner)' },
+      { id: '未登場', label: '未登場 (-)', full: '未登場 (Did Not Bat)' },
+      { id: '清除', label: '清除此打席 (Clear)', full: '清除此打席紀錄' },
+    ]
+  }
+];
 
 export const GameRecordModal: React.FC<GameRecordModalProps> = ({
   isOpen,
@@ -35,6 +158,20 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
   const [editingAwayTeam, setEditingAwayTeam] = useState<Team>(() => JSON.parse(JSON.stringify(state.awayTeam)));
   const [editingHomeTeam, setEditingHomeTeam] = useState<Team>(() => JSON.parse(JSON.stringify(state.homeTeam)));
   const [isSavedNotify, setIsSavedNotify] = useState(false);
+  const [selectedAtBat, setSelectedAtBat] = useState<{
+    playerIndex: number;
+    abIndex: number | 'new';
+    current: string;
+  } | null>(null);
+  const [outcomeFilterCategory, setOutcomeFilterCategory] = useState<string>('all');
+  const [outcomeSearchQuery, setOutcomeSearchQuery] = useState<string>('');
+  const [customOutcomeInput, setCustomOutcomeInput] = useState<string>('');
+
+  useEffect(() => {
+    setSelectedAtBat(null);
+    setOutcomeSearchQuery('');
+    setCustomOutcomeInput('');
+  }, [isOpen, activeTab, activeTeamTab]);
 
   // Sync draft states when state changes or modal opens
   useEffect(() => {
@@ -109,14 +246,32 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
     let runs = p.runs ?? 0;
     let rbi = p.rbi ?? 0;
 
+    const isWalk = (ab: string) => 
+      ab.includes('四球') || ab.includes('觸身') || ab.includes('敬遠') || 
+      ab.includes('保送') || ab.includes('BB') || ab.includes('HBP') || ab.includes('IBB');
+
+    const isHit = (ab: string) => 
+      ab.includes('安') || ab.includes('HR') || ab.includes('全壘打') || 
+      ab.includes('1B') || ab.includes('2B') || ab.includes('3B') ||
+      ab.includes('滿貫') || ab.includes('砲');
+
+    const isSO = (ab: string) => 
+      ab.includes('三振') || ab.includes('K') || ab.includes('SO') || ab.includes('ꓘ');
+
+    const isNonAb = (ab: string) => 
+      isWalk(ab) ||
+      ab.includes('犧') || ab.includes('SAC') || ab.includes('SF') || 
+      ab.includes('妨礙') || ab.includes('代打') || ab.includes('代跑') || 
+      ab.includes('未登場') || ab === '-';
+
     // If explicit stats not provided, calculate from atBats history
     if (p.hits === undefined && atBats.length > 0) {
-      hits = atBats.filter(ab => ab.includes('安') || ab.includes('HR') || ab.includes('全壘打') || ab.includes('1B') || ab.includes('2B') || ab.includes('3B')).length;
-      walks = atBats.filter(ab => ab.includes('四球') || ab.includes('觸身') || ab.includes('保送') || ab.includes('BB') || ab.includes('HBP')).length;
-      strikeouts = atBats.filter(ab => ab.includes('三振') || ab.includes('K') || ab.includes('SO')).length;
+      hits = atBats.filter(isHit).length;
+      walks = atBats.filter(isWalk).length;
+      strikeouts = atBats.filter(isSO).length;
     }
 
-    const nonAb = walks; // BB, HBP don't count towards AB
+    const nonAb = atBats.filter(isNonAb).length;
     const abCount = Math.max(hits, atBats.length - nonAb);
     const avg = abCount > 0 ? (hits / abCount).toFixed(3).replace(/^0\./, '.') : '.000';
 
@@ -204,33 +359,183 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
     });
   };
 
-  // Add / Remove at-bat result in edit mode
-  const handleAddAtBat = (team: 'away' | 'home', index: number, result: string) => {
+  // Set or replace at-bat outcome (or append if 'new')
+  const handleSetAtBat = (team: 'away' | 'home', playerIndex: number, abIndex: number | 'new', outcome: string) => {
     const isAway = team === 'away';
-    const setter = isAway ? setEditingAwayTeam : setEditingHomeTeam;
+    const isClear = outcome === '清除';
 
-    setter(prev => {
-      const next = JSON.parse(JSON.stringify(prev));
-      const player = next.lineup[index];
-      if (player) {
-        player.atBats = [...(player.atBats || []), result];
+    let updatedTeam: Team | null = null;
+    let nextAbIndex: number | null = null;
+
+    if (isAway) {
+      setEditingAwayTeam(prev => {
+        const next: Team = JSON.parse(JSON.stringify(prev));
+        const player = next.lineup[playerIndex];
+        if (player) {
+          if (!player.atBats) player.atBats = [];
+          if (abIndex === 'new') {
+            if (!isClear) {
+              player.atBats.push(outcome);
+              nextAbIndex = player.atBats.length - 1;
+            }
+          } else if (abIndex < player.atBats.length) {
+            if (isClear) {
+              player.atBats.splice(abIndex, 1);
+            } else {
+              player.atBats[abIndex] = outcome;
+              nextAbIndex = abIndex;
+            }
+          }
+        }
+        updatedTeam = next;
+        return next;
+      });
+    } else {
+      setEditingHomeTeam(prev => {
+        const next: Team = JSON.parse(JSON.stringify(prev));
+        const player = next.lineup[playerIndex];
+        if (player) {
+          if (!player.atBats) player.atBats = [];
+          if (abIndex === 'new') {
+            if (!isClear) {
+              player.atBats.push(outcome);
+              nextAbIndex = player.atBats.length - 1;
+            }
+          } else if (abIndex < player.atBats.length) {
+            if (isClear) {
+              player.atBats.splice(abIndex, 1);
+            } else {
+              player.atBats[abIndex] = outcome;
+              nextAbIndex = abIndex;
+            }
+          }
+        }
+        updatedTeam = next;
+        return next;
+      });
+    }
+
+    // Immediately dispatch live update to state
+    setTimeout(() => {
+      if (updatedTeam) {
+        dispatch({
+          type: 'REPLACE_STATE',
+          state: {
+            ...state,
+            awayTeam: isAway ? updatedTeam : state.awayTeam,
+            homeTeam: !isAway ? updatedTeam : state.homeTeam
+          }
+        });
       }
-      return next;
-    });
+    }, 0);
+
+    setIsSavedNotify(true);
+    setTimeout(() => setIsSavedNotify(false), 1500);
+
+    if (isClear || nextAbIndex === null) {
+      setSelectedAtBat(null);
+    } else {
+      setSelectedAtBat({
+        playerIndex,
+        abIndex: nextAbIndex,
+        current: outcome
+      });
+    }
+  };
+
+  // Navigate between at-bats (previous / next)
+  const handleNavigateAtBat = (direction: 'prev' | 'next') => {
+    if (!selectedAtBat) return;
+    const currentTeam = activeTeamTab === 'away' ? (editingAwayTeam || state.awayTeam) : (editingHomeTeam || state.homeTeam);
+    const { playerIndex, abIndex } = selectedAtBat;
+    const lineup = currentTeam.lineup;
+    if (!lineup || lineup.length === 0) return;
+
+    if (direction === 'prev') {
+      if (typeof abIndex === 'number' && abIndex > 0) {
+        const prevAb = lineup[playerIndex].atBats?.[abIndex - 1] || '';
+        setSelectedAtBat({ playerIndex, abIndex: abIndex - 1, current: prevAb });
+      } else if (playerIndex > 0) {
+        const prevPlayerIdx = playerIndex - 1;
+        const prevPlayerAbs = lineup[prevPlayerIdx].atBats || [];
+        if (prevPlayerAbs.length > 0) {
+          setSelectedAtBat({ playerIndex: prevPlayerIdx, abIndex: prevPlayerAbs.length - 1, current: prevPlayerAbs[prevPlayerAbs.length - 1] });
+        } else {
+          setSelectedAtBat({ playerIndex: prevPlayerIdx, abIndex: 'new', current: '' });
+        }
+      }
+    } else {
+      const curPlayerAbs = lineup[playerIndex].atBats || [];
+      if (typeof abIndex === 'number' && abIndex < curPlayerAbs.length - 1) {
+        const nextAb = curPlayerAbs[abIndex + 1] || '';
+        setSelectedAtBat({ playerIndex, abIndex: abIndex + 1, current: nextAb });
+      } else if (typeof abIndex === 'number' && abIndex === curPlayerAbs.length - 1) {
+        setSelectedAtBat({ playerIndex, abIndex: 'new', current: '' });
+      } else if (playerIndex < lineup.length - 1) {
+        const nextPlayerIdx = playerIndex + 1;
+        const nextPlayerAbs = lineup[nextPlayerIdx].atBats || [];
+        if (nextPlayerAbs.length > 0) {
+          setSelectedAtBat({ playerIndex: nextPlayerIdx, abIndex: 0, current: nextPlayerAbs[0] });
+        } else {
+          setSelectedAtBat({ playerIndex: nextPlayerIdx, abIndex: 'new', current: '' });
+        }
+      }
+    }
+  };
+
+  // Custom outcome handler
+  const handleApplyCustomOutcome = () => {
+    if (!selectedAtBat || !customOutcomeInput.trim()) return;
+    handleSetAtBat(activeTeamTab, selectedAtBat.playerIndex, selectedAtBat.abIndex, customOutcomeInput.trim());
+    setCustomOutcomeInput('');
+  };
+
+  const handleAddAtBat = (team: 'away' | 'home', index: number, result: string) => {
+    handleSetAtBat(team, index, 'new', result);
   };
 
   const handleRemoveAtBat = (team: 'away' | 'home', playerIndex: number, abIndex: number) => {
     const isAway = team === 'away';
-    const setter = isAway ? setEditingAwayTeam : setEditingHomeTeam;
+    let updatedTeam: Team | null = null;
 
-    setter(prev => {
-      const next = JSON.parse(JSON.stringify(prev));
-      const player = next.lineup[playerIndex];
-      if (player && player.atBats) {
-        player.atBats = player.atBats.filter((_: any, i: number) => i !== abIndex);
+    if (isAway) {
+      setEditingAwayTeam(prev => {
+        const next: Team = JSON.parse(JSON.stringify(prev));
+        const player = next.lineup[playerIndex];
+        if (player && player.atBats) {
+          player.atBats.splice(abIndex, 1);
+        }
+        updatedTeam = next;
+        return next;
+      });
+    } else {
+      setEditingHomeTeam(prev => {
+        const next: Team = JSON.parse(JSON.stringify(prev));
+        const player = next.lineup[playerIndex];
+        if (player && player.atBats) {
+          player.atBats.splice(abIndex, 1);
+        }
+        updatedTeam = next;
+        return next;
+      });
+    }
+
+    setTimeout(() => {
+      if (updatedTeam) {
+        dispatch({
+          type: 'REPLACE_STATE',
+          state: {
+            ...state,
+            awayTeam: isAway ? updatedTeam : state.awayTeam,
+            homeTeam: !isAway ? updatedTeam : state.homeTeam
+          }
+        });
       }
-      return next;
-    });
+    }, 0);
+
+    setIsSavedNotify(true);
+    setTimeout(() => setIsSavedNotify(false), 1500);
+    setSelectedAtBat(null);
   };
 
   // Generate plain text Box Score for clipboard
@@ -344,14 +649,289 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
 
   if (!isOpen) return null;
 
-  const currentDisplayTeam = activeTeamTab === 'away' ? state.awayTeam : state.homeTeam;
+  const currentDisplayTeam = activeTeamTab === 'away' ? (editingAwayTeam || state.awayTeam) : (editingHomeTeam || state.homeTeam);
   const currentEditingTeam = activeTeamTab === 'away' ? editingAwayTeam : editingHomeTeam;
   const maxInnings = Math.max(9, state.awayTeam.inningScores.length, state.homeTeam.inningScores.length);
   const inningsArray = Array.from({ length: maxInnings }, (_, i) => i + 1);
 
+  // Common Outcomes Palette Panel for both Box Score and Edit Records (先點要更改的，再按右邊更換)
+  const renderOutcomePalette = (currentTeam: Team, isDockedSheet: boolean = false) => {
+    const selectedPlayer = selectedAtBat !== null ? currentTeam.lineup[selectedAtBat.playerIndex] : null;
+
+    // Filter categories & search
+    const filteredCategories = AT_BAT_OUTCOMES_CATEGORIES.map(cat => {
+      if (outcomeFilterCategory !== 'all' && cat.key !== outcomeFilterCategory) {
+        return null;
+      }
+      const q = outcomeSearchQuery.trim().toLowerCase();
+      if (!q) return cat;
+
+      const matchedItems = cat.items.filter(item => 
+        item.id.toLowerCase().includes(q) ||
+        item.label.toLowerCase().includes(q) ||
+        item.full.toLowerCase().includes(q)
+      );
+      if (matchedItems.length === 0) return null;
+      return { ...cat, items: matchedItems };
+    }).filter(Boolean) as typeof AT_BAT_OUTCOMES_CATEGORIES;
+
+    const filterTabs = [
+      { key: 'all', label: '全部' },
+      { key: 'hits', label: '安打' },
+      { key: 'outs', label: '出局' },
+      { key: 'pos_outs', label: '守位出局' },
+      { key: 'walks', label: '保送' },
+      { key: 'sac', label: '戰術' },
+      { key: 'base', label: '跑壘' },
+      { key: 'other', label: '調度' },
+    ];
+
+    return (
+      <div className={`bg-slate-950/95 border-2 border-slate-700/80 rounded-2xl p-3 sm:p-4 shadow-2xl space-y-3 flex flex-col ${
+        isDockedSheet ? 'max-h-[52vh]' : 'h-full max-h-[82vh]'
+      }`}>
+        {/* Header Bar */}
+        <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 shrink-0">
+          <div className="flex items-center gap-2">
+            <Sparkles size={16} className="text-amber-400" />
+            <h4 className="text-sm font-black text-white">更換打席結果</h4>
+            {selectedAtBat && (
+              <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded font-bold">
+                已選定
+              </span>
+            )}
+          </div>
+          {selectedAtBat && (
+            <button
+              type="button"
+              onClick={() => setSelectedAtBat(null)}
+              className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors cursor-pointer flex items-center gap-1 font-bold"
+            >
+              <X size={12} />
+              <span>取消選取</span>
+            </button>
+          )}
+        </div>
+
+        {/* Active Target Banner */}
+        {selectedAtBat ? (
+          <div className="bg-amber-950/60 border border-amber-500/60 rounded-xl p-2.5 sm:p-3 text-xs text-amber-200 space-y-2 shrink-0 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between gap-1.5 flex-wrap">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="bg-amber-500 text-slate-950 font-black px-1.5 py-0.5 rounded text-[11px]">
+                    第 {selectedAtBat.playerIndex + 1} 棒
+                  </span>
+                  <span className="font-bold text-white text-sm">
+                    {selectedPlayer?.name || '打者'}
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    #{selectedPlayer?.number || '--'}
+                  </span>
+                </div>
+                <div className="text-[11px] text-amber-300 font-semibold mt-1 flex items-center gap-1">
+                  {selectedAtBat.abIndex === 'new' ? (
+                    <span className="text-sky-300 font-bold">▶ 準備新增打席（第 {(selectedPlayer?.atBats?.length || 0) + 1} 打席）</span>
+                  ) : (
+                    <span>
+                      ▶ 更換第 <span className="font-bold text-white underline">{selectedAtBat.abIndex + 1}</span> 打席：
+                      <span className="font-black text-amber-200 bg-amber-900/80 px-1.5 py-0.5 rounded ml-1 border border-amber-500/50">
+                        {selectedAtBat.current || '未記錄'}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Prev / Next at-bat navigation and delete */}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleNavigateAtBat('prev')}
+                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[11px] font-bold transition-colors flex items-center gap-0.5 cursor-pointer active:scale-95"
+                  title="跳至上一打席"
+                >
+                  <ChevronLeft size={13} />
+                  <span className="hidden sm:inline">上打席</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNavigateAtBat('next')}
+                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[11px] font-bold transition-colors flex items-center gap-0.5 cursor-pointer active:scale-95"
+                  title="跳至下一打席"
+                >
+                  <span className="hidden sm:inline">下打席</span>
+                  <ChevronRight size={13} />
+                </button>
+
+                {selectedAtBat.abIndex !== 'new' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleRemoveAtBat(activeTeamTab, selectedAtBat.playerIndex, selectedAtBat.abIndex as number);
+                    }}
+                    className="px-2 py-1 bg-red-900/60 hover:bg-red-800 text-red-200 border border-red-500/40 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer active:scale-95"
+                    title="刪除此打席"
+                  >
+                    <Trash2 size={12} />
+                    <span className="hidden sm:inline">刪除</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="text-[11px] text-amber-300 font-bold bg-amber-900/30 px-2 py-1 rounded flex items-center justify-between">
+              <span>👇 點選結果即時套用修改：</span>
+              {isSavedNotify && (
+                <span className="text-emerald-400 font-bold flex items-center gap-1 animate-pulse">
+                  <CheckCircle2 size={12} /> 已更新！
+                </span>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-xs text-slate-400 text-center space-y-1 shrink-0">
+            <div className="font-bold text-slate-200 flex items-center justify-center gap-1.5">
+              <Sparkles size={14} className="text-amber-400" />
+              <span>點選球員打席即可快速修改</span>
+            </div>
+            <div className="text-[11px] text-slate-400 leading-relaxed">
+              點擊球員名單中的打席徽章（或點「+新增」），即可在此面板直接點選更換或輸入自訂結果！
+            </div>
+          </div>
+        )}
+
+        {/* Custom Input Form (自由輸入任意結果) */}
+        <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded-xl p-1.5 shrink-0">
+          <input 
+            type="text" 
+            value={customOutcomeInput}
+            onChange={(e) => setCustomOutcomeInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleApplyCustomOutcome();
+              }
+            }}
+            disabled={!selectedAtBat}
+            placeholder={selectedAtBat ? "自訂輸入 (例: 6-4-3雙殺、右二壘打)..." : "請先點選打席後輸入自訂結果..."}
+            className="flex-1 bg-slate-800 text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 text-white placeholder-slate-500 outline-none focus:border-amber-400 disabled:opacity-50"
+          />
+          <button
+            type="button"
+            onClick={handleApplyCustomOutcome}
+            disabled={!selectedAtBat || !customOutcomeInput.trim()}
+            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shrink-0 active:scale-95 cursor-pointer"
+          >
+            <CornerDownLeft size={13} />
+            <span>套用</span>
+          </button>
+        </div>
+
+        {/* Category Filter Tabs & Search */}
+        <div className="space-y-1.5 shrink-0">
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
+            {filterTabs.map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setOutcomeFilterCategory(tab.key)}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                  outcomeFilterCategory === tab.key
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+            <input 
+              type="text"
+              value={outcomeSearchQuery}
+              onChange={(e) => setOutcomeSearchQuery(e.target.value)}
+              placeholder="搜尋結果關鍵字 (如: K, 安, 飛球, 滾地)..."
+              className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-7 pr-7 py-1 text-xs text-white placeholder-slate-500 outline-none focus:border-blue-500"
+            />
+            {outcomeSearchQuery && (
+              <button 
+                type="button" 
+                onClick={() => setOutcomeSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Categorized Outcomes List with Smooth Scroll */}
+        <div className="flex-1 overflow-y-auto pr-1 space-y-3 min-h-0">
+          {filteredCategories.length === 0 ? (
+            <div className="text-center py-6 text-xs text-slate-500">
+              無符合「{outcomeSearchQuery}」的項目，可使用上方自訂輸入。
+            </div>
+          ) : (
+            filteredCategories.map((cat) => (
+              <div key={cat.key} className="space-y-1.5">
+                <div className="text-[11px] font-black text-slate-400 tracking-wider flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${
+                      cat.color === 'emerald' ? 'bg-emerald-400' :
+                      cat.color === 'sky' ? 'bg-sky-400' :
+                      cat.color === 'rose' ? 'bg-rose-400' :
+                      cat.color === 'purple' ? 'bg-purple-400' :
+                      cat.color === 'amber' ? 'bg-amber-400' :
+                      cat.color === 'teal' ? 'bg-teal-400' : 'bg-slate-400'
+                    }`} />
+                    <span>{cat.category}</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono font-normal">{cat.items.length}項</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-1.5">
+                  {cat.items.map(item => {
+                    const isCurrent = selectedAtBat?.current === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        disabled={!selectedAtBat}
+                        onClick={() => {
+                          if (selectedAtBat) {
+                            handleSetAtBat(activeTeamTab, selectedAtBat.playerIndex, selectedAtBat.abIndex, item.id);
+                          }
+                        }}
+                        className={`py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-between transition-all ${
+                          !selectedAtBat 
+                            ? 'bg-slate-900/60 text-slate-600 border border-slate-800/80 cursor-not-allowed opacity-50' 
+                            : isCurrent
+                              ? 'bg-amber-500 text-slate-950 border border-amber-300 ring-2 ring-amber-400 font-black shadow-md scale-[1.02]'
+                              : 'bg-slate-900 hover:bg-blue-600 hover:text-white text-slate-200 border border-slate-700/80 active:scale-95 cursor-pointer shadow-sm'
+                        }`}
+                        title={item.full}
+                      >
+                        <span className="truncate mr-1 text-left">{item.label}</span>
+                        <span className={`text-[10px] font-mono shrink-0 ${isCurrent ? 'text-slate-950 font-black' : 'text-slate-400 opacity-70'}`}>
+                          {item.id}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="fixed inset-0 z-[250] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 select-none animate-in fade-in duration-200">
-      <div className="bg-slate-900 border-2 border-slate-700/80 rounded-2xl w-full max-w-5xl h-[92vh] max-h-[900px] flex flex-col shadow-2xl overflow-hidden text-white">
+      <div className="bg-slate-900 border-2 border-slate-700/80 rounded-2xl w-full max-w-7xl h-[92vh] max-h-[920px] flex flex-col shadow-2xl overflow-hidden text-white">
         
         {/* Header Bar */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-800 bg-slate-950/80 shrink-0">
@@ -539,208 +1119,252 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                 </table>
               </div>
 
-              {/* Team Selector & Pitcher Card */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setActiveTeamTab('away')}
-                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      activeTeamTab === 'away'
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-slate-800 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: state.awayTeam.color }} />
-                    <span>{state.awayTeam.name} {language === 'zh' ? '打線成績' : 'Batting'}</span>
-                  </button>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+                <div className="lg:col-span-8 space-y-4">
+                  {/* Team Selector & Pitcher Card */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setActiveTeamTab('away')}
+                        className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          activeTeamTab === 'away'
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: state.awayTeam.color }} />
+                        <span>{state.awayTeam.name} {language === 'zh' ? '打線成績' : 'Batting'}</span>
+                      </button>
 
-                  <button
-                    onClick={() => setActiveTeamTab('home')}
-                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      activeTeamTab === 'home'
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-slate-800 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: state.homeTeam.color }} />
-                    <span>{state.homeTeam.name} {language === 'zh' ? '打線成績' : 'Batting'}</span>
-                  </button>
-                </div>
+                      <button
+                        onClick={() => setActiveTeamTab('home')}
+                        className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          activeTeamTab === 'home'
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: state.homeTeam.color }} />
+                        <span>{state.homeTeam.name} {language === 'zh' ? '打線成績' : 'Batting'}</span>
+                      </button>
+                    </div>
 
-                {/* Pitcher Summary Badge */}
-                <div className="flex items-center gap-2 bg-slate-900 border border-slate-700/80 px-3 py-1.5 rounded-lg text-xs font-mono">
-                  <span className="text-slate-400 font-bold">{currentDisplayTeam.name} 投手:</span>
-                  <span className="text-white font-bold">{currentDisplayTeam.pitcher.name || '---'} #{currentDisplayTeam.pitcher.number}</span>
-                  <span className="text-slate-500">|</span>
-                  <span className="text-yellow-400 font-bold">局數: {currentDisplayTeam.pitcher.inningsPitched || '0.0'}</span>
-                  <span className="text-slate-500">|</span>
-                  <span className="text-sky-300 font-bold">用球: {currentDisplayTeam.pitcher.pitchCount ?? (currentDisplayTeam.pitcher.stat || 0)}</span>
-                </div>
-              </div>
+                    {/* Pitcher Summary Badge */}
+                    <div className="flex items-center gap-2 bg-slate-900 border border-slate-700/80 px-3 py-1.5 rounded-lg text-xs font-mono">
+                      <span className="text-slate-400 font-bold">{currentDisplayTeam.name} 投手:</span>
+                      <span className="text-white font-bold">{currentDisplayTeam.pitcher.name || '---'} #{currentDisplayTeam.pitcher.number}</span>
+                      <span className="text-slate-500">|</span>
+                      <span className="text-yellow-400 font-bold">局數: {currentDisplayTeam.pitcher.inningsPitched || '0.0'}</span>
+                      <span className="text-slate-500">|</span>
+                      <span className="text-sky-300 font-bold">用球: {currentDisplayTeam.pitcher.pitchCount ?? (currentDisplayTeam.pitcher.stat || 0)}</span>
+                    </div>
+                  </div>
 
-              {/* Batting Records Table */}
-              <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 sm:p-4 shadow-lg overflow-x-auto">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-black text-slate-300 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentDisplayTeam.color }} />
-                    <span>{currentDisplayTeam.name} {language === 'zh' ? '全體球員攻守數據明細表' : 'Batting Box Score'}</span>
-                  </span>
-                  <span className="text-[11px] text-slate-400">
-                    {language === 'zh' ? '點擊上方「更改數據紀錄」可直接編輯修正任何數據' : 'Switch to Edit tab to modify player stats'}
-                  </span>
-                </div>
+                  {/* Batting Records Table */}
+                  <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 sm:p-4 shadow-lg overflow-x-auto">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-black text-slate-300 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentDisplayTeam.color }} />
+                        <span>{currentDisplayTeam.name} {language === 'zh' ? '全體球員攻守數據明細表' : 'Batting Box Score'}</span>
+                      </span>
+                      <span className="text-[11px] text-amber-300 font-medium">
+                        {language === 'zh' ? '💡 點擊任一打席，即可由右側更換結果' : 'Click any at-bat to change outcome from right panel'}
+                      </span>
+                    </div>
 
-                <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[700px]">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 font-mono font-bold text-center">
-                      <th className="py-2 px-2 text-left font-sans w-12">{language === 'zh' ? '棒次' : 'Ord'}</th>
-                      <th className="py-2 px-2 w-12 font-sans">{language === 'zh' ? '背號' : 'No.'}</th>
-                      <th className="py-2 px-3 text-left font-sans">{language === 'zh' ? '選手姓名' : 'Name'}</th>
-                      <th className="py-2 px-2 w-12 font-sans">{language === 'zh' ? '守備' : 'Pos'}</th>
-                      <th className="py-2 px-2 w-12 font-bold">{language === 'zh' ? '打數' : 'AB'}</th>
-                      <th className="py-2 px-2 w-12 font-bold">{language === 'zh' ? '得分' : 'R'}</th>
-                      <th className="py-2 px-2 w-12 font-bold text-yellow-400">{language === 'zh' ? '安打' : 'H'}</th>
-                      <th className="py-2 px-2 w-12 font-bold">{language === 'zh' ? '打點' : 'RBI'}</th>
-                      <th className="py-2 px-2 w-12 font-bold text-sky-400">{language === 'zh' ? '四死' : 'BB'}</th>
-                      <th className="py-2 px-2 w-12 font-bold text-rose-400">{language === 'zh' ? '三振' : 'SO'}</th>
-                      <th className="py-2 px-3 w-16 font-bold text-amber-300">{language === 'zh' ? '打擊率' : 'AVG'}</th>
-                      <th className="py-2 px-3 text-left font-sans">{language === 'zh' ? '打席結果歷程' : 'At-Bat Breakdown'}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentDisplayTeam.lineup.map((p, idx) => {
-                      const s = getPlayerBattingStats(p);
-                      const isCurrentBatter = (state.isTop && activeTeamTab === 'away') || (!state.isTop && activeTeamTab === 'home') 
-                        ? currentDisplayTeam.currentBatterIndex === idx 
-                        : false;
+                    <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[700px]">
+                      <thead>
+                        <tr className="border-b border-slate-800 text-slate-400 font-mono font-bold text-center">
+                          <th className="py-2 px-2 text-left font-sans w-12">{language === 'zh' ? '棒次' : 'Ord'}</th>
+                          <th className="py-2 px-2 w-12 font-sans">{language === 'zh' ? '背號' : 'No.'}</th>
+                          <th className="py-2 px-3 text-left font-sans">{language === 'zh' ? '選手姓名' : 'Name'}</th>
+                          <th className="py-2 px-2 w-12 font-sans">{language === 'zh' ? '守備' : 'Pos'}</th>
+                          <th className="py-2 px-2 w-12 font-bold">{language === 'zh' ? '打數' : 'AB'}</th>
+                          <th className="py-2 px-2 w-12 font-bold">{language === 'zh' ? '得分' : 'R'}</th>
+                          <th className="py-2 px-2 w-12 font-bold text-yellow-400">{language === 'zh' ? '安打' : 'H'}</th>
+                          <th className="py-2 px-2 w-12 font-bold">{language === 'zh' ? '打點' : 'RBI'}</th>
+                          <th className="py-2 px-2 w-12 font-bold text-sky-400">{language === 'zh' ? '四死' : 'BB'}</th>
+                          <th className="py-2 px-2 w-12 font-bold text-rose-400">{language === 'zh' ? '三振' : 'SO'}</th>
+                          <th className="py-2 px-3 w-16 font-bold text-amber-300">{language === 'zh' ? '打擊率' : 'AVG'}</th>
+                          <th className="py-2 px-3 text-left font-sans">{language === 'zh' ? '打席結果歷程 (點選更換)' : 'At-Bat Breakdown'}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {currentDisplayTeam.lineup.map((p, idx) => {
+                          const s = getPlayerBattingStats(p);
+                          const isCurrentBatter = (state.isTop && activeTeamTab === 'away') || (!state.isTop && activeTeamTab === 'home') 
+                            ? currentDisplayTeam.currentBatterIndex === idx 
+                            : false;
 
-                      return (
-                        <tr 
-                          key={p.id || idx} 
-                          className={`border-b border-slate-800/60 font-mono text-center hover:bg-slate-800/40 transition-colors ${
-                            isCurrentBatter ? 'bg-blue-950/40 border-l-2 border-l-blue-400' : ''
-                          }`}
-                        >
-                          <td className="py-2 px-2 text-left font-bold text-slate-300">
-                            {idx + 1}.
-                          </td>
-                          <td className="py-2 px-2 text-slate-400 font-bold">
-                            #{p.number || '--'}
-                          </td>
-                          <td className="py-2 px-3 text-left font-sans font-bold text-white flex items-center gap-1.5">
-                            <span>{p.name}</span>
-                            {isCurrentBatter && (
-                              <span className="text-[9px] bg-blue-500 text-white px-1 rounded font-bold">打擊中</span>
-                            )}
-                          </td>
-                          <td className="py-2 px-2 text-slate-400 font-sans font-bold">
-                            {p.position || 'DH'}
-                          </td>
-                          <td className="py-2 px-2 font-bold text-slate-200">
-                            {s.ab}
-                          </td>
-                          <td className="py-2 px-2 font-bold text-slate-200">
-                            {s.r}
-                          </td>
-                          <td className="py-2 px-2 font-bold text-yellow-400">
-                            {s.h}
-                          </td>
-                          <td className="py-2 px-2 font-bold text-slate-200">
-                            {s.rbi}
-                          </td>
-                          <td className="py-2 px-2 font-bold text-sky-400">
-                            {s.bb}
-                          </td>
-                          <td className="py-2 px-2 font-bold text-rose-400">
-                            {s.so}
-                          </td>
-                          <td className="py-2 px-3 font-bold text-amber-300">
-                            {s.avg}
-                          </td>
-                          <td className="py-2 px-3 text-left">
-                            <div className="flex flex-wrap items-center gap-1 font-sans">
-                              {s.atBats.length === 0 ? (
-                                <span className="text-slate-500 text-xs">-</span>
-                              ) : (
-                                s.atBats.map((ab, abIdx) => (
-                                  <span 
-                                    key={abIdx} 
-                                    className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-slate-800 border border-slate-700 text-slate-300 shadow-sm"
+                          return (
+                            <tr 
+                              key={p.id || idx} 
+                              className={`border-b border-slate-800/60 font-mono text-center hover:bg-slate-800/40 transition-colors ${
+                                isCurrentBatter ? 'bg-blue-950/40 border-l-2 border-l-blue-400' : ''
+                              }`}
+                            >
+                              <td className="py-2 px-2 text-left font-bold text-slate-300">
+                                {idx + 1}.
+                              </td>
+                              <td className="py-2 px-2 text-slate-400 font-bold">
+                                #{p.number || '--'}
+                              </td>
+                              <td className="py-2 px-3 text-left font-sans font-bold text-white flex items-center gap-1.5">
+                                <span>{p.name}</span>
+                                {isCurrentBatter && (
+                                  <span className="text-[9px] bg-blue-500 text-white px-1 rounded font-bold">打擊中</span>
+                                )}
+                              </td>
+                              <td className="py-2 px-2 text-slate-400 font-sans font-bold">
+                                {p.position || 'DH'}
+                              </td>
+                              <td className="py-2 px-2 font-bold text-slate-200">
+                                {s.ab}
+                              </td>
+                              <td className="py-2 px-2 font-bold text-slate-200">
+                                {s.r}
+                              </td>
+                              <td className="py-2 px-2 font-bold text-yellow-400">
+                                {s.h}
+                              </td>
+                              <td className="py-2 px-2 font-bold text-slate-200">
+                                {s.rbi}
+                              </td>
+                              <td className="py-2 px-2 font-bold text-sky-400">
+                                {s.bb}
+                              </td>
+                              <td className="py-2 px-2 font-bold text-rose-400">
+                                {s.so}
+                              </td>
+                              <td className="py-2 px-3 font-bold text-amber-300">
+                                {s.avg}
+                              </td>
+                              <td className="py-2 px-3 text-left">
+                                <div className="flex flex-wrap items-center gap-1.5 font-sans">
+                                  {s.atBats.length === 0 ? (
+                                    <span className="text-slate-500 text-xs italic">無打席</span>
+                                  ) : (
+                                    s.atBats.map((ab, abIdx) => {
+                                      const isSelected = selectedAtBat?.playerIndex === idx && selectedAtBat?.abIndex === abIdx;
+                                      return (
+                                        <button 
+                                          key={abIdx} 
+                                          type="button"
+                                          onClick={() => setSelectedAtBat(isSelected ? null : { playerIndex: idx, abIndex: abIdx, current: ab })}
+                                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                            isSelected 
+                                              ? 'bg-amber-400 text-slate-950 font-black ring-2 ring-amber-300 ring-offset-1 ring-offset-slate-900 shadow-md scale-105' 
+                                              : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-500 active:scale-95'
+                                          }`}
+                                          title="點選此打席，再從右側更換結果"
+                                        >
+                                          <span className="text-[10px] opacity-70">#{abIdx + 1}</span>
+                                          <span>{ab}</span>
+                                          {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-ping" />}
+                                        </button>
+                                      );
+                                    })
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const isAddingNew = selectedAtBat?.playerIndex === idx && selectedAtBat?.abIndex === 'new';
+                                      setSelectedAtBat(isAddingNew ? null : { playerIndex: idx, abIndex: 'new', current: '' });
+                                    }}
+                                    className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                                      selectedAtBat?.playerIndex === idx && selectedAtBat?.abIndex === 'new'
+                                        ? 'bg-blue-600 text-white font-black ring-2 ring-blue-300 scale-105'
+                                        : 'bg-slate-800/60 hover:bg-slate-800 text-blue-400 border-dashed border-blue-500/40 hover:border-blue-400 active:scale-95'
+                                    }`}
+                                    title="點選後再由右邊選項新增打席"
                                   >
-                                    {ab}
-                                  </span>
-                                ))
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                                    <Plus size={11} />
+                                    <span>新增</span>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
 
-                    {/* Team Total Row */}
-                    {(() => {
-                      const totals = getTeamTotals(currentDisplayTeam);
-                      return (
-                        <tr className="bg-slate-900/90 font-mono font-bold text-center border-t-2 border-slate-700">
-                          <td colSpan={4} className="py-2.5 px-3 text-left font-sans font-black text-yellow-400">
-                            {language === 'zh' ? '團隊合計 (TOTALS)' : 'TEAM TOTALS'}
-                          </td>
-                          <td className="py-2.5 px-2 text-white">{totals.ab}</td>
-                          <td className="py-2.5 px-2 text-white">{totals.r}</td>
-                          <td className="py-2.5 px-2 text-yellow-400">{totals.h}</td>
-                          <td className="py-2.5 px-2 text-white">{totals.rbi}</td>
-                          <td className="py-2.5 px-2 text-sky-400">{totals.bb}</td>
-                          <td className="py-2.5 px-2 text-rose-400">{totals.so}</td>
-                          <td className="py-2.5 px-3 text-amber-300">{totals.avg}</td>
-                          <td className="py-2.5 px-3 text-left text-slate-400 text-xs font-sans">
-                            {currentDisplayTeam.lineup.length} 位打者出賽
-                          </td>
-                        </tr>
-                      );
-                    })()}
-                  </tbody>
-                </table>
-              </div>
+                        {/* Team Total Row */}
+                        {(() => {
+                          const totals = getTeamTotals(currentDisplayTeam);
+                          return (
+                            <tr className="bg-slate-900/90 font-mono font-bold text-center border-t-2 border-slate-700">
+                              <td colSpan={4} className="py-2.5 px-3 text-left font-sans font-black text-yellow-400">
+                                {language === 'zh' ? '團隊合計 (TOTALS)' : 'TEAM TOTALS'}
+                              </td>
+                              <td className="py-2.5 px-2 text-white">{totals.ab}</td>
+                              <td className="py-2.5 px-2 text-white">{totals.r}</td>
+                              <td className="py-2.5 px-2 text-yellow-400">{totals.h}</td>
+                              <td className="py-2.5 px-2 text-white">{totals.rbi}</td>
+                              <td className="py-2.5 px-2 text-sky-400">{totals.bb}</td>
+                              <td className="py-2.5 px-2 text-rose-400">{totals.so}</td>
+                              <td className="py-2.5 px-3 text-amber-300">{totals.avg}</td>
+                              <td className="py-2.5 px-3 text-left text-slate-400 text-xs font-sans">
+                                {currentDisplayTeam.lineup.length} 位打者出賽
+                              </td>
+                            </tr>
+                          );
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
 
-              {/* Pitching Summary Table */}
-              <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 sm:p-4 shadow-lg overflow-x-auto">
-                <div className="text-xs font-black text-slate-300 mb-2 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentDisplayTeam.color }} />
-                  <span>{currentDisplayTeam.name} {language === 'zh' ? '投手投球成績' : 'Pitching Records'}</span>
+                  {/* Pitching Summary Table */}
+                  <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 sm:p-4 shadow-lg overflow-x-auto">
+                    <div className="text-xs font-black text-slate-300 mb-2 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentDisplayTeam.color }} />
+                      <span>{currentDisplayTeam.name} {language === 'zh' ? '投手投球成績' : 'Pitching Records'}</span>
+                    </div>
+
+                    <table className="w-full text-center border-collapse text-xs sm:text-sm font-mono min-w-[600px]">
+                      <thead>
+                        <tr className="border-b border-slate-800 text-slate-400 font-bold">
+                          <th className="py-2 px-3 text-left font-sans">{language === 'zh' ? '投手姓名' : 'Pitcher'}</th>
+                          <th className="py-2 px-2">{language === 'zh' ? '背號' : 'No.'}</th>
+                          <th className="py-2 px-2 text-yellow-400">{language === 'zh' ? '投球局數' : 'IP'}</th>
+                          <th className="py-2 px-2 text-sky-300">{language === 'zh' ? '用球數' : 'NP'}</th>
+                          <th className="py-2 px-2 text-rose-400">{language === 'zh' ? '奪三振' : 'SO'}</th>
+                          <th className="py-2 px-2">{language === 'zh' ? '被安打' : 'H'}</th>
+                          <th className="py-2 px-2">{language === 'zh' ? '失分' : 'R'}</th>
+                          <th className="py-2 px-2">{language === 'zh' ? '責失' : 'ER'}</th>
+                          <th className="py-2 px-2">{language === 'zh' ? '四死球' : 'BB'}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-slate-800/60 font-bold hover:bg-slate-800/30">
+                          <td className="py-2.5 px-3 text-left font-sans text-white font-bold flex items-center gap-2">
+                            <span>{currentDisplayTeam.pitcher.name || '---'}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">P</span>
+                          </td>
+                          <td className="py-2.5 px-2 text-slate-400">#{currentDisplayTeam.pitcher.number || '--'}</td>
+                          <td className="py-2.5 px-2 text-yellow-400 font-black">{currentDisplayTeam.pitcher.inningsPitched || '0.0'}</td>
+                          <td className="py-2.5 px-2 text-sky-300 font-bold">{currentDisplayTeam.pitcher.pitchCount ?? (currentDisplayTeam.pitcher.stat || 0)}</td>
+                          <td className="py-2.5 px-2 text-rose-400 font-bold">{currentDisplayTeam.pitcher.strikeouts || 0}</td>
+                          <td className="py-2.5 px-2 text-slate-300">{currentDisplayTeam.pitcher.hitsAllowed || 0}</td>
+                          <td className="py-2.5 px-2 text-slate-300">{currentDisplayTeam.pitcher.runsAllowed || 0}</td>
+                          <td className="py-2.5 px-2 text-slate-300">{currentDisplayTeam.pitcher.earnedRuns || 0}</td>
+                          <td className="py-2.5 px-2 text-slate-300">{currentDisplayTeam.pitcher.walks || 0}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
-                <table className="w-full text-center border-collapse text-xs sm:text-sm font-mono min-w-[600px]">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 font-bold">
-                      <th className="py-2 px-3 text-left font-sans">{language === 'zh' ? '投手姓名' : 'Pitcher'}</th>
-                      <th className="py-2 px-2">{language === 'zh' ? '背號' : 'No.'}</th>
-                      <th className="py-2 px-2 text-yellow-400">{language === 'zh' ? '投球局數' : 'IP'}</th>
-                      <th className="py-2 px-2 text-sky-400">{language === 'zh' ? '用球數' : 'NP'}</th>
-                      <th className="py-2 px-2 text-rose-400">{language === 'zh' ? '奪三振' : 'SO'}</th>
-                      <th className="py-2 px-2">{language === 'zh' ? '被安打' : 'H'}</th>
-                      <th className="py-2 px-2">{language === 'zh' ? '失分' : 'R'}</th>
-                      <th className="py-2 px-2">{language === 'zh' ? '責失' : 'ER'}</th>
-                      <th className="py-2 px-2">{language === 'zh' ? '四死球' : 'BB'}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b border-slate-800/60 font-bold hover:bg-slate-800/30">
-                      <td className="py-2.5 px-3 text-left font-sans text-white font-bold flex items-center gap-2">
-                        <span>{currentDisplayTeam.pitcher.name || '---'}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">P</span>
-                      </td>
-                      <td className="py-2.5 px-2 text-slate-400">#{currentDisplayTeam.pitcher.number || '--'}</td>
-                      <td className="py-2.5 px-2 text-yellow-400 font-black">{currentDisplayTeam.pitcher.inningsPitched || '0.0'}</td>
-                      <td className="py-2.5 px-2 text-sky-300 font-bold">{currentDisplayTeam.pitcher.pitchCount ?? (currentDisplayTeam.pitcher.stat || 0)}</td>
-                      <td className="py-2.5 px-2 text-rose-400 font-bold">{currentDisplayTeam.pitcher.strikeouts || 0}</td>
-                      <td className="py-2.5 px-2 text-slate-300">{currentDisplayTeam.pitcher.hitsAllowed || 0}</td>
-                      <td className="py-2.5 px-2 text-slate-300">{currentDisplayTeam.pitcher.runsAllowed || 0}</td>
-                      <td className="py-2.5 px-2 text-slate-300">{currentDisplayTeam.pitcher.earnedRuns || 0}</td>
-                      <td className="py-2.5 px-2 text-slate-300">{currentDisplayTeam.pitcher.walks || 0}</td>
-                    </tr>
-                  </tbody>
-                </table>
+                {/* Right side Outcomes Palette Panel in Tab 1 */}
+                <div className="hidden lg:block lg:col-span-4 sticky top-1 space-y-3">
+                  {renderOutcomePalette(currentDisplayTeam)}
+                </div>
               </div>
+
+              {/* On compact / mobile screens (< lg), if an at-bat is selected, dock outcome palette cleanly at bottom */}
+              {selectedAtBat && (
+                <div className="lg:hidden sticky bottom-0 left-0 right-0 z-40 bg-slate-950/98 backdrop-blur-md border-t-2 border-amber-500 rounded-t-2xl shadow-2xl p-3 -mx-3 -mb-3 sm:-mx-5 sm:-mb-5 animate-in slide-in-from-bottom duration-200">
+                  {renderOutcomePalette(currentDisplayTeam, true)}
+                </div>
+              )}
             </div>
           )}
 
@@ -802,217 +1426,247 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                 </button>
               </div>
 
-              {/* Pitcher Editor Card */}
-              <div className="bg-slate-950/80 border border-slate-800 p-3 sm:p-4 rounded-xl space-y-3">
-                <div className="font-bold text-xs text-slate-300 flex items-center justify-between border-b border-slate-800 pb-2">
-                  <span className="flex items-center gap-1.5">
-                    <User size={14} className="text-yellow-400" />
-                    <span>{currentEditingTeam.name} 投手數據修改</span>
-                  </span>
-                  <span className="text-[11px] text-slate-400 font-mono">PITCHER</span>
-                </div>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+                {/* Left 8 cols: Pitcher & Lineup */}
+                <div className="lg:col-span-8 space-y-4">
+                  {/* Pitcher Editor Card */}
+                  <div className="bg-slate-950/80 border border-slate-800 p-3 sm:p-4 rounded-xl space-y-3">
+                    <div className="font-bold text-xs text-slate-300 flex items-center justify-between border-b border-slate-800 pb-2">
+                      <span className="flex items-center gap-1.5">
+                        <User size={14} className="text-yellow-400" />
+                        <span>{currentEditingTeam.name} 投手數據修改</span>
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-mono">PITCHER</span>
+                    </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs font-mono">
-                  <div>
-                    <label className="block text-[10px] text-slate-400 mb-1">姓名</label>
-                    <input 
-                      type="text" 
-                      value={currentEditingTeam.pitcher.name || ''} 
-                      onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'pitcher', 0, 'name', e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 px-2 py-1.5 rounded text-white font-sans font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 mb-1">背號</label>
-                    <input 
-                      type="text" 
-                      value={currentEditingTeam.pitcher.number || ''} 
-                      onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'pitcher', 0, 'number', e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 px-2 py-1.5 rounded text-white font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 mb-1">投球局數 (IP)</label>
-                    <input 
-                      type="text" 
-                      value={currentEditingTeam.pitcher.inningsPitched || ''} 
-                      placeholder="e.g. 5.1"
-                      onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'pitcher', 0, 'inningsPitched', e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 px-2 py-1.5 rounded text-yellow-400 font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 mb-1">用球數 (NP)</label>
-                    <input 
-                      type="number" 
-                      value={currentEditingTeam.pitcher.pitchCount ?? (currentEditingTeam.pitcher.stat || 0)} 
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10) || 0;
-                        handleUpdateEditingPlayer(activeTeamTab, 'pitcher', 0, 'pitchCount', val);
-                        handleUpdateEditingPlayer(activeTeamTab, 'pitcher', 0, 'stat', String(val));
-                      }}
-                      className="w-full bg-slate-900 border border-slate-700 px-2 py-1.5 rounded text-sky-300 font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 mb-1">奪三振 (K)</label>
-                    <input 
-                      type="number" 
-                      value={currentEditingTeam.pitcher.strikeouts || 0} 
-                      onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'pitcher', 0, 'strikeouts', parseInt(e.target.value, 10) || 0)}
-                      className="w-full bg-slate-900 border border-slate-700 px-2 py-1.5 rounded text-rose-400 font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 mb-1">失分 (R)</label>
-                    <input 
-                      type="number" 
-                      value={currentEditingTeam.pitcher.runsAllowed || 0} 
-                      onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'pitcher', 0, 'runsAllowed', parseInt(e.target.value, 10) || 0)}
-                      className="w-full bg-slate-900 border border-slate-700 px-2 py-1.5 rounded text-slate-200 font-bold"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Lineup Players Edit List */}
-              <div className="bg-slate-950/80 border border-slate-800 p-3 sm:p-4 rounded-xl space-y-3">
-                <div className="font-bold text-xs text-slate-300 flex items-center justify-between border-b border-slate-800 pb-2">
-                  <span className="flex items-center gap-1.5">
-                    <ListOrdered size={14} className="text-blue-400" />
-                    <span>{currentEditingTeam.name} 先發打線個別選手修改 ({currentEditingTeam.lineup.length} 人)</span>
-                  </span>
-                  <span className="text-[11px] text-slate-400">可修改數值與增減打席結果</span>
-                </div>
-
-                <div className="space-y-3">
-                  {currentEditingTeam.lineup.map((p, idx) => {
-                    const stats = getPlayerBattingStats(p);
-                    return (
-                      <div 
-                        key={p.id || idx} 
-                        className="bg-slate-900/90 border border-slate-800 p-3 rounded-xl space-y-2.5 hover:border-slate-700 transition-colors"
-                      >
-                        {/* Row 1: Player Profile & Quick Numbers */}
-                        <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 text-xs items-center font-mono">
-                          <div className="sm:col-span-1 font-bold text-slate-400 text-center">
-                            第 {idx + 1} 棒
-                          </div>
-                          <div className="sm:col-span-3">
-                            <input 
-                              type="text" 
-                              value={p.name} 
-                              onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'lineup', idx, 'name', e.target.value)}
-                              placeholder="選手姓名"
-                              className="w-full bg-slate-950 border border-slate-700 px-2 py-1 rounded text-white font-sans font-bold"
-                            />
-                          </div>
-                          <div className="sm:col-span-2 flex items-center gap-1">
-                            <span className="text-slate-400 text-[10px]">#</span>
-                            <input 
-                              type="text" 
-                              value={p.number || ''} 
-                              onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'lineup', idx, 'number', e.target.value)}
-                              placeholder="背號"
-                              className="w-12 bg-slate-950 border border-slate-700 px-1.5 py-1 rounded text-white font-bold text-center"
-                            />
-                            <input 
-                              type="text" 
-                              value={p.position || 'DH'} 
-                              onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'lineup', idx, 'position', e.target.value)}
-                              placeholder="守備"
-                              className="w-12 bg-slate-950 border border-slate-700 px-1.5 py-1 rounded text-slate-300 font-sans text-center"
-                            />
-                          </div>
-                          
-                          {/* Quick Stats Edit */}
-                          <div className="sm:col-span-6 flex flex-wrap items-center gap-2 justify-end">
-                            <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                              <span className="text-[10px] text-slate-400">得</span>
-                              <input 
-                                type="number" 
-                                value={p.runs || 0} 
-                                onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'lineup', idx, 'runs', parseInt(e.target.value, 10) || 0)}
-                                className="w-8 bg-transparent text-white font-bold text-center outline-none" 
-                              />
-                            </div>
-                            <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                              <span className="text-[10px] text-yellow-400">安</span>
-                              <input 
-                                type="number" 
-                                value={p.hits !== undefined ? p.hits : stats.h} 
-                                onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'lineup', idx, 'hits', parseInt(e.target.value, 10) || 0)}
-                                className="w-8 bg-transparent text-yellow-400 font-bold text-center outline-none" 
-                              />
-                            </div>
-                            <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                              <span className="text-[10px] text-slate-400">點</span>
-                              <input 
-                                type="number" 
-                                value={p.rbi || 0} 
-                                onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'lineup', idx, 'rbi', parseInt(e.target.value, 10) || 0)}
-                                className="w-8 bg-transparent text-white font-bold text-center outline-none" 
-                              />
-                            </div>
-                            <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                              <span className="text-[10px] text-sky-400">保</span>
-                              <input 
-                                type="number" 
-                                value={p.walks !== undefined ? p.walks : stats.bb} 
-                                onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'lineup', idx, 'walks', parseInt(e.target.value, 10) || 0)}
-                                className="w-8 bg-transparent text-sky-400 font-bold text-center outline-none" 
-                              />
-                            </div>
-                            <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                              <span className="text-[10px] text-rose-400">K</span>
-                              <input 
-                                type="number" 
-                                value={p.strikeouts !== undefined ? p.strikeouts : stats.so} 
-                                onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'lineup', idx, 'strikeouts', parseInt(e.target.value, 10) || 0)}
-                                className="w-8 bg-transparent text-rose-400 font-bold text-center outline-none" 
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Row 2: At-Bat History Management */}
-                        <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center gap-1.5 text-xs">
-                          <span className="text-[10px] font-bold text-slate-500 font-sans mr-1">打席紀錄:</span>
-                          {(p.atBats || []).map((ab, abIdx) => (
-                            <span 
-                              key={abIdx} 
-                              className="group/badge inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold"
-                            >
-                              <span>{ab}</span>
-                              <button 
-                                onClick={() => handleRemoveAtBat(activeTeamTab, idx, abIdx)}
-                                className="text-slate-500 hover:text-red-400 transition-colors ml-0.5 cursor-pointer"
-                                title="刪除此打席"
-                              >
-                                ×
-                              </button>
-                            </span>
-                          ))}
-
-                          {/* Quick Add At-Bat Outcome Buttons */}
-                          <div className="inline-flex items-center gap-1 ml-auto">
-                            <span className="text-[10px] text-slate-500 font-sans">+新增:</span>
-                            {['一安', '二安', '三安', 'HR', '四球', '三振', '出局'].map(outcome => (
-                              <button
-                                key={outcome}
-                                onClick={() => handleAddAtBat(activeTeamTab, idx, outcome)}
-                                className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded border border-slate-700 cursor-pointer active:scale-95"
-                              >
-                                {outcome}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs font-mono">
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-1">姓名</label>
+                        <input 
+                          type="text" 
+                          value={currentEditingTeam.pitcher.name || ''} 
+                          onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'pitcher', 0, 'name', e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 px-2 py-1.5 rounded text-white font-sans font-bold"
+                        />
                       </div>
-                    );
-                  })}
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-1">背號</label>
+                        <input 
+                          type="text" 
+                          value={currentEditingTeam.pitcher.number || ''} 
+                          onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'pitcher', 0, 'number', e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 px-2 py-1.5 rounded text-white font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-1">投球局數 (IP)</label>
+                        <input 
+                          type="text" 
+                          value={currentEditingTeam.pitcher.inningsPitched || ''} 
+                          placeholder="e.g. 5.1"
+                          onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'pitcher', 0, 'inningsPitched', e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 px-2 py-1.5 rounded text-yellow-400 font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-1">用球數 (NP)</label>
+                        <input 
+                          type="number" 
+                          value={currentEditingTeam.pitcher.pitchCount ?? (currentEditingTeam.pitcher.stat || 0)} 
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10) || 0;
+                            handleUpdateEditingPlayer(activeTeamTab, 'pitcher', 0, 'pitchCount', val);
+                            handleUpdateEditingPlayer(activeTeamTab, 'pitcher', 0, 'stat', String(val));
+                          }}
+                          className="w-full bg-slate-900 border border-slate-700 px-2 py-1.5 rounded text-sky-300 font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-1">奪三振 (K)</label>
+                        <input 
+                          type="number" 
+                          value={currentEditingTeam.pitcher.strikeouts || 0} 
+                          onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'pitcher', 0, 'strikeouts', parseInt(e.target.value, 10) || 0)}
+                          className="w-full bg-slate-900 border border-slate-700 px-2 py-1.5 rounded text-rose-400 font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-1">失分 (R)</label>
+                        <input 
+                          type="number" 
+                          value={currentEditingTeam.pitcher.runsAllowed || 0} 
+                          onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'pitcher', 0, 'runsAllowed', parseInt(e.target.value, 10) || 0)}
+                          className="w-full bg-slate-900 border border-slate-700 px-2 py-1.5 rounded text-slate-200 font-bold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Lineup Players Edit List */}
+                  <div className="bg-slate-950/80 border border-slate-800 p-3 sm:p-4 rounded-xl space-y-3">
+                    <div className="font-bold text-xs text-slate-300 flex items-center justify-between border-b border-slate-800 pb-2">
+                      <span className="flex items-center gap-1.5">
+                        <ListOrdered size={14} className="text-blue-400" />
+                        <span>{currentEditingTeam.name} 先發打線個別選手修改 ({currentEditingTeam.lineup.length} 人)</span>
+                      </span>
+                      <span className="text-[11px] text-amber-300 font-medium hidden sm:inline">
+                        💡 先點選選手打席，再由右側面板選擇更換
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {currentEditingTeam.lineup.map((p, idx) => {
+                        const stats = getPlayerBattingStats(p);
+                        return (
+                          <div 
+                            key={p.id || idx} 
+                            className="bg-slate-900/90 border border-slate-800 p-3 rounded-xl space-y-2.5 hover:border-slate-700 transition-colors"
+                          >
+                            {/* Row 1: Player Profile & Quick Numbers */}
+                            <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 text-xs items-center font-mono">
+                              <div className="sm:col-span-1 font-bold text-slate-400 text-center">
+                                第 {idx + 1} 棒
+                              </div>
+                              <div className="sm:col-span-3">
+                                <input 
+                                  type="text" 
+                                  value={p.name} 
+                                  onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'lineup', idx, 'name', e.target.value)}
+                                  placeholder="選手姓名"
+                                  className="w-full bg-slate-950 border border-slate-700 px-2 py-1 rounded text-white font-sans font-bold"
+                                />
+                              </div>
+                              <div className="sm:col-span-2 flex items-center gap-1">
+                                <span className="text-slate-400 text-[10px]">#</span>
+                                <input 
+                                  type="text" 
+                                  value={p.number || ''} 
+                                  onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'lineup', idx, 'number', e.target.value)}
+                                  placeholder="背號"
+                                  className="w-12 bg-slate-950 border border-slate-700 px-1.5 py-1 rounded text-white font-bold text-center"
+                                />
+                                <input 
+                                  type="text" 
+                                  value={p.position || 'DH'} 
+                                  onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'lineup', idx, 'position', e.target.value)}
+                                  placeholder="守備"
+                                  className="w-12 bg-slate-950 border border-slate-700 px-1.5 py-1 rounded text-slate-300 font-sans text-center"
+                                />
+                              </div>
+                              
+                              {/* Quick Stats Edit */}
+                              <div className="sm:col-span-6 flex flex-wrap items-center gap-2 justify-end">
+                                <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded border border-slate-800" title="得分 (Runs)">
+                                  <span className="text-[10px] text-slate-400">得</span>
+                                  <input 
+                                    type="number" 
+                                    value={p.runs || 0} 
+                                    onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'lineup', idx, 'runs', parseInt(e.target.value, 10) || 0)}
+                                    className="w-8 bg-transparent text-white font-bold text-center outline-none" 
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded border border-slate-800" title="安打數 (Hits)">
+                                  <span className="text-[10px] text-yellow-400">安</span>
+                                  <input 
+                                    type="number" 
+                                    value={p.hits !== undefined ? p.hits : stats.h} 
+                                    onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'lineup', idx, 'hits', parseInt(e.target.value, 10) || 0)}
+                                    className="w-8 bg-transparent text-yellow-400 font-bold text-center outline-none" 
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded border border-slate-800" title="打點 (RBI)">
+                                  <span className="text-[10px] text-slate-400">點</span>
+                                  <input 
+                                    type="number" 
+                                    value={p.rbi || 0} 
+                                    onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'lineup', idx, 'rbi', parseInt(e.target.value, 10) || 0)}
+                                    className="w-8 bg-transparent text-white font-bold text-center outline-none" 
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded border border-slate-800" title="四死球保送 (BB)">
+                                  <span className="text-[10px] text-sky-400">保</span>
+                                  <input 
+                                    type="number" 
+                                    value={p.walks !== undefined ? p.walks : stats.bb} 
+                                    onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'lineup', idx, 'walks', parseInt(e.target.value, 10) || 0)}
+                                    className="w-8 bg-transparent text-sky-400 font-bold text-center outline-none" 
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded border border-slate-800" title="三振 (SO)">
+                                  <span className="text-[10px] text-rose-400">K</span>
+                                  <input 
+                                    type="number" 
+                                    value={p.strikeouts !== undefined ? p.strikeouts : stats.so} 
+                                    onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'lineup', idx, 'strikeouts', parseInt(e.target.value, 10) || 0)}
+                                    className="w-8 bg-transparent text-rose-400 font-bold text-center outline-none" 
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Row 2: At-Bat Badges (Click to select like position swapping) */}
+                            <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center gap-1.5 text-xs">
+                              <span className="text-[10px] font-bold text-slate-500 font-sans mr-1">打席紀錄:</span>
+                              {(p.atBats || []).map((ab, abIdx) => {
+                                const isSelected = selectedAtBat?.playerIndex === idx && selectedAtBat?.abIndex === abIdx;
+                                return (
+                                  <button 
+                                    key={abIdx} 
+                                    type="button"
+                                    onClick={() => setSelectedAtBat(isSelected ? null : { playerIndex: idx, abIndex: abIdx, current: ab })}
+                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                      isSelected 
+                                        ? 'bg-amber-500 text-slate-950 font-black ring-2 ring-amber-300 shadow-md shadow-amber-500/30 scale-105' 
+                                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-500 active:scale-95'
+                                    }`}
+                                    title="點選此打席，再從右側面板點選結果進行更換"
+                                  >
+                                    <span className="text-[10px] opacity-70">#{abIdx + 1}</span>
+                                    <span>{ab}</span>
+                                    {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-ping" />}
+                                  </button>
+                                );
+                              })}
+
+                              {/* Button to add new at-bat */}
+                              {(() => {
+                                const isAddingNew = selectedAtBat?.playerIndex === idx && selectedAtBat?.abIndex === 'new';
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedAtBat(isAddingNew ? null : { playerIndex: idx, abIndex: 'new', current: '' })}
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                                      isAddingNew
+                                        ? 'bg-blue-600 text-white font-black ring-2 ring-blue-300 shadow-md scale-105'
+                                        : 'bg-slate-800/60 hover:bg-slate-800 text-blue-400 border-dashed border-blue-500/40 hover:border-blue-400 active:scale-95'
+                                    }`}
+                                    title="點選後再按右邊選項新增打席"
+                                  >
+                                    <Plus size={12} />
+                                    <span>新增打席</span>
+                                  </button>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right 4 cols: Sticky Outcome Palette Panel */}
+                <div className="hidden lg:block lg:col-span-4 sticky top-1 space-y-3">
+                  {renderOutcomePalette(currentEditingTeam)}
                 </div>
               </div>
+
+              {/* On compact / mobile screens (< lg), if an at-bat is selected, dock outcome palette cleanly at bottom */}
+              {selectedAtBat && (
+                <div className="lg:hidden sticky bottom-0 left-0 right-0 z-40 bg-slate-950/98 backdrop-blur-md border-t-2 border-amber-500 rounded-t-2xl shadow-2xl p-3 -mx-3 -mb-3 sm:-mx-5 sm:-mb-5 animate-in slide-in-from-bottom duration-200">
+                  {renderOutcomePalette(currentEditingTeam, true)}
+                </div>
+              )}
             </div>
           )}
 

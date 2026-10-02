@@ -46,16 +46,19 @@ export function parseLineupText(text: string) {
         // ignore obvious solitary headers (e.g. "先發名單", "Lineup:", "Order") without player data
         if (rawLine.match(/^\s*(先發名單|lineup|打線|打擊順序|先發|order|roster|away|home)\s*[:：\-]?\s*$/i)) continue;
 
-        // 1. Normalize line: fullwidth digits & letters & symbols
-        let s = rawLine.replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
+        // 1. Normalize line: fullwidth digits & letters & symbols, fullwidth spaces, circled numbers
+        let s = rawLine.replace(/[\u00A0\u1680\u180E\u2000-\u200B\u202F\u205F\u3000\uFEFF]/g, ' ');
+        // Circled digits ① to ⑳
+        s = s.replace(/[\u2460-\u2473]/g, ch => (ch.charCodeAt(0) - 0x2460 + 1) + ' ');
+        s = s.replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
         s = s.replace(/[Ａ-Ｚａ-ｚ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
         s = s.replace(/[，、]/g, ' ')
              .replace(/[：]/g, ':')
              .replace(/[＃]/g, '#')
              .replace(/[（]/g, '(')
              .replace(/[）]/g, ')')
-             .replace(/[［]/g, '[')
-             .replace(/[］]/g, ']')
+             .replace(/[［【]/g, '[')
+             .replace(/[］】]/g, ']')
              .replace(/[－—–]/g, '-')
              .replace(/\t/g, ' ')
              .trim();
@@ -66,11 +69,29 @@ export function parseLineupText(text: string) {
         let name = '';
 
         // 2. Remove explicit Batting Order at the start:
-        // 2a. "第1棒", "1棒", "第一棒", "1番", "第1番"
-        s = s.replace(/^第?([一二三四五六七八九十\d]+)[棒番][\s\.\:\-]*/i, ' ');
+        // 2a. "[1]", "(1)", "【1】"
+        s = s.replace(/^[\[\(]([1-9]|1[0-9]|20)[\]\)][\s\.\-\:\/、]*/i, ' ');
 
-        // 2b. "1.", "1-", "1:", "1)", "1/" with punctuation explicitly denoting order (1-12)
-        s = s.replace(/^[#＃]?([1-9]|1[0-2])[\.\-\:\)\/]+[\s]*/i, ' ');
+        // 2b. "第1棒", "1棒", "第一棒", "1番", "第1番", "第1"
+        s = s.replace(/^第?([一二三四五六七八九十\d]+)[棒番][\s\.\:\-]*/i, ' ');
+        s = s.replace(/^第([1-9]|1[0-9]|20)[\s\.\:\-]*/i, ' ');
+
+        // 2c. "1.", "1-", "1:", "1)", "1/", "1、", "1_" with punctuation (1-20)
+        s = s.replace(/^[#＃]?([1-9]|1[0-9]|20)[\.\-\:\)\/、_]+[\s]*/i, ' ');
+
+        // 2d. Leading order number followed by whitespace or immediately followed by text
+        // e.g. "1 角中勝也 #61 指定打擊", "1角中勝也 #61 指定打擊", "1 角中勝也 61", "1 角中勝也"
+        const leadingOrderMatch = s.match(/^([1-9]|1[0-9]|20)(\s+|(?=[^\d\s]))/);
+        if (leadingOrderMatch) {
+            const remainder = s.substring(leadingOrderMatch[0].length).trim();
+            const hasAnotherNum = /\b\d{1,3}\b/.test(remainder) || /#\d+/.test(remainder);
+            const hasExplicitPos = Object.keys(MULTI_POS_MAP).some(k => remainder.includes(k)) || 
+                                   /\b(1B|2B|3B|0B|SS|LF|CF|RF|DH|OF|IF|SP|RP|CP|PH|PR|BENCH|BN|P|C)\b/i.test(remainder);
+            // If there's another number, a position, or if it was separated by whitespace/punctuation
+            if (hasAnotherNum || hasExplicitPos || leadingOrderMatch[2].trim() === '' || leadingOrderMatch[0].includes(' ')) {
+                s = remainder;
+            }
+        }
 
         // 3. Extract Batting Average (e.g. .305, 0.280, 1.000)
         const avgMatch = s.match(/(?:\s|^|\(|\[|\-)(0?\.\d{2,4})(?:\s|$|\)|\]|\-|\/)/);
@@ -168,6 +189,11 @@ export function parseLineupText(text: string) {
 
         // Clean up leading/trailing dashes/colons but keep periods if inside/end of name like "Jr."
         name = name.replace(/^[\-_:;#\s]+|[\-_:;#\s]+$/g, '').trim();
+
+        // Strip leading batting order number or digits attached to name (e.g. "1 角中勝也", "1角中勝也", "1.角中勝也")
+        name = name.replace(/^(?:第)?([1-9]|1[0-9]|20)[棒番]?[\s\.\-、:_／/\)]*/, '').trim();
+        // If name still starts with digits followed by non-digits (e.g. "1角中勝也", "61角中勝也" if number was separate)
+        name = name.replace(/^\d+[\s\.\-、:_／/\)]*/, '').trim();
 
         if (!name) name = 'Player';
 
