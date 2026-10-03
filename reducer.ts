@@ -39,6 +39,13 @@ const updateInningScore = (team: Team, inning: number, amount: number): (number 
   return newScores;
 };
 
+export const getPitcherCount = (p?: Partial<Player>): number => {
+  if (!p) return 0;
+  if (typeof p.pitchCount === 'number' && !isNaN(p.pitchCount)) return p.pitchCount;
+  const num = parseInt((p.stat || '').replace(/[^0-9]/g, ''), 10);
+  return isNaN(num) ? 0 : num;
+};
+
 export function reducer(state: GameState, action: ActionType): GameState {
   let nextState = baseReducer(state, action);
 
@@ -54,13 +61,16 @@ export function reducer(state: GameState, action: ActionType): GameState {
 
   if (pitchIncrementActions.includes(action.type)) {
     const pitchingTeamKey = state.isTop ? 'homeTeam' : 'awayTeam';
+    const curPitcher = nextState[pitchingTeamKey].pitcher;
+    const nextCount = getPitcherCount(curPitcher) + 1;
     nextState = {
       ...nextState,
       [pitchingTeamKey]: {
         ...nextState[pitchingTeamKey],
         pitcher: {
-          ...nextState[pitchingTeamKey].pitcher,
-          stat: incrementPitchStat(nextState[pitchingTeamKey].pitcher.stat)
+          ...curPitcher,
+          stat: nextCount.toString(),
+          pitchCount: nextCount
         }
       }
     };
@@ -880,7 +890,12 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const tKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
       const newLineup = [...state[tKey].lineup];
       if (newLineup[action.index]) {
-        newLineup[action.index] = { ...newLineup[action.index], [action.field]: action.value };
+        let val = action.value;
+        if (action.field === 'position' && typeof val === 'string') {
+          if (val.trim() === '代打' || val.trim().toLowerCase() === 'ph') val = 'PH';
+          else if (val.trim() === '代跑' || val.trim().toLowerCase() === 'pr') val = 'PR';
+        }
+        newLineup[action.index] = { ...newLineup[action.index], [action.field]: val };
       }
       return {
         ...state,
@@ -914,7 +929,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const player = state[tKey].bench[action.index];
       if (!player) return state;
       const newBench = state[tKey].bench.filter((_, i) => i !== action.index);
-      const newLineup = [...state[tKey].lineup, player];
+      const newLineup = [...state[tKey].lineup, { ...player, position: 'PH' }];
       return {
         ...state,
         [tKey]: { ...state[tKey], lineup: newLineup, bench: newBench }
@@ -990,8 +1005,9 @@ function baseReducer(state: GameState, action: ActionType): GameState {
 
       const newLineup = [...state[tKey].lineup];
       const newBench = [...state[tKey].bench];
-      // Keep fielding position of lineup slot if desired, but swap players
-      newLineup[action.lineupIndex] = { ...benchPlayer, position: lineupPlayer.position || benchPlayer.position };
+      // 換代打的時候 守位要自動改成PH
+      const substitutedPlayer: Player = { ...benchPlayer, position: 'PH' };
+      newLineup[action.lineupIndex] = substitutedPlayer;
       newBench[action.benchIndex] = { ...lineupPlayer, position: 'BN' };
 
       return {

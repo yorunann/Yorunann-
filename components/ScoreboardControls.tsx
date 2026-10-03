@@ -324,8 +324,18 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
         const p1 = newDraft[loc1.list][loc1.idx];
         const p2 = newDraft[loc2.list][loc2.idx];
         
-        newDraft[loc1.list][loc1.idx] = p2;
-        newDraft[loc2.list][loc2.idx] = p1;
+        if (loc1.list !== loc2.list) {
+          if (loc1.list === 'lineup') {
+            newDraft.lineup[loc1.idx] = { ...p2, position: 'PH' };
+            newDraft.bench[loc2.idx] = { ...p1, position: 'BN' };
+          } else {
+            newDraft.lineup[loc2.idx] = { ...p1, position: 'PH' };
+            newDraft.bench[loc1.idx] = { ...p2, position: 'BN' };
+          }
+        } else {
+          newDraft[loc1.list][loc1.idx] = p2;
+          newDraft[loc2.list][loc2.idx] = p1;
+        }
         
         setDraft(newDraft);
       }
@@ -441,7 +451,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
       return {
         ...prev,
         bench: prev.bench.filter((_, i) => i !== index),
-        lineup: [...prev.lineup, player]
+        lineup: [...prev.lineup, { ...player, position: 'PH' }]
       };
     });
   };
@@ -2045,7 +2055,7 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                 <div>
                   <div className="font-bold text-white group-hover:text-purple-300 text-sm flex items-center gap-2">
                     <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs border border-purple-500/30 font-mono">D3K</span>
-                    <span>{language === 'zh' ? '不死三振 (暴投/捕逸上壘)' : language === 'ja' ? '振り逃げ (暴投・捕逸)' : 'Uncaught 3rd Strike (D3K)'}</span>
+                    <span>{language === 'zh' ? '不死 (不死三振上壘)' : language === 'ja' ? '振り逃げ (暴投・捕逸)' : 'Uncaught 3rd Strike (D3K)'}</span>
                   </div>
                   <div className="text-[11px] text-slate-400 mt-1">
                     {language === 'zh' ? '第三好球捕手未確實接捕，打者跑上一壘安全就位' : language === 'ja' ? '第3ストライク捕球失敗により打者出塁' : 'Catcher misses 3rd strike, batter safely reaches 1st'}

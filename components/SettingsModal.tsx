@@ -95,11 +95,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Status Note */}
               <div className="mt-3 pt-3 border-t border-slate-200/80 flex items-center justify-between text-[11px]">
                 <span className="text-slate-500">
-                  {language === 'en' ? 'Current Version: v3.0 | ' : language === 'zh' ? '目前版本：v3.0 | ' : '現在のバージョン：v3.0 | '}
+                  {language === 'en' ? 'Console Style: ' : language === 'zh' ? '控制台樣式：' : 'コンソールスタイル：'}
                   <strong className={useBetaControls ? 'text-blue-600 ml-1' : 'text-slate-700 ml-1'}>
                     {useBetaControls 
-                      ? (language === 'en' ? 'Touch Console (v3.0)' : language === 'zh' ? '新版觸控控制台 (v3.0)' : '新版コンソール (v3.0)')
-                      : (language === 'en' ? 'Classic Controls (v3.0)' : language === 'zh' ? '經典版控制台 (v3.0)' : 'クラシック版 (v3.0)')}
+                      ? (language === 'en' ? 'Touch Console' : language === 'zh' ? '新版觸控控制台' : '新版コンソール')
+                      : (language === 'en' ? 'Classic Controls' : language === 'zh' ? '經典版控制台' : 'クラシック版')}
                   </strong>
                 </span>
                 <span className="text-emerald-600 font-medium flex items-center gap-1">

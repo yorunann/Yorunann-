@@ -113,7 +113,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
     }
     dispatch({ type: 'RESET_COUNT' });
     dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
-    dispatch({ type: 'RECORD_AT_BAT', result: walkType });
+    dispatch({ type: 'RECORD_AT_BAT', result: walkType === '不死三振' ? '不死' : walkType });
     dispatch({ type: 'NEXT_BATTER' });
     setIsWalkModalOpen(false);
   };
@@ -563,7 +563,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                   className="py-2.5 px-1 bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 text-slate-950 font-black text-xs rounded-lg text-center transition-all active:scale-95 shadow-md border border-yellow-300/40"
                   title="全壘打 (自動觸發動畫與比分)"
                 >
-                  HR 全壘打
+                  全壘打
                 </button>
                 <button
                   onClick={() => handleQuickOutcome('BB')}
@@ -1547,7 +1547,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                   </span>
                   <div>
                     <div className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors">
-                      {language === 'zh' ? '不死三振 (暴投/捕逸上壘)' : language === 'ja' ? '振り逃げ (暴投・捕逸)' : 'Uncaught 3rd Strike (D3K)'}
+                      {language === 'zh' ? '不死 (不死三振上壘)' : language === 'ja' ? '振り逃げ (暴投・捕逸)' : 'Uncaught 3rd Strike (D3K)'}
                     </div>
                     <div className="text-xs text-slate-400">
                       {language === 'zh' ? '捕手第三好球未確實接捕，打者跑上一壘' : language === 'ja' ? '第3ストライク捕球失敗により打者出塁' : 'Catcher misses 3rd strike, batter safely reaches 1st'}

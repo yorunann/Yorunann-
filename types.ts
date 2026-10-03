@@ -9,6 +9,7 @@ export interface Player {
   atBats?: string[];
   avg?: string;
   inningsPitched?: string;
+  battersFaced?: number;
   strikeouts?: number;
   pitchCount?: number;
   runs?: number;
@@ -18,6 +19,8 @@ export interface Player {
   earnedRuns?: number;
   hitsAllowed?: number;
   runsAllowed?: number;
+  isStarter?: boolean;
+  previousPlayers?: Player[];
 }
 
 export interface SavedGameRecord {
@@ -48,6 +51,7 @@ export interface Team {
   bench: Player[];
   currentBatterIndex: number;
   pitcher: Player;
+  pitcherHistory?: Player[];
 }
 
 export interface PitchInfo {

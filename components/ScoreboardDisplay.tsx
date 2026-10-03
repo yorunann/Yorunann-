@@ -55,6 +55,25 @@ export const formatAtBatChinese = (ab: string, lang: 'en' | 'zh' | 'ja' = 'zh'):
                 label: lang === 'en' ? 'HR' : lang === 'ja' ? '本塁打' : '全壘打', 
                 style: 'text-amber-300 bg-amber-950/90 border-amber-400 font-black shadow-[0_0_10px_rgba(251,191,36,0.3)]' 
             };
+        case '場內全':
+        case '場內全壘打':
+        case 'IPHR':
+            return {
+                label: lang === 'en' ? 'IPHR' : lang === 'ja' ? 'ランニング本塁打' : '場內全',
+                style: 'text-amber-300 bg-amber-950/90 border-amber-400 font-black shadow-[0_0_10px_rgba(251,191,36,0.3)]'
+            };
+        case '妨礙打擊':
+        case 'CI':
+            return {
+                label: lang === 'en' ? 'CI' : lang === 'ja' ? '打撃妨害' : '妨礙打擊',
+                style: 'text-sky-300 bg-sky-950/80 border-sky-500/70 font-bold'
+            };
+        case '妨礙守備':
+        case 'OBS':
+            return {
+                label: lang === 'en' ? 'OBS' : lang === 'ja' ? '守備妨害' : '妨礙守備',
+                style: 'text-rose-300 bg-rose-950/80 border-rose-500/70 font-bold'
+            };
         case 'BB':
         case '四球':
         case '四壞':

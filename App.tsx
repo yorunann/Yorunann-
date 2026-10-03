@@ -458,7 +458,6 @@ export const App: React.FC = () => {
               <MonitorPlay className="text-yellow-400" />
               <h1 className="text-white font-bold text-xl hidden md:block">Pro Baseball Scoreboard</h1>
               <h1 className="text-white font-bold text-xl md:hidden">PBS</h1>
-              <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-600/30 text-blue-400 border border-blue-500/30 font-mono tracking-tight">v3.0</span>
             </div>
             <select 
               value={language}
@@ -681,7 +680,6 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v3.0</span>
        </footer>
 
         <ShortcutSettingsModal

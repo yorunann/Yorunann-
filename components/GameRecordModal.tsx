@@ -27,16 +27,9 @@ export const AT_BAT_OUTCOMES_CATEGORIES = [
       { id: '一安', label: '一壘安打 (1B)', full: '一壘安打 (Single)' },
       { id: '二安', label: '二壘安打 (2B)', full: '二壘安打 (Double)' },
       { id: '三安', label: '三壘安打 (3B)', full: '三壘安打 (Triple)' },
-      { id: 'HR', label: '全壘打 (HR)', full: '全壘打 (Home Run)' },
-      { id: '滿貫砲', label: '滿貫全壘打 (GS)', full: '滿貫全壘打 (Grand Slam)' },
-      { id: '場內HR', label: '場內全壘打 (IPHR)', full: '場內全壘打 (Inside-the-park HR)' },
+      { id: '全壘打', label: '全壘打', full: '全壘打 (Home Run)' },
+      { id: '場內全', label: '場內全', full: '場內全壘打 (Inside-the-park HR)' },
       { id: '內安', label: '內野安打 (IFH)', full: '內野安打 (Infield Hit)' },
-      { id: '德州安', label: '德州安打 (TX)', full: '德州安打 (Texas Leaguer)' },
-      { id: '再見安', label: '再見安打 (WO)', full: '再見安打 (Walk-off Hit)' },
-      { id: '再見HR', label: '再見全壘打 (WOHR)', full: '再見全壘打 (Walk-off Home Run)' },
-      { id: '陽春砲', label: '陽春砲 (Solo)', full: '陽春全壘打 (Solo HR)' },
-      { id: '兩分砲', label: '兩分砲 (2R)', full: '兩分全壘打 (2-Run HR)' },
-      { id: '三分砲', label: '三分砲 (3R)', full: '三分全壘打 (3-Run HR)' },
     ]
   },
   {
@@ -48,13 +41,10 @@ export const AT_BAT_OUTCOMES_CATEGORIES = [
       { id: '四球', label: '四壞保送 (BB)', full: '四壞球保送 (Base on Balls)' },
       { id: '觸身', label: '觸身球 (HBP)', full: '觸身球保送 (Hit by Pitch)' },
       { id: '敬遠', label: '故意四壞 (IBB)', full: '故意四壞保送 (Intentional Walk)' },
-      { id: '不死K', label: '不死三振 (D3K)', full: '不死三振上壘 (Dropped 3rd Strike)' },
+      { id: '不死', label: '不死', full: '不死三振上壘 (Dropped 3rd Strike)' },
       { id: '野選', label: '野手選擇 (FC)', full: '野手選擇上壘 (Fielder Choice)' },
       { id: '失誤', label: '守備失誤 (E)', full: '守備失誤上壘 (Error)' },
-      { id: '暴投', label: '暴投上壘 (WP)', full: '暴投進壘/上壘 (Wild Pitch)' },
-      { id: '捕逸', label: '捕逸上壘 (PB)', full: '捕逸進壘/上壘 (Passed Ball)' },
       { id: '妨礙打擊', label: '妨礙打擊 (CI)', full: '妨礙打擊上壘 (Catcher Interference)' },
-      { id: '妨礙守備', label: '妨礙守備 (OBS)', full: '妨礙守備 (Obstruction)' },
     ]
   },
   {
@@ -65,7 +55,6 @@ export const AT_BAT_OUTCOMES_CATEGORIES = [
     items: [
       { id: '三振', label: '揮空三振 (K)', full: '揮棒落空三振 (Strikeout Swinging)' },
       { id: '見三振', label: '見定三振 (ꓘ)', full: '站著看好球三振 (Strikeout Looking)' },
-      { id: '界外K', label: '擦棒被捕 (FTK)', full: '擦棒被捕三振 (Foul Tip Strikeout)' },
       { id: '滾地', label: '滾地出局 (GO)', full: '滾地球出局 (Groundout)' },
       { id: '高飛', label: '高飛出局 (FO)', full: '外野高飛出局 (Flyout)' },
       { id: '平飛', label: '平飛出局 (LO)', full: '平飛球出局 (Lineout)' },
@@ -73,7 +62,7 @@ export const AT_BAT_OUTCOMES_CATEGORIES = [
       { id: '界外飛', label: '界外接殺 (FFO)', full: '界外球接殺出局 (Foul Flyout)' },
       { id: '雙殺', label: '雙殺打 (DP/GDP)', full: '雙殺打 (Double Play)' },
       { id: '三殺', label: '三殺打 (TP/GTP)', full: '三殺打 (Triple Play)' },
-      { id: '刺殺', label: '刺殺出局 (PO)', full: '刺殺/封殺出局 (Putout / Force)' },
+      { id: '妨礙守備', label: '妨礙守備', full: '妨礙守備出局 (Interference Out)' },
       { id: '出局', label: '一般出局 (OUT)', full: '一般出局 (Generic Out)' },
     ]
   },
@@ -107,34 +96,6 @@ export const AT_BAT_OUTCOMES_CATEGORIES = [
     items: [
       { id: '犧打', label: '犧牲短打 (SAC)', full: '犧牲觸擊短打 (Sacrifice Bunt)' },
       { id: '犧飛', label: '犧牲飛球 (SF)', full: '外野犧牲飛球 (Sacrifice Fly)' },
-      { id: '短安', label: '觸擊安打 (BUH)', full: '突襲短打安打 (Bunt Single)' },
-      { id: '短打雙殺', label: '短打雙殺 (SDP)', full: '短打雙殺 (Bunt Double Play)' },
-      { id: '強迫取分', label: '強迫取分 (SQZ)', full: '強迫取分戰術 (Squeeze)' },
-    ]
-  },
-  {
-    key: 'base',
-    category: '跑壘 / 刺殺 (Baserunning)',
-    color: 'teal',
-    badgeColor: 'bg-teal-500/20 text-teal-300 border-teal-500/40',
-    items: [
-      { id: '牽制刺', label: '牽制出局 (PO)', full: '投手/捕手牽制出局 (Pickoff Out)' },
-      { id: '盜壘刺', label: '盜壘刺殺 (CS)', full: '盜壘被阻殺出局 (Caught Stealing)' },
-      { id: '夾殺', label: '夾殺出局 (Rundown)', full: '壘間夾殺出局 (Rundown Out)' },
-      { id: '跑壘刺', label: '跑壘出局 (OOB)', full: '跑壘過壘出局 (Out on Bases)' },
-      { id: '觸身出局', label: '碰觸跑者 (Hit Runner)', full: '擊球碰觸跑者出局' },
-    ]
-  },
-  {
-    key: 'other',
-    category: '調度與清除 (Actions)',
-    color: 'slate',
-    badgeColor: 'bg-slate-500/20 text-slate-300 border-slate-500/40',
-    items: [
-      { id: '代打', label: '代打登場 (PH)', full: '代打登場 (Pinch Hitter)' },
-      { id: '代跑', label: '代跑登場 (PR)', full: '代跑登場 (Pinch Runner)' },
-      { id: '未登場', label: '未登場 (-)', full: '未登場 (Did Not Bat)' },
-      { id: '清除', label: '清除此打席 (Clear)', full: '清除此打席紀錄' },
     ]
   }
 ];
@@ -251,17 +212,16 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
       ab.includes('保送') || ab.includes('BB') || ab.includes('HBP') || ab.includes('IBB');
 
     const isHit = (ab: string) => 
-      ab.includes('安') || ab.includes('HR') || ab.includes('全壘打') || 
-      ab.includes('1B') || ab.includes('2B') || ab.includes('3B') ||
-      ab.includes('滿貫') || ab.includes('砲');
+      ab.includes('安') || ab.includes('全壘打') || ab.includes('場內全') || 
+      ab.includes('HR') || ab.includes('1B') || ab.includes('2B') || ab.includes('3B');
 
     const isSO = (ab: string) => 
-      ab.includes('三振') || ab.includes('K') || ab.includes('SO') || ab.includes('ꓘ');
+      ab.includes('三振') || ab.includes('K') || ab.includes('SO') || ab.includes('ꓘ') || ab.includes('不死');
 
     const isNonAb = (ab: string) => 
       isWalk(ab) ||
       ab.includes('犧') || ab.includes('SAC') || ab.includes('SF') || 
-      ab.includes('妨礙') || ab.includes('代打') || ab.includes('代跑') || 
+      ab.includes('妨礙打擊') || ab.includes('CI') || ab.includes('代打') || ab.includes('代跑') || 
       ab.includes('未登場') || ab === '-';
 
     // If explicit stats not provided, calculate from atBats history
@@ -348,11 +308,19 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
         next.pitcher = { ...next.pitcher, [field]: value };
       } else if (type === 'lineup') {
         if (next.lineup[index]) {
-          next.lineup[index] = { ...next.lineup[index], [field]: value };
+          let val = value;
+          if (field === 'position' && typeof val === 'string' && (val.trim() === '代打' || val.trim().toLowerCase() === 'ph')) {
+            val = 'PH';
+          }
+          next.lineup[index] = { ...next.lineup[index], [field]: val };
         }
       } else if (type === 'bench') {
         if (next.bench[index]) {
-          next.bench[index] = { ...next.bench[index], [field]: value };
+          let val = value;
+          if (field === 'position' && typeof val === 'string' && (val.trim() === '代打' || val.trim().toLowerCase() === 'ph')) {
+            val = 'PH';
+          }
+          next.bench[index] = { ...next.bench[index], [field]: val };
         }
       }
       return next;
@@ -682,8 +650,6 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
       { key: 'pos_outs', label: '守位出局' },
       { key: 'walks', label: '保送' },
       { key: 'sac', label: '戰術' },
-      { key: 'base', label: '跑壘' },
-      { key: 'other', label: '調度' },
     ];
 
     return (
@@ -914,9 +880,11 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                         title={item.full}
                       >
                         <span className="truncate mr-1 text-left">{item.label}</span>
-                        <span className={`text-[10px] font-mono shrink-0 ${isCurrent ? 'text-slate-950 font-black' : 'text-slate-400 opacity-70'}`}>
-                          {item.id}
-                        </span>
+                        {item.label !== item.id && (
+                          <span className={`text-[10px] font-mono shrink-0 ${isCurrent ? 'text-slate-950 font-black' : 'text-slate-400 opacity-70'}`}>
+                            {item.id}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -942,9 +910,6 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
             <div>
               <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
                 <span>{language === 'zh' ? '比賽攻守紀錄表與數據管理' : language === 'ja' ? '試合スコアブックと選手記録' : 'Game Box Score & Player Records'}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-600/30 text-blue-300 border border-blue-500/40 font-mono">
-                  v3.0 Records
-                </span>
               </h2>
               <p className="text-xs text-slate-400 hidden sm:block">
                 {language === 'zh' ? '即時彙整雙方攻守成績、修改個人數據、保存歷史比賽與一鍵匯出紀錄表' : 'View, edit, save game box scores and export clean records'}
@@ -1211,9 +1176,6 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                               </td>
                               <td className="py-2 px-3 text-left font-sans font-bold text-white flex items-center gap-1.5">
                                 <span>{p.name}</span>
-                                {isCurrentBatter && (
-                                  <span className="text-[9px] bg-blue-500 text-white px-1 rounded font-bold">打擊中</span>
-                                )}
                               </td>
                               <td className="py-2 px-2 text-slate-400 font-sans font-bold">
                                 {p.position || 'DH'}
