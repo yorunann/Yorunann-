@@ -3,26 +3,28 @@ import { INITIAL_STATE } from './constants';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-const incrementPitchStat = (stat: string): string => {
+const incrementPitchStat = (stat?: string): string => {
+  if (!stat) return '1';
   const match = stat.match(/P:\s*(\d+)/i);
   if (match) {
-    const count = parseInt(match[1]);
+    const count = parseInt(match[1], 10);
     return `P: ${count + 1}`;
   }
-  const count = parseInt(stat);
+  const count = parseInt(stat, 10);
   if (!isNaN(count)) return (count + 1).toString();
-  return stat;
+  return '1';
 };
 
-const decrementPitchStat = (stat: string): string => {
+const decrementPitchStat = (stat?: string): string => {
+  if (!stat) return '0';
   const match = stat.match(/P:\s*(\d+)/i);
   if (match) {
-    const count = parseInt(match[1]);
+    const count = parseInt(match[1], 10);
     return `P: ${Math.max(0, count - 1)}`;
   }
-  const count = parseInt(stat);
+  const count = parseInt(stat, 10);
   if (!isNaN(count)) return Math.max(0, count - 1).toString();
-  return stat;
+  return '0';
 };
 
 const updateInningScore = (team: Team, inning: number, amount: number): (number | null)[] => {
@@ -42,7 +44,7 @@ const updateInningScore = (team: Team, inning: number, amount: number): (number 
 export const getPitcherCount = (p?: Partial<Player>): number => {
   if (!p) return 0;
   if (typeof p.pitchCount === 'number' && !isNaN(p.pitchCount)) return p.pitchCount;
-  const num = parseInt((p.stat || '').replace(/[^0-9]/g, ''), 10);
+  const num = parseInt(String(p.stat || '').replace(/[^0-9]/g, ''), 10);
   return isNaN(num) ? 0 : num;
 };
 
@@ -69,7 +71,7 @@ export function reducer(state: GameState, action: ActionType): GameState {
         ...nextState[pitchingTeamKey],
         pitcher: {
           ...curPitcher,
-          stat: nextCount.toString(),
+          stat: String(nextCount),
           pitchCount: nextCount
         }
       }
@@ -740,14 +742,24 @@ function baseReducer(state: GameState, action: ActionType): GameState {
 
     case 'UPDATE_PLAYER': {
       const teamKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
+      const prevPlayer = state[teamKey][action.role as 'pitcher'];
+      const updatedPlayer: Player = { 
+        ...prevPlayer, 
+        [action.field]: action.value 
+      };
+      if (action.role === 'pitcher') {
+        if (action.field === 'stat') {
+          const num = parseInt(String(action.value || '').replace(/[^0-9]/g, ''), 10);
+          if (!isNaN(num)) updatedPlayer.pitchCount = num;
+        } else if (action.field === 'pitchCount') {
+          updatedPlayer.stat = String(action.value);
+        }
+      }
       return { 
         ...state, 
         [teamKey]: { 
           ...state[teamKey], 
-          [action.role]: { 
-            ...state[teamKey][action.role as 'pitcher'], 
-            [action.field]: action.value 
-          } 
+          [action.role]: updatedPlayer
         } 
       };
     }
@@ -756,17 +768,16 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       if (action.role === 'pitcher') {
         const pitchingTeam = state.isTop ? 'homeTeam' : 'awayTeam';
         const curPitcher = state[pitchingTeam].pitcher;
-        const currentPitches = curPitcher?.pitchCount !== undefined
-          ? curPitcher.pitchCount
-          : parseInt(curPitcher?.stat?.replace(/[^0-9]/g, '') || '0', 10);
+        const currentPitches = getPitcherCount(curPitcher);
+        const nextPitches = currentPitches + 1;
         return { 
           ...state, 
           [pitchingTeam]: { 
             ...state[pitchingTeam], 
             pitcher: { 
               ...curPitcher, 
-              stat: incrementPitchStat(curPitcher.stat),
-              pitchCount: currentPitches + 1
+              stat: String(nextPitches),
+              pitchCount: nextPitches
             } 
           } 
         };
@@ -777,22 +788,78 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       if (action.role === 'pitcher') {
         const pitchingTeam = state.isTop ? 'homeTeam' : 'awayTeam';
         const curPitcher = state[pitchingTeam].pitcher;
-        const currentPitches = curPitcher?.pitchCount !== undefined
-          ? curPitcher.pitchCount
-          : parseInt(curPitcher?.stat?.replace(/[^0-9]/g, '') || '0', 10);
+        const currentPitches = getPitcherCount(curPitcher);
+        const nextPitches = Math.max(0, currentPitches - 1);
         return { 
           ...state, 
           [pitchingTeam]: { 
             ...state[pitchingTeam], 
             pitcher: { 
               ...curPitcher, 
-              stat: decrementPitchStat(curPitcher.stat),
-              pitchCount: Math.max(0, currentPitches - 1)
+              stat: String(nextPitches),
+              pitchCount: nextPitches
             } 
           } 
         };
       }
       return state;
+
+    case 'SET_PITCH_COUNT': {
+      const pitchingTeam = action.team ? (action.team === 'home' ? 'homeTeam' : 'awayTeam') : (state.isTop ? 'homeTeam' : 'awayTeam');
+      const curPitcher = state[pitchingTeam].pitcher;
+      const count = Math.max(0, action.value || 0);
+      return {
+        ...state,
+        [pitchingTeam]: {
+          ...state[pitchingTeam],
+          pitcher: {
+            ...curPitcher,
+            stat: String(count),
+            pitchCount: count
+          }
+        }
+      };
+    }
+
+    case 'SUBSTITUTE_PITCHER': {
+      const teamKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
+      const teamObj = state[teamKey];
+      const incomingPitcher = teamObj.bench[action.benchIndex];
+      if (!incomingPitcher) return state;
+
+      const outgoingPitcher: Player = {
+        ...teamObj.pitcher,
+        isStarter: !(teamObj.pitcherHistory && teamObj.pitcherHistory.length > 0)
+      };
+
+      const newHistory = [...(teamObj.pitcherHistory || []), outgoingPitcher];
+      const newBench = [...teamObj.bench];
+      newBench[action.benchIndex] = { ...outgoingPitcher, position: 'BN' };
+
+      const newPitcher: Player = {
+        ...incomingPitcher,
+        position: 'P',
+        stat: '0',
+        pitchCount: 0,
+        inningsPitched: '0.0',
+        strikeouts: 0,
+        hitsAllowed: 0,
+        runsAllowed: 0,
+        earnedRuns: 0,
+        walks: 0,
+        battersFaced: 0
+      };
+
+      return {
+        ...state,
+        [teamKey]: {
+          ...teamObj,
+          pitcher: newPitcher,
+          pitcherHistory: newHistory,
+          bench: newBench
+        }
+      };
+    }
 
     case 'UPDATE_TEAM': {
       const teamKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
@@ -800,6 +867,20 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         return { ...state, [teamKey]: { ...state[teamKey], ...(action as any).data } };
       }
       if (action.field) {
+        if (action.field === 'pitcher' && action.value) {
+          const cur = state[teamKey].pitcher;
+          const newHistory = (cur && cur.name && cur.name !== action.value.name)
+            ? [...(state[teamKey].pitcherHistory || []), { ...cur, isStarter: !(state[teamKey].pitcherHistory && state[teamKey].pitcherHistory.length > 0) }]
+            : (state[teamKey].pitcherHistory || []);
+          return {
+            ...state,
+            [teamKey]: {
+              ...state[teamKey],
+              pitcher: action.value,
+              pitcherHistory: newHistory
+            }
+          };
+        }
         return { ...state, [teamKey]: { ...state[teamKey], [action.field]: action.value } };
       }
       return state;
@@ -808,6 +889,14 @@ function baseReducer(state: GameState, action: ActionType): GameState {
     case 'APPLY_TEAM_CONFIG': {
       const teamKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
       const newConfig = { ...action.config };
+      if (newConfig.pitcher) {
+        const count = getPitcherCount(newConfig.pitcher);
+        newConfig.pitcher = {
+          ...newConfig.pitcher,
+          pitchCount: count,
+          stat: String(count)
+        };
+      }
       if (newConfig.lineup.length > 0 && newConfig.currentBatterIndex >= newConfig.lineup.length) {
         newConfig.currentBatterIndex = newConfig.lineup.length - 1;
       }
@@ -1005,10 +1094,22 @@ function baseReducer(state: GameState, action: ActionType): GameState {
 
       const newLineup = [...state[tKey].lineup];
       const newBench = [...state[tKey].bench];
+      
+      // Preserve original player / previous players history for this batting order slot
+      const prevPlayers = lineupPlayer.previousPlayers && lineupPlayer.previousPlayers.length > 0
+        ? [...lineupPlayer.previousPlayers, { ...lineupPlayer, previousPlayers: undefined, isStarter: false }]
+        : [{ ...lineupPlayer, previousPlayers: undefined, isStarter: true }];
+
       // 換代打的時候 守位要自動改成PH
-      const substitutedPlayer: Player = { ...benchPlayer, position: 'PH' };
+      const substitutedPlayer: Player = { 
+        ...benchPlayer, 
+        position: 'PH',
+        isStarter: false,
+        previousPlayers: prevPlayers
+      };
+
       newLineup[action.lineupIndex] = substitutedPlayer;
-      newBench[action.benchIndex] = { ...lineupPlayer, position: 'BN' };
+      newBench[action.benchIndex] = { ...lineupPlayer, position: 'BN', previousPlayers: undefined };
 
       return {
         ...state,

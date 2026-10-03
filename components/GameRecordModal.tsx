@@ -6,6 +6,7 @@ import {
   Search, CornerDownLeft
 } from 'lucide-react';
 import { GameState, Team, Player, SavedGameRecord } from '../types';
+import { getPitcherCount } from '../reducer';
 
 interface GameRecordModalProps {
   isOpen: boolean;
@@ -123,6 +124,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
     playerIndex: number;
     abIndex: number | 'new';
     current: string;
+    prevIndex?: number;
   } | null>(null);
   const [outcomeFilterCategory, setOutcomeFilterCategory] = useState<string>('all');
   const [outcomeSearchQuery, setOutcomeSearchQuery] = useState<string>('');
@@ -134,7 +136,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
     setCustomOutcomeInput('');
   }, [isOpen, activeTab, activeTeamTab]);
 
-  // Sync draft states when state changes or modal opens
+  // Sync draft states when modal opens
   useEffect(() => {
     if (isOpen) {
       setEditingAwayTeam(JSON.parse(JSON.stringify(state.awayTeam)));
@@ -142,7 +144,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
       setRecordTitle(`${state.awayTeam.name} vs ${state.homeTeam.name} (${new Date().toLocaleDateString()})`);
       loadSavedRecords();
     }
-  }, [isOpen, state]);
+  }, [isOpen]);
 
   const loadSavedRecords = () => {
     try {
@@ -258,6 +260,16 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
     let totalSO = 0;
 
     team.lineup.forEach(p => {
+      if (p.previousPlayers && p.previousPlayers.length > 0) {
+        p.previousPlayers.forEach(prevP => {
+          const s = getPlayerBattingStats(prevP);
+          totalAB += s.ab;
+          totalH += s.h;
+          totalRBI += s.rbi;
+          totalBB += s.bb;
+          totalSO += s.so;
+        });
+      }
       const s = getPlayerBattingStats(p);
       totalAB += s.ab;
       totalH += s.h;
@@ -331,53 +343,46 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
   const handleSetAtBat = (team: 'away' | 'home', playerIndex: number, abIndex: number | 'new', outcome: string) => {
     const isAway = team === 'away';
     const isClear = outcome === '清除';
+    const targetPrevIndex = selectedAtBat?.prevIndex;
 
     let updatedTeam: Team | null = null;
     let nextAbIndex: number | null = null;
 
-    if (isAway) {
-      setEditingAwayTeam(prev => {
-        const next: Team = JSON.parse(JSON.stringify(prev));
-        const player = next.lineup[playerIndex];
-        if (player) {
-          if (!player.atBats) player.atBats = [];
-          if (abIndex === 'new') {
-            if (!isClear) {
-              player.atBats.push(outcome);
-              nextAbIndex = player.atBats.length - 1;
-            }
-          } else if (abIndex < player.atBats.length) {
-            if (isClear) {
-              player.atBats.splice(abIndex, 1);
-            } else {
-              player.atBats[abIndex] = outcome;
-              nextAbIndex = abIndex;
-            }
+    const updateLineupInTeam = (teamObj: Team): Team => {
+      const next: Team = JSON.parse(JSON.stringify(teamObj));
+      const player = next.lineup[playerIndex];
+      if (player) {
+        const targetPlayer = (targetPrevIndex !== undefined && player.previousPlayers && player.previousPlayers[targetPrevIndex])
+          ? player.previousPlayers[targetPrevIndex]
+          : player;
+
+        if (!targetPlayer.atBats) targetPlayer.atBats = [];
+        if (abIndex === 'new') {
+          if (!isClear) {
+            targetPlayer.atBats.push(outcome);
+            nextAbIndex = targetPlayer.atBats.length - 1;
+          }
+        } else if (abIndex < targetPlayer.atBats.length) {
+          if (isClear) {
+            targetPlayer.atBats.splice(abIndex, 1);
+          } else {
+            targetPlayer.atBats[abIndex] = outcome;
+            nextAbIndex = abIndex;
           }
         }
+      }
+      return next;
+    };
+
+    if (isAway) {
+      setEditingAwayTeam(prev => {
+        const next = updateLineupInTeam(prev);
         updatedTeam = next;
         return next;
       });
     } else {
       setEditingHomeTeam(prev => {
-        const next: Team = JSON.parse(JSON.stringify(prev));
-        const player = next.lineup[playerIndex];
-        if (player) {
-          if (!player.atBats) player.atBats = [];
-          if (abIndex === 'new') {
-            if (!isClear) {
-              player.atBats.push(outcome);
-              nextAbIndex = player.atBats.length - 1;
-            }
-          } else if (abIndex < player.atBats.length) {
-            if (isClear) {
-              player.atBats.splice(abIndex, 1);
-            } else {
-              player.atBats[abIndex] = outcome;
-              nextAbIndex = abIndex;
-            }
-          }
-        }
+        const next = updateLineupInTeam(prev);
         updatedTeam = next;
         return next;
       });
@@ -406,7 +411,8 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
       setSelectedAtBat({
         playerIndex,
         abIndex: nextAbIndex,
-        current: outcome
+        current: outcome,
+        prevIndex: targetPrevIndex
       });
     }
   };
@@ -538,39 +544,73 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
     text += `【${state.awayTeam.name} 打擊成績】\n`;
     text += `棒次  背號  姓名        位置  AB  R  H RBI BB SO   AVG   打席結果\n`;
     state.awayTeam.lineup.forEach((p, idx) => {
+      if (p.previousPlayers && p.previousPlayers.length > 0) {
+        p.previousPlayers.forEach((prevP, prevIdx) => {
+          const sPrev = getPlayerBattingStats(prevP);
+          const order = prevIdx === 0 ? String(idx + 1).padStart(2, ' ') : '  ';
+          const no = (prevP.number || '--').padStart(3, ' ');
+          const name = (prevP.name || '---').padEnd(10, ' ');
+          const pos = (prevP.position || '先發').padEnd(4, ' ');
+          const abStr = (sPrev.atBats.length > 0 ? `[${sPrev.atBats.join(', ')}]` : '-');
+          text += ` ${order}   #${no}  ${name} ${pos}  ${String(sPrev.ab).padStart(2, ' ')} ${String(sPrev.r).padStart(2, ' ')} ${String(sPrev.h).padStart(2, ' ')} ${String(sPrev.rbi).padStart(2, ' ')}  ${String(sPrev.bb).padStart(2, ' ')} ${String(sPrev.so).padStart(2, ' ')}  ${sPrev.avg}  ${abStr}\n`;
+        });
+      }
       const s = getPlayerBattingStats(p);
-      const order = String(idx + 1).padStart(2, ' ');
+      const isSub = Boolean(p.previousPlayers && p.previousPlayers.length > 0);
+      const order = !isSub ? String(idx + 1).padStart(2, ' ') : '  ';
       const no = (p.number || '--').padStart(3, ' ');
       const name = (p.name || '---').padEnd(10, ' ');
-      const pos = (p.position || 'DH').padEnd(4, ' ');
+      const pos = (isSub ? '代打' : (p.position || 'DH')).padEnd(4, ' ');
       const abStr = (s.atBats.length > 0 ? `[${s.atBats.join(', ')}]` : '-');
       text += ` ${order}   #${no}  ${name} ${pos}  ${String(s.ab).padStart(2, ' ')} ${String(s.r).padStart(2, ' ')} ${String(s.h).padStart(2, ' ')} ${String(s.rbi).padStart(2, ' ')}  ${String(s.bb).padStart(2, ' ')} ${String(s.so).padStart(2, ' ')}  ${s.avg}  ${abStr}\n`;
     });
     text += `團隊總計: AB: ${awayTotals.ab} | H: ${awayTotals.h} | R: ${awayTotals.r} | RBI: ${awayTotals.rbi} | BB: ${awayTotals.bb} | SO: ${awayTotals.so} | AVG: ${awayTotals.avg}\n\n`;
 
     // Away Pitching
-    const ap = state.awayTeam.pitcher;
     text += `【${state.awayTeam.name} 投手成績】\n`;
-    text += `#${ap.number || '--'} ${ap.name || '---'} | 局數: ${ap.inningsPitched || '0.0'} | 三振: ${ap.strikeouts || 0} | 球數: ${ap.pitchCount || ap.stat || 0}\n\n`;
+    (state.awayTeam.pitcherHistory || []).forEach((hp) => {
+      const bf = hp.battersFaced !== undefined ? hp.battersFaced : state.homeTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0);
+      text += `[退場] #${hp.number || '--'} ${hp.name || '---'} | 打者: ${bf} | 局數: ${hp.inningsPitched || '0.0'} | 球數: ${getPitcherCount(hp)} | 三振: ${hp.strikeouts || 0}\n`;
+    });
+    const ap = state.awayTeam.pitcher;
+    const apBf = ap.battersFaced !== undefined ? ap.battersFaced : (state.homeTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) + (!state.isTop ? 1 : 0));
+    text += `[在場] #${ap.number || '--'} ${ap.name || '---'} | 打者: ${apBf} | 局數: ${ap.inningsPitched || '0.0'} | 球數: ${getPitcherCount(ap)} | 三振: ${ap.strikeouts || 0}\n\n`;
 
     // Home Batting
     text += `【${state.homeTeam.name} 打擊成績】\n`;
     text += `棒次  背號  姓名        位置  AB  R  H RBI BB SO   AVG   打席結果\n`;
     state.homeTeam.lineup.forEach((p, idx) => {
+      if (p.previousPlayers && p.previousPlayers.length > 0) {
+        p.previousPlayers.forEach((prevP, prevIdx) => {
+          const sPrev = getPlayerBattingStats(prevP);
+          const order = prevIdx === 0 ? String(idx + 1).padStart(2, ' ') : '  ';
+          const no = (prevP.number || '--').padStart(3, ' ');
+          const name = (prevP.name || '---').padEnd(10, ' ');
+          const pos = (prevP.position || '先發').padEnd(4, ' ');
+          const abStr = (sPrev.atBats.length > 0 ? `[${sPrev.atBats.join(', ')}]` : '-');
+          text += ` ${order}   #${no}  ${name} ${pos}  ${String(sPrev.ab).padStart(2, ' ')} ${String(sPrev.r).padStart(2, ' ')} ${String(sPrev.h).padStart(2, ' ')} ${String(sPrev.rbi).padStart(2, ' ')}  ${String(sPrev.bb).padStart(2, ' ')} ${String(sPrev.so).padStart(2, ' ')}  ${sPrev.avg}  ${abStr}\n`;
+        });
+      }
       const s = getPlayerBattingStats(p);
-      const order = String(idx + 1).padStart(2, ' ');
+      const isSub = Boolean(p.previousPlayers && p.previousPlayers.length > 0);
+      const order = !isSub ? String(idx + 1).padStart(2, ' ') : '  ';
       const no = (p.number || '--').padStart(3, ' ');
       const name = (p.name || '---').padEnd(10, ' ');
-      const pos = (p.position || 'DH').padEnd(4, ' ');
+      const pos = (isSub ? '代打' : (p.position || 'DH')).padEnd(4, ' ');
       const abStr = (s.atBats.length > 0 ? `[${s.atBats.join(', ')}]` : '-');
       text += ` ${order}   #${no}  ${name} ${pos}  ${String(s.ab).padStart(2, ' ')} ${String(s.r).padStart(2, ' ')} ${String(s.h).padStart(2, ' ')} ${String(s.rbi).padStart(2, ' ')}  ${String(s.bb).padStart(2, ' ')} ${String(s.so).padStart(2, ' ')}  ${s.avg}  ${abStr}\n`;
     });
     text += `團隊總計: AB: ${homeTotals.ab} | H: ${homeTotals.h} | R: ${homeTotals.r} | RBI: ${homeTotals.rbi} | BB: ${homeTotals.bb} | SO: ${homeTotals.so} | AVG: ${homeTotals.avg}\n\n`;
 
     // Home Pitching
-    const hp = state.homeTeam.pitcher;
     text += `【${state.homeTeam.name} 投手成績】\n`;
-    text += `#${hp.number || '--'} ${hp.name || '---'} | 局數: ${hp.inningsPitched || '0.0'} | 三振: ${hp.strikeouts || 0} | 球數: ${hp.pitchCount || hp.stat || 0}\n`;
+    (state.homeTeam.pitcherHistory || []).forEach((hp) => {
+      const bf = hp.battersFaced !== undefined ? hp.battersFaced : state.awayTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0);
+      text += `[退場] #${hp.number || '--'} ${hp.name || '---'} | 打者: ${bf} | 局數: ${hp.inningsPitched || '0.0'} | 球數: ${getPitcherCount(hp)} | 三振: ${hp.strikeouts || 0}\n`;
+    });
+    const hp = state.homeTeam.pitcher;
+    const hpBf = hp.battersFaced !== undefined ? hp.battersFaced : (state.awayTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) + (state.isTop ? 1 : 0));
+    text += `[在場] #${hp.number || '--'} ${hp.name || '---'} | 打者: ${hpBf} | 局數: ${hp.inningsPitched || '0.0'} | 球數: ${getPitcherCount(hp)} | 三振: ${hp.strikeouts || 0}\n`;
     text += `========================================================\n`;
 
     return text;
@@ -618,6 +658,8 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
   if (!isOpen) return null;
 
   const currentDisplayTeam = activeTeamTab === 'away' ? (editingAwayTeam || state.awayTeam) : (editingHomeTeam || state.homeTeam);
+  const otherTeam = activeTeamTab === 'away' ? (editingHomeTeam || state.homeTeam) : (editingAwayTeam || state.awayTeam);
+  const isDisplayTeamPitching = activeTeamTab === 'away' ? !state.isTop : state.isTop;
   const currentEditingTeam = activeTeamTab === 'away' ? editingAwayTeam : editingHomeTeam;
   const maxInnings = Math.max(9, state.awayTeam.inningScores.length, state.homeTeam.inningScores.length);
   const inningsArray = Array.from({ length: maxInnings }, (_, i) => i + 1);
@@ -1119,9 +1161,13 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                       <span className="text-slate-400 font-bold">{currentDisplayTeam.name} 投手:</span>
                       <span className="text-white font-bold">{currentDisplayTeam.pitcher.name || '---'} #{currentDisplayTeam.pitcher.number}</span>
                       <span className="text-slate-500">|</span>
-                      <span className="text-yellow-400 font-bold">局數: {currentDisplayTeam.pitcher.inningsPitched || '0.0'}</span>
+                      <span className="text-yellow-400 font-bold">
+                        打者: {currentDisplayTeam.pitcher.battersFaced !== undefined 
+                          ? currentDisplayTeam.pitcher.battersFaced 
+                          : (otherTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) + (isDisplayTeamPitching ? 1 : 0))}
+                      </span>
                       <span className="text-slate-500">|</span>
-                      <span className="text-sky-300 font-bold">用球: {currentDisplayTeam.pitcher.pitchCount ?? (currentDisplayTeam.pitcher.stat || 0)}</span>
+                      <span className="text-sky-300 font-bold">用球: {getPitcherCount(currentDisplayTeam.pitcher)}</span>
                     </div>
                   </div>
 
@@ -1155,59 +1201,117 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                         </tr>
                       </thead>
                       <tbody>
-                        {currentDisplayTeam.lineup.map((p, idx) => {
-                          const s = getPlayerBattingStats(p);
+                        {currentDisplayTeam.lineup.flatMap((p, idx) => {
                           const isCurrentBatter = (state.isTop && activeTeamTab === 'away') || (!state.isTop && activeTeamTab === 'home') 
                             ? currentDisplayTeam.currentBatterIndex === idx 
                             : false;
+                          const rows = [];
 
-                          return (
+                          // Render substituted-out previous players for this order slot (starting player on top)
+                          if (p.previousPlayers && p.previousPlayers.length > 0) {
+                            p.previousPlayers.forEach((prevP, prevIdx) => {
+                              const sPrev = getPlayerBattingStats(prevP);
+                              const isFirstStarter = prevIdx === 0;
+                              rows.push(
+                                <tr 
+                                  key={`${prevP.id || idx}-prev-${prevIdx}`}
+                                  className="border-b border-slate-800/40 font-mono text-center hover:bg-slate-800/30 transition-colors bg-slate-900/30 text-slate-300"
+                                >
+                                  <td className="py-2 px-2 text-left font-bold text-slate-300">
+                                    {isFirstStarter ? `${idx + 1}.` : ''}
+                                  </td>
+                                  <td className="py-2 px-2 text-slate-400 font-bold">
+                                    #{prevP.number || '--'}
+                                  </td>
+                                  <td className="py-2 px-3 text-left font-sans font-bold text-slate-200 flex items-center gap-1.5">
+                                    <span>{prevP.name}</span>
+                                    <span className="text-[10px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 font-mono border border-slate-700">先發</span>
+                                  </td>
+                                  <td className="py-2 px-2 text-slate-400 font-sans font-bold">
+                                    {prevP.position || 'DH'}
+                                  </td>
+                                  <td className="py-2 px-2 font-bold text-slate-300">{sPrev.ab}</td>
+                                  <td className="py-2 px-2 font-bold text-slate-300">{sPrev.r}</td>
+                                  <td className="py-2 px-2 font-bold text-yellow-400">{sPrev.h}</td>
+                                  <td className="py-2 px-2 font-bold text-slate-300">{sPrev.rbi}</td>
+                                  <td className="py-2 px-2 font-bold text-sky-400">{sPrev.bb}</td>
+                                  <td className="py-2 px-2 font-bold text-rose-400">{sPrev.so}</td>
+                                  <td className="py-2 px-3 font-bold text-amber-300">{sPrev.avg}</td>
+                                  <td className="py-2 px-3 text-left">
+                                    <div className="flex flex-wrap items-center gap-1.5 font-sans">
+                                      {sPrev.atBats.length === 0 ? (
+                                        <span className="text-slate-500 text-xs italic">無打席</span>
+                                      ) : (
+                                        sPrev.atBats.map((ab, abIdx) => {
+                                          const isSelected = selectedAtBat?.playerIndex === idx && selectedAtBat?.abIndex === abIdx && selectedAtBat?.prevIndex === prevIdx;
+                                          return (
+                                            <button 
+                                              key={abIdx} 
+                                              type="button"
+                                              onClick={() => setSelectedAtBat(isSelected ? null : { playerIndex: idx, abIndex: abIdx, current: ab, prevIndex: prevIdx })}
+                                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                                isSelected 
+                                                  ? 'bg-amber-400 text-slate-950 font-black ring-2 ring-amber-300 ring-offset-1 ring-offset-slate-900 shadow-md scale-105' 
+                                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:border-slate-500 active:scale-95'
+                                              }`}
+                                              title="點選此打席更換結果"
+                                            >
+                                              <span className="text-[10px] opacity-70">#{abIdx + 1}</span>
+                                              <span>{ab}</span>
+                                              {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-ping" />}
+                                            </button>
+                                          );
+                                        })
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          }
+
+                          // Current player in this slot (if substituted, shown below original player without order number)
+                          const isSub = Boolean(p.previousPlayers && p.previousPlayers.length > 0);
+                          const s = getPlayerBattingStats(p);
+
+                          rows.push(
                             <tr 
                               key={p.id || idx} 
                               className={`border-b border-slate-800/60 font-mono text-center hover:bg-slate-800/40 transition-colors ${
-                                isCurrentBatter ? 'bg-blue-950/40 border-l-2 border-l-blue-400' : ''
+                                isCurrentBatter ? 'bg-blue-950/40 border-l-2 border-l-blue-400' : isSub ? 'bg-amber-950/20' : ''
                               }`}
                             >
                               <td className="py-2 px-2 text-left font-bold text-slate-300">
-                                {idx + 1}.
+                                {!isSub ? `${idx + 1}.` : <span className="text-amber-400/80 font-black pl-1.5">↳</span>}
                               </td>
                               <td className="py-2 px-2 text-slate-400 font-bold">
                                 #{p.number || '--'}
                               </td>
                               <td className="py-2 px-3 text-left font-sans font-bold text-white flex items-center gap-1.5">
-                                <span>{p.name}</span>
+                                <span className={isSub ? 'text-amber-300' : ''}>{p.name}</span>
+                                {isSub && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 font-mono">
+                                    代打
+                                  </span>
+                                )}
                               </td>
                               <td className="py-2 px-2 text-slate-400 font-sans font-bold">
-                                {p.position || 'DH'}
+                                {p.position || (isSub ? 'PH' : 'DH')}
                               </td>
-                              <td className="py-2 px-2 font-bold text-slate-200">
-                                {s.ab}
-                              </td>
-                              <td className="py-2 px-2 font-bold text-slate-200">
-                                {s.r}
-                              </td>
-                              <td className="py-2 px-2 font-bold text-yellow-400">
-                                {s.h}
-                              </td>
-                              <td className="py-2 px-2 font-bold text-slate-200">
-                                {s.rbi}
-                              </td>
-                              <td className="py-2 px-2 font-bold text-sky-400">
-                                {s.bb}
-                              </td>
-                              <td className="py-2 px-2 font-bold text-rose-400">
-                                {s.so}
-                              </td>
-                              <td className="py-2 px-3 font-bold text-amber-300">
-                                {s.avg}
-                              </td>
+                              <td className="py-2 px-2 font-bold text-slate-200">{s.ab}</td>
+                              <td className="py-2 px-2 font-bold text-slate-200">{s.r}</td>
+                              <td className="py-2 px-2 font-bold text-yellow-400">{s.h}</td>
+                              <td className="py-2 px-2 font-bold text-slate-200">{s.rbi}</td>
+                              <td className="py-2 px-2 font-bold text-sky-400">{s.bb}</td>
+                              <td className="py-2 px-2 font-bold text-rose-400">{s.so}</td>
+                              <td className="py-2 px-3 font-bold text-amber-300">{s.avg}</td>
                               <td className="py-2 px-3 text-left">
                                 <div className="flex flex-wrap items-center gap-1.5 font-sans">
                                   {s.atBats.length === 0 ? (
                                     <span className="text-slate-500 text-xs italic">無打席</span>
                                   ) : (
                                     s.atBats.map((ab, abIdx) => {
-                                      const isSelected = selectedAtBat?.playerIndex === idx && selectedAtBat?.abIndex === abIdx;
+                                      const isSelected = selectedAtBat?.playerIndex === idx && selectedAtBat?.abIndex === abIdx && selectedAtBat?.prevIndex === undefined;
                                       return (
                                         <button 
                                           key={abIdx} 
@@ -1230,11 +1334,11 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      const isAddingNew = selectedAtBat?.playerIndex === idx && selectedAtBat?.abIndex === 'new';
+                                      const isAddingNew = selectedAtBat?.playerIndex === idx && selectedAtBat?.abIndex === 'new' && selectedAtBat?.prevIndex === undefined;
                                       setSelectedAtBat(isAddingNew ? null : { playerIndex: idx, abIndex: 'new', current: '' });
                                     }}
                                     className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
-                                      selectedAtBat?.playerIndex === idx && selectedAtBat?.abIndex === 'new'
+                                      selectedAtBat?.playerIndex === idx && selectedAtBat?.abIndex === 'new' && selectedAtBat?.prevIndex === undefined
                                         ? 'bg-blue-600 text-white font-black ring-2 ring-blue-300 scale-105'
                                         : 'bg-slate-800/60 hover:bg-slate-800 text-blue-400 border-dashed border-blue-500/40 hover:border-blue-400 active:scale-95'
                                     }`}
@@ -1247,6 +1351,8 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                               </td>
                             </tr>
                           );
+
+                          return rows;
                         })}
 
                         {/* Team Total Row */}
@@ -1265,7 +1371,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                               <td className="py-2.5 px-2 text-rose-400">{totals.so}</td>
                               <td className="py-2.5 px-3 text-amber-300">{totals.avg}</td>
                               <td className="py-2.5 px-3 text-left text-slate-400 text-xs font-sans">
-                                {currentDisplayTeam.lineup.length} 位打者出賽
+                                {currentDisplayTeam.lineup.reduce((cnt, p) => cnt + 1 + (p.previousPlayers?.length || 0), 0)} 位打者出賽
                               </td>
                             </tr>
                           );
@@ -1281,12 +1387,14 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                       <span>{currentDisplayTeam.name} {language === 'zh' ? '投手投球成績' : 'Pitching Records'}</span>
                     </div>
 
-                    <table className="w-full text-center border-collapse text-xs sm:text-sm font-mono min-w-[600px]">
+                    <table className="w-full text-center border-collapse text-xs sm:text-sm font-mono min-w-[650px]">
                       <thead>
                         <tr className="border-b border-slate-800 text-slate-400 font-bold">
                           <th className="py-2 px-3 text-left font-sans">{language === 'zh' ? '投手姓名' : 'Pitcher'}</th>
                           <th className="py-2 px-2">{language === 'zh' ? '背號' : 'No.'}</th>
-                          <th className="py-2 px-2 text-yellow-400">{language === 'zh' ? '投球局數' : 'IP'}</th>
+                          <th className="py-2 px-2 font-sans">{language === 'zh' ? '狀態' : 'Status'}</th>
+                          <th className="py-2 px-2 text-yellow-400">{language === 'zh' ? '打者' : 'BF'}</th>
+                          <th className="py-2 px-2 text-slate-300">{language === 'zh' ? '投球局數' : 'IP'}</th>
                           <th className="py-2 px-2 text-sky-300">{language === 'zh' ? '用球數' : 'NP'}</th>
                           <th className="py-2 px-2 text-rose-400">{language === 'zh' ? '奪三振' : 'SO'}</th>
                           <th className="py-2 px-2">{language === 'zh' ? '被安打' : 'H'}</th>
@@ -1296,20 +1404,58 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                         </tr>
                       </thead>
                       <tbody>
-                        <tr className="border-b border-slate-800/60 font-bold hover:bg-slate-800/30">
-                          <td className="py-2.5 px-3 text-left font-sans text-white font-bold flex items-center gap-2">
-                            <span>{currentDisplayTeam.pitcher.name || '---'}</span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">P</span>
-                          </td>
-                          <td className="py-2.5 px-2 text-slate-400">#{currentDisplayTeam.pitcher.number || '--'}</td>
-                          <td className="py-2.5 px-2 text-yellow-400 font-black">{currentDisplayTeam.pitcher.inningsPitched || '0.0'}</td>
-                          <td className="py-2.5 px-2 text-sky-300 font-bold">{currentDisplayTeam.pitcher.pitchCount ?? (currentDisplayTeam.pitcher.stat || 0)}</td>
-                          <td className="py-2.5 px-2 text-rose-400 font-bold">{currentDisplayTeam.pitcher.strikeouts || 0}</td>
-                          <td className="py-2.5 px-2 text-slate-300">{currentDisplayTeam.pitcher.hitsAllowed || 0}</td>
-                          <td className="py-2.5 px-2 text-slate-300">{currentDisplayTeam.pitcher.runsAllowed || 0}</td>
-                          <td className="py-2.5 px-2 text-slate-300">{currentDisplayTeam.pitcher.earnedRuns || 0}</td>
-                          <td className="py-2.5 px-2 text-slate-300">{currentDisplayTeam.pitcher.walks || 0}</td>
-                        </tr>
+                        {/* Substituted-off pitchers */}
+                        {(currentDisplayTeam.pitcherHistory || []).map((hp, hIdx) => {
+                          const bf = hp.battersFaced !== undefined ? hp.battersFaced : otherTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0);
+                          return (
+                            <tr key={hp.id || `h-${hIdx}`} className="border-b border-slate-800/40 hover:bg-slate-800/20 text-slate-300 bg-slate-900/30">
+                              <td className="py-2.5 px-3 text-left font-sans text-slate-200 font-bold flex items-center gap-2">
+                                <span>{hp.name || '---'}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">P</span>
+                              </td>
+                              <td className="py-2.5 px-2 text-slate-400">#{hp.number || '--'}</td>
+                              <td className="py-2.5 px-2">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-bold border border-slate-700">退場</span>
+                              </td>
+                              <td className="py-2.5 px-2 text-yellow-400 font-bold">{bf}</td>
+                              <td className="py-2.5 px-2 text-slate-300 font-bold">{hp.inningsPitched || '0.0'}</td>
+                              <td className="py-2.5 px-2 text-sky-300 font-bold">{getPitcherCount(hp)}</td>
+                              <td className="py-2.5 px-2 text-rose-400 font-bold">{hp.strikeouts || 0}</td>
+                              <td className="py-2.5 px-2 text-slate-300">{hp.hitsAllowed || 0}</td>
+                              <td className="py-2.5 px-2 text-slate-300">{hp.runsAllowed || 0}</td>
+                              <td className="py-2.5 px-2 text-slate-300">{hp.earnedRuns || 0}</td>
+                              <td className="py-2.5 px-2 text-slate-300">{hp.walks || 0}</td>
+                            </tr>
+                          );
+                        })}
+
+                        {/* Current pitcher on the field */}
+                        {(() => {
+                          const curP = currentDisplayTeam.pitcher;
+                          const bf = curP.battersFaced !== undefined 
+                            ? curP.battersFaced 
+                            : (otherTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) + (isDisplayTeamPitching ? 1 : 0));
+                          return (
+                            <tr className="border-b border-slate-800/60 font-bold hover:bg-slate-800/30">
+                              <td className="py-2.5 px-3 text-left font-sans text-white font-bold flex items-center gap-2">
+                                <span>{curP.name || '---'}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-300 font-mono">P</span>
+                              </td>
+                              <td className="py-2.5 px-2 text-slate-400">#{curP.number || '--'}</td>
+                              <td className="py-2.5 px-2">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40">在場上</span>
+                              </td>
+                              <td className="py-2.5 px-2 text-yellow-400 font-black">{bf}</td>
+                              <td className="py-2.5 px-2 text-slate-300 font-black">{curP.inningsPitched || '0.0'}</td>
+                              <td className="py-2.5 px-2 text-sky-300 font-bold">{getPitcherCount(curP)}</td>
+                              <td className="py-2.5 px-2 text-rose-400 font-bold">{curP.strikeouts || 0}</td>
+                              <td className="py-2.5 px-2 text-slate-300">{curP.hitsAllowed || 0}</td>
+                              <td className="py-2.5 px-2 text-slate-300">{curP.runsAllowed || 0}</td>
+                              <td className="py-2.5 px-2 text-slate-300">{curP.earnedRuns || 0}</td>
+                              <td className="py-2.5 px-2 text-slate-300">{curP.walks || 0}</td>
+                            </tr>
+                          );
+                        })()}
                       </tbody>
                     </table>
                   </div>
@@ -1401,7 +1547,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                       <span className="text-[11px] text-slate-400 font-mono">PITCHER</span>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs font-mono">
+                    <div className="grid grid-cols-2 sm:grid-cols-7 gap-2 text-xs font-mono">
                       <div>
                         <label className="block text-[10px] text-slate-400 mb-1">姓名</label>
                         <input 
@@ -1421,13 +1567,23 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                         />
                       </div>
                       <div>
+                        <label className="block text-[10px] text-slate-400 mb-1">打者 (BF)</label>
+                        <input 
+                          type="number" 
+                          value={currentEditingTeam.pitcher.battersFaced !== undefined ? currentEditingTeam.pitcher.battersFaced : ''} 
+                          placeholder="自動"
+                          onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'pitcher', 0, 'battersFaced', parseInt(e.target.value, 10) || 0)}
+                          className="w-full bg-slate-900 border border-slate-700 px-2 py-1.5 rounded text-yellow-400 font-bold"
+                        />
+                      </div>
+                      <div>
                         <label className="block text-[10px] text-slate-400 mb-1">投球局數 (IP)</label>
                         <input 
                           type="text" 
                           value={currentEditingTeam.pitcher.inningsPitched || ''} 
                           placeholder="e.g. 5.1"
                           onChange={(e) => handleUpdateEditingPlayer(activeTeamTab, 'pitcher', 0, 'inningsPitched', e.target.value)}
-                          className="w-full bg-slate-900 border border-slate-700 px-2 py-1.5 rounded text-yellow-400 font-bold"
+                          className="w-full bg-slate-900 border border-slate-700 px-2 py-1.5 rounded text-slate-200 font-bold"
                         />
                       </div>
                       <div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GameState, ActionType, Team, Player } from '../types';
+import { getPitcherCount } from '../reducer';
 import { 
   Plus, 
   Minus, 
@@ -255,10 +256,9 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
     const benchPlayer = fieldingTeam.bench[benchIndex];
     if (!benchPlayer) return;
     dispatch({
-      type: 'UPDATE_TEAM',
+      type: 'SUBSTITUTE_PITCHER',
       team: fieldingTeamKey,
-      field: 'pitcher',
-      value: { ...benchPlayer, stat: '0' }
+      benchIndex
     });
   };
 
@@ -445,7 +445,10 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                     </div>
                   </div>
                   <button
-                    onClick={() => dispatch({ type: 'INCREMENT_OUT' })}
+                    onClick={() => {
+                      dispatch({ type: 'INCREMENT_OUT' });
+                      dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
+                    }}
                     className="w-full py-2 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-black text-sm rounded-lg shadow-md active:scale-95 transition-transform"
                   >
                     +1
@@ -467,26 +470,36 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                   <span className="text-[11px] font-bold text-slate-400">
                     {language === 'zh' ? '用球數:' : 'Pitch:'}
                   </span>
-                  <span className="text-xs font-black text-yellow-400 font-mono px-0.5">
-                    {activePitcher.stat || '0'}
-                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={getPitcherCount(activePitcher)}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (!isNaN(val)) {
+                        dispatch({ type: 'SET_PITCH_COUNT', team: fieldingTeamKey, value: val });
+                      }
+                    }}
+                    className="w-10 bg-slate-800 text-xs font-black text-yellow-400 font-mono text-center rounded border border-slate-600 py-0.5 outline-none focus:border-yellow-400"
+                    title={language === 'zh' ? '點擊直接修改用球數' : 'Click to edit pitch count directly'}
+                  />
                   <button
                     onClick={() => dispatch({ type: 'DECREMENT_PLAYER_STAT', role: 'pitcher' })}
-                    className="w-5 h-5 bg-slate-800 hover:bg-slate-700 text-white font-black text-xs rounded flex items-center justify-center border border-slate-600 active:scale-95"
+                    className="w-5 h-5 bg-slate-800 hover:bg-slate-700 text-white font-black text-xs rounded flex items-center justify-center border border-slate-600 active:scale-95 cursor-pointer"
                     title="Pitch -1"
                   >
                     -
                   </button>
                   <button
                     onClick={() => dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' })}
-                    className="w-5 h-5 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded flex items-center justify-center shadow-sm active:scale-95"
+                    className="w-5 h-5 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded flex items-center justify-center shadow-sm active:scale-95 cursor-pointer"
                     title="Pitch +1"
                   >
                     +
                   </button>
                   <button
                     onClick={() => dispatch({ type: 'WILD_PITCH' })}
-                    className="px-1.5 py-0.5 bg-orange-700/80 hover:bg-orange-600 text-white text-[10px] font-bold rounded ml-0.5 active:scale-95"
+                    className="px-1.5 py-0.5 bg-orange-700/80 hover:bg-orange-600 text-white text-[10px] font-bold rounded ml-0.5 active:scale-95 cursor-pointer"
                     title="Wild Pitch / Passed Ball (暴投/捕逸)"
                   >
                     WP
@@ -605,7 +618,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                       <span>{fieldingTeam.name} 投手</span>
                     </span>
                     <span className="text-[10px] bg-slate-800 text-yellow-400 font-mono font-bold px-1.5 py-0.5 rounded">
-                      用球: {activePitcher.stat || '0'}
+                      用球: {getPitcherCount(activePitcher)}
                     </span>
                   </div>
                   <div className="font-bold text-white text-sm sm:text-base truncate my-0.5">

@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GameState, ActionType, Team, Player } from '../types';
+import { getPitcherCount } from '../reducer';
 import { Diamond } from './Diamond';
 import { Timer, Plus, Minus, GripVertical, ArrowDown, ArrowUp, RotateCcw } from 'lucide-react';
 import { AutoScalingText } from './AutoScalingText';
@@ -212,6 +213,24 @@ const TeamLogo = ({ team, isActive }: { team: Team, isActive?: boolean }) => {
     );
 };
 
+const getTextColorForBg = (hexColor?: string) => {
+  if (!hexColor) return '#ffffff';
+  const hex = hexColor.replace('#', '');
+  if (hex.length === 3) {
+    const r = parseInt(hex[0] + hex[0], 16);
+    const g = parseInt(hex[1] + hex[1], 16);
+    const b = parseInt(hex[2] + hex[2], 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 140 ? '#0f172a' : '#ffffff';
+  }
+  if (hex.length >= 6) {
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 140 ? '#0f172a' : '#ffffff';
+  }
+  return '#ffffff';
+};
+
 interface SortablePlayerItemProps { 
   p: Player; 
   idx: number; 
@@ -221,6 +240,7 @@ interface SortablePlayerItemProps {
   state?: any; 
   dispatch?: any; 
   scaleMode?: 'large' | 'medium' | 'compact';
+  teamColor?: string;
 }
 
 const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({ 
@@ -229,7 +249,8 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
   activeBatterId, 
   isAway, 
   isBench, 
-  scaleMode = 'medium' 
+  scaleMode = 'medium',
+  teamColor
 }) => {
     const {
         attributes,
@@ -240,20 +261,22 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
         isDragging
     } = useSortable({ id: p.id });
 
+    const isActive = activeBatterId === p.id && !isBench;
+
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
         zIndex: isDragging ? 50 : 0,
-        opacity: isDragging ? 0.5 : 1
+        opacity: isDragging ? 0.5 : 1,
     };
 
     const isLarge = scaleMode === 'large';
     const isCompact = scaleMode === 'compact';
 
-    const rowPadding = isLarge ? "px-2 py-0.5 sm:py-1" : isCompact ? "px-1 py-0" : "px-1.5 py-0.5";
+    const rowPadding = isLarge ? "px-2.5 py-0.5 sm:py-1" : isCompact ? "px-2 py-0" : "px-2.5 py-0.5";
     const orderTextSize = isLarge ? "text-xs sm:text-sm font-black w-4 sm:w-5" : isCompact ? "text-[9px] w-3" : "text-[10px] sm:text-xs w-3.5";
     const nameTextSize = isLarge ? "text-xs sm:text-base lg:text-lg font-black" : isCompact ? "text-[10px] font-bold" : "text-xs sm:text-sm font-bold";
-    const numberTextSize = isLarge ? "text-xs sm:text-sm text-slate-400 font-semibold" : isCompact ? "text-[8px] text-slate-400" : "text-[9px] sm:text-[10px] text-slate-400";
+    const numberTextSize = isLarge ? "text-xs sm:text-sm font-semibold" : isCompact ? "text-[8px]" : "text-[9px] sm:text-[10px]";
     const posTextSize = isLarge ? "text-xs sm:text-sm font-mono font-black" : isCompact ? "text-[9px] font-mono font-bold" : "text-[10px] sm:text-xs font-mono font-bold";
 
     return (
@@ -262,26 +285,42 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
             style={style} 
             {...attributes} 
             {...listeners} 
-            className={`flex-1 min-h-0 flex justify-between items-center ${rowPadding} rounded-lg transition-colors cursor-grab active:cursor-grabbing ${activeBatterId === p.id && !isBench ? "bg-blue-600/35 ring-1.5 ring-blue-400 shadow-md" : "hover:bg-slate-700/50"}`}
+            className={`flex-1 min-h-0 w-full flex justify-between items-center ${rowPadding} rounded-none transition-colors cursor-grab active:cursor-grabbing ${
+                isActive ? "bg-blue-600/35 ring-1.5 ring-blue-400 shadow-md" : "hover:bg-slate-800/40"
+            }`}
         >
             <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1 overflow-hidden">
                 {!isBench && (
-                    <span className={`${orderTextSize} text-slate-400 font-mono shrink-0`}>
+                    <span className={`${orderTextSize} font-mono shrink-0 ${
+                        isActive ? "text-slate-200 font-black" : "text-slate-400"
+                    }`}>
                         {idx + 1}.
                     </span>
                 )}
                 <div className="flex-1 min-w-0 overflow-hidden flex items-center">
                     <AutoCondenseText 
                         text={p.name} 
-                        className={`${nameTextSize} leading-tight ${activeBatterId === p.id && !isBench ? "text-white" : "text-slate-200"}`} 
+                        className={`${nameTextSize} leading-tight ${
+                            isActive ? "text-white font-black" : "text-slate-200"
+                        }`} 
                         align="left" 
                     />
-                    {p.number && <span className={`ml-1 ${numberTextSize} shrink-0`}>#{p.number}</span>}
+                    {p.number && (
+                        <span className={`ml-1 ${numberTextSize} shrink-0 ${
+                            isActive ? "text-slate-300 font-bold" : "text-slate-400"
+                        }`}>
+                            #{p.number}
+                        </span>
+                    )}
                 </div>
             </div>
 
             {/* Position Display (replaces batting average) */}
-            <span className={`${posTextSize} text-amber-400 shrink-0 ml-1.5`}>
+            <span className={`${posTextSize} shrink-0 ml-1.5 ${
+                isActive 
+                    ? "text-amber-300 font-black bg-white/10 px-1 py-0.5 rounded text-[10px]" 
+                    : "text-amber-400"
+            }`}>
                 {p.position || (isBench ? 'BN' : 'DH')}
             </span>
         </div>
@@ -299,7 +338,8 @@ const AnimatedIndicator: React.FC<AnimatedIndicatorProps> = ({ active, colorClas
 
 const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: boolean, state: GameState, dispatch: React.Dispatch<ActionType> }) => {
     const isTeamPitching = isAway ? !state.isTop : state.isTop;
-    const activeBatterId = state.isTop ? state.awayTeam.lineup[state.awayTeam.currentBatterIndex]?.id : state.homeTeam.lineup[state.homeTeam.currentBatterIndex]?.id;
+    const isTeamBatting = isAway ? state.isTop : !state.isTop;
+    const activeBatterId = isTeamBatting ? team.lineup[team.currentBatterIndex]?.id : undefined;
     const isLineupMode = state.displayMode === 'lineup';
     
     const sensors = useSensors(
@@ -397,8 +437,8 @@ const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: b
                 onDragEnd={handleDragEnd}
                 modifiers={[restrictToVerticalAxis]}
             >
-                {/* Lineup List (100% fitted vertically without scrolling) */}
-                <div className={`flex-1 flex flex-col p-1 sm:p-1.5 min-h-0 overflow-hidden justify-between`}>
+                {/* Lineup List (100% fitted vertically without scrolling, edges touch borders directly) */}
+                <div className={`flex-1 flex flex-col py-1 min-h-0 overflow-hidden justify-between px-0`}>
                     <SortableContext 
                         items={team.lineup.map(p => p.id)}
                         strategy={verticalListSortingStrategy}
@@ -414,12 +454,13 @@ const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: b
                                 dispatch={dispatch}
                                 isBench={false}
                                 scaleMode={scaleMode}
+                                teamColor={team.baseColor || team.color}
                             />
                         ))}
                     </SortableContext>
 
                     {/* Pitcher Row (Fitted dynamically in column with AutoCondenseText) */}
-                    <div className={`flex-1 min-h-0 flex justify-between items-center ${scaleMode === 'large' ? "px-2 py-0.5 sm:py-1" : scaleMode === 'compact' ? "px-1 py-0" : "px-1.5 py-0.5"} rounded-lg transition-colors border-t border-slate-700/60 ${isTeamPitching ? "bg-blue-600/35 ring-1.5 ring-blue-400 shadow-md" : "hover:bg-slate-700/50"}`}>
+                    <div className={`flex-1 min-h-0 flex justify-between items-center ${scaleMode === 'large' ? "px-2.5 py-0.5 sm:py-1" : scaleMode === 'compact' ? "px-2 py-0" : "px-2.5 py-0.5"} rounded-none transition-colors border-t border-slate-700/60 ${isTeamPitching ? "bg-blue-600/35 ring-1.5 ring-blue-400 shadow-md" : "hover:bg-slate-700/50"}`}>
                         <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1 overflow-hidden">
                             <span className={`${scaleMode === 'large' ? "text-xs sm:text-sm font-black w-4 sm:w-5" : scaleMode === 'compact' ? "text-[9px] w-3" : "text-[10px] sm:text-xs w-3.5"} text-slate-400 font-mono shrink-0`}>
                                 P.
@@ -435,7 +476,7 @@ const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: b
                         </div>
                         {(state.showCount ?? true) && (
                             <span className={`${scaleMode === 'large' ? "text-xs sm:text-sm font-bold" : "text-[9px] sm:text-[10px]"} font-mono text-slate-400 shrink-0 ml-1.5`}>
-                                P: {team.pitcher.stat || 0}
+                                P: {getPitcherCount(team.pitcher)}
                             </span>
                         )}
                     </div>
@@ -658,7 +699,10 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
 
   const handleBallClick = () => dispatch({ type: 'INCREMENT_BALL' });
   const handleStrikeClick = () => dispatch({ type: 'INCREMENT_STRIKE' });
-  const handleOutClick = () => dispatch({ type: 'INCREMENT_OUT' });
+  const handleOutClick = () => {
+    dispatch({ type: 'INCREMENT_OUT' });
+    dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
+  };
   const handleBatterClick = () => dispatch({ type: 'NEXT_BATTER' });
   const handlePitcherStatClick = () => dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
 
@@ -1160,7 +1204,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                             </span>
                             {(state.isTop ? (state?.showPlayerStat ?? true) : (state.showCount ?? true)) && (
                                 <span className="text-sm sm:text-base font-mono text-yellow-400 font-black shrink-0 ml-1">
-                                    {state.isTop ? `AVG: ${awayBatter.stat || '.000'}` : `P: ${awayPitcher.stat || 0}`}
+                                    {state.isTop ? `AVG: ${awayBatter.stat || '.000'}` : `P: ${getPitcherCount(awayPitcher)}`}
                                 </span>
                             )}
                         </div>
@@ -1208,12 +1252,12 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                      )}
                                 </div>
                             ) : (
-                                /* Pitcher Stats: 局數, 三振, 用球數 */
+                                /* Pitcher Stats: 打者, 三振, 用球數 */
                                 <div className="flex items-center gap-2 sm:gap-2.5 text-xs sm:text-sm lg:text-base text-slate-200 font-mono">
                                     <span className="flex items-center gap-1">
-                                        <span className="text-xs sm:text-sm text-slate-400 font-bold">{language === 'zh' ? '局數' : language === 'ja' ? '回数' : 'IP'}</span>
+                                        <span className="text-xs sm:text-sm text-slate-400 font-bold">{language === 'zh' ? '打者' : language === 'ja' ? '打者' : 'BF'}</span>
                                         <span className="text-sm sm:text-base text-yellow-400 font-bold">
-                                            {awayPitcher.inningsPitched || (state.isTop ? '0.0' : `${Math.max(0, state.inning - 1)}${state.outs > 0 ? `.${state.outs}` : ''}`)}
+                                            {awayPitcher.battersFaced !== undefined ? awayPitcher.battersFaced : (state.homeTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) + (!state.isTop ? 1 : 0))}
                                         </span>
                                     </span>
                                     <span className="text-slate-600">·</span>
@@ -1225,7 +1269,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                     <span className="flex items-center gap-1">
                                         <span className="text-xs sm:text-sm text-slate-400 font-bold">{language === 'zh' ? '用球' : language === 'ja' ? '球数' : 'NP'}</span>
                                         <span className="text-sm sm:text-base text-sky-300 font-bold">
-                                            {awayPitcher.pitchCount ?? (parseInt(awayPitcher.stat?.replace(/[^0-9]/g, '') || '0', 10))}
+                                            {getPitcherCount(awayPitcher)}
                                         </span>
                                     </span>
                                 </div>
@@ -1243,7 +1287,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                             </span>
                             {(!state.isTop ? (state?.showPlayerStat ?? true) : (state.showCount ?? true)) && (
                                 <span className="text-sm sm:text-base font-mono text-yellow-400 font-black shrink-0 ml-1">
-                                    {!state.isTop ? `AVG: ${homeBatter.stat || '.000'}` : `P: ${homePitcher.stat || 0}`}
+                                    {!state.isTop ? `AVG: ${homeBatter.stat || '.000'}` : `P: ${getPitcherCount(homePitcher)}`}
                                 </span>
                             )}
                         </div>
@@ -1291,12 +1335,12 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                      )}
                                 </div>
                             ) : (
-                                /* Pitcher Stats: 局數, 三振, 用球數 */
+                                /* Pitcher Stats: 打者, 三振, 用球數 */
                                 <div className="flex items-center gap-2 sm:gap-2.5 text-xs sm:text-sm lg:text-base text-slate-200 font-mono">
                                     <span className="flex items-center gap-1">
-                                        <span className="text-xs sm:text-sm text-slate-400 font-bold">{language === 'zh' ? '局數' : language === 'ja' ? '回数' : 'IP'}</span>
+                                        <span className="text-xs sm:text-sm text-slate-400 font-bold">{language === 'zh' ? '打者' : language === 'ja' ? '打者' : 'BF'}</span>
                                         <span className="text-sm sm:text-base text-yellow-400 font-bold">
-                                            {homePitcher.inningsPitched || (!state.isTop ? '0.0' : `${Math.max(0, state.inning - 1)}${state.outs > 0 ? `.${state.outs}` : ''}`)}
+                                            {homePitcher.battersFaced !== undefined ? homePitcher.battersFaced : (state.awayTeam.lineup.reduce((acc, p) => acc + (p.atBats?.length || 0), 0) + (state.isTop ? 1 : 0))}
                                         </span>
                                     </span>
                                     <span className="text-slate-600">·</span>
@@ -1308,7 +1352,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                     <span className="flex items-center gap-1">
                                         <span className="text-xs sm:text-sm text-slate-400 font-bold">{language === 'zh' ? '用球' : language === 'ja' ? '球数' : 'NP'}</span>
                                         <span className="text-sm sm:text-base text-sky-300 font-bold">
-                                            {homePitcher.pitchCount ?? (parseInt(homePitcher.stat?.replace(/[^0-9]/g, '') || '0', 10))}
+                                            {getPitcherCount(homePitcher)}
                                         </span>
                                     </span>
                                 </div>

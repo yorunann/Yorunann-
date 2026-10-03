@@ -3,6 +3,7 @@ import { LineupImportModal } from './LineupImportModal';
 
 import React, { useRef, useEffect, useState } from 'react';
 import { GameState, ActionType, Player, Team, PitchInfo, GameMeta } from '../types';
+import { getPitcherCount } from '../reducer';
 import { Play, Pause, RotateCcw, Eye, EyeOff, User, Trash2, Plus, PenTool, Tv, LayoutTemplate, Square, Image as ImageIcon, RefreshCw, ArrowDown, ArrowUp, GripVertical, Settings, Check, CircleDot, ChevronDown, ChevronUp, ChevronRight, X, Flame, FileSpreadsheet } from 'lucide-react';
 import { ImageCropperModal } from './ImageCropperModal';
 import { 
@@ -386,8 +387,17 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
     setDraft(prev => ({ ...prev, [field]: value }));
   };
 
-  const updatePitcher = (field: keyof Player, value: string) => {
-    setDraft(prev => ({ ...prev, pitcher: { ...prev.pitcher, [field]: value } }));
+  const updatePitcher = (field: keyof Player, value: any) => {
+    setDraft(prev => {
+      const newPitcher = { ...prev.pitcher, [field]: value };
+      if (field === 'stat') {
+        const num = parseInt(String(value || '').replace(/[^0-9]/g, ''), 10);
+        if (!isNaN(num)) newPitcher.pitchCount = num;
+      } else if (field === 'pitchCount') {
+        newPitcher.stat = String(value);
+      }
+      return { ...prev, pitcher: newPitcher };
+    });
   };
 
   const updateLineupPlayer = (index: number, field: keyof Player, value: string) => {
@@ -987,10 +997,9 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
     const benchPlayer = activePitcherTeamObj.bench[benchIndex];
     if (!benchPlayer) return;
     dispatch({
-      type: 'UPDATE_TEAM',
+      type: 'SUBSTITUTE_PITCHER',
       team: activePitcherTeam,
-      field: 'pitcher',
-      value: { ...benchPlayer, stat: 'P: 0', pitchCount: 0, strikeouts: 0, inningsPitched: '0.0' }
+      benchIndex
     });
   };
 
@@ -1091,7 +1100,10 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
               <div className="flex flex-1 min-h-[44px]">
                 <button 
                   className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-2 rounded-l shadow flex-1 flex flex-col items-center justify-center transition-transform active:scale-95"
-                  onClick={() => dispatch({ type: 'INCREMENT_OUT' })}
+                  onClick={() => {
+                    dispatch({ type: 'INCREMENT_OUT' });
+                    dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
+                  }}
                   onContextMenu={(e) => { e.preventDefault(); dispatch({ type: 'DECREMENT_OUT' }); }}
                 >
                   <span className="text-lg">{language === 'ja' ? 'アウト' : language === 'zh' ? '出局' : 'OUT'}</span>
@@ -1259,8 +1271,20 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                       <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: activePitcherTeamObj.color }} />
                       <span className="truncate">{activePitcherTeamObj.name} {language === 'zh' ? '投手' : language === 'ja' ? '投手' : 'Pitcher'}</span>
                     </span>
-                    <span className="text-[10px] bg-gray-200 text-gray-800 font-mono font-bold px-1.5 py-0.5 rounded shrink-0">
-                      {language === 'zh' ? '用球' : language === 'ja' ? '球数' : 'PC'}: {activePitcher?.pitchCount ?? (activePitcher?.stat?.replace(/[^0-9]/g, '') || '0')}
+                    <span className="text-[10px] bg-gray-200 text-gray-800 font-mono font-bold px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1">
+                      {language === 'zh' ? '用球' : language === 'ja' ? '球数' : 'PC'}: 
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-10 bg-white border border-gray-300 rounded text-center text-xs font-bold text-slate-900 px-0.5 outline-none focus:border-blue-500"
+                        value={getPitcherCount(activePitcher)}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          if (!isNaN(val)) {
+                            dispatch({ type: 'SET_PITCH_COUNT', team: activePitcherTeam, value: val });
+                          }
+                        }}
+                      />
                     </span>
                   </div>
                   <div className="font-bold text-gray-900 text-sm truncate my-0.5">

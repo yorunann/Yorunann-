@@ -175,6 +175,8 @@ export type ActionType =
   | { type: 'UPDATE_PLAYER'; team: 'home' | 'away'; role: 'pitcher' | 'batter'; field: keyof Player; value: string }
   | { type: 'INCREMENT_PLAYER_STAT'; role: 'pitcher' | 'batter' }
   | { type: 'DECREMENT_PLAYER_STAT'; role: 'pitcher' | 'batter' }
+  | { type: 'SET_PITCH_COUNT'; team?: 'home' | 'away'; value: number }
+  | { type: 'SUBSTITUTE_PITCHER'; team: 'home' | 'away'; benchIndex: number }
   | { type: 'UPDATE_TEAM'; team: 'home' | 'away'; field?: keyof Team; value?: any; data?: Partial<Team> }
   | { type: 'APPLY_TEAM_CONFIG'; team: 'home' | 'away'; config: Partial<Team> }
   | { type: 'UPDATE_PITCH'; field: keyof PitchInfo; value: string }
