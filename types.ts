@@ -115,6 +115,7 @@ export interface GameState {
 
   // Runners (true = occupied)
   bases: [boolean, boolean, boolean]; // 1st, 2nd, 3rd
+  baseRunners?: [string | null, string | null, string | null]; // IDs of players occupying 1st, 2nd, 3rd base
 
   // Active Players
   pitcher: Player;
@@ -159,7 +160,8 @@ export type ActionType =
   | { type: 'RESET_TEAM'; team: 'home' | 'away' }
   | { type: 'RESET_TEAM_SETTINGS' }
   | { type: 'SWAP_TEAMS' }
-  | { type: 'WALK' }
+  | { type: 'WALK'; walkType?: '四球' | '觸身' | '不死三振' | '敬遠' }
+  | { type: 'SAC_FLY' }
   | { type: 'BATTER_OUT' }
   | { type: 'SINGLE' }
   | { type: 'DOUBLE' }
@@ -200,7 +202,8 @@ export type ActionType =
   | { type: 'REORDER_BENCH'; team: 'home' | 'away'; startIndex: number; endIndex: number }
   | { type: 'SET_INNING_SCORE'; team: 'home' | 'away'; inningIndex: number; score: number | null }
   | { type: 'THREE_UP_THREE_DOWN' }
-  | { type: 'RECORD_AT_BAT'; team?: 'home' | 'away'; playerIndex?: number; result: string }
+  | { type: 'RECORD_AT_BAT'; team?: 'home' | 'away'; playerIndex?: number; result: string; rbi?: number; runs?: number }
+  | { type: 'ADJUST_PLAYER_SCORE'; team: 'home' | 'away'; index: number; field: 'rbi' | 'runs'; amount: number }
   | { type: 'CLEAR_ALL_AT_BATS' }
   | { type: 'UPDATE_META'; field: keyof GameMeta; value: any }
   | { type: 'TOGGLE_VISIBILITY'; field: 'showPlayerStat' | 'showBatterInfo' | 'showPitcherInfo' | 'showPitchInfo' | 'showCount' | 'showTimer' | 'isAdjustmentMode' }

@@ -65,6 +65,7 @@ export const INITIAL_STATE: GameState = {
   strikes: 0,
   outs: 0,
   bases: [false, false, false], // No runners
+  baseRunners: [null, null, null],
   pitcher: {
     id: 'p1',
     name: 'Zhu',

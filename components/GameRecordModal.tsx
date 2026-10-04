@@ -233,6 +233,29 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
       strikeouts = atBats.filter(isSO).length;
     }
 
+    if (rbi === 0 && atBats.length > 0) {
+      let calcRbi = 0;
+      atBats.forEach(ab => {
+        const m = ab.match(/\((\d+)\)/);
+        if (m) {
+          calcRbi += parseInt(m[1], 10);
+        } else if (ab.includes('全壘打') || ab.includes('HR')) {
+          calcRbi += 1;
+        }
+      });
+      if (calcRbi > 0) rbi = calcRbi;
+    }
+
+    if (runs === 0 && atBats.length > 0) {
+      let calcRuns = 0;
+      atBats.forEach(ab => {
+        if (ab.includes('全壘打') || ab.includes('HR')) {
+          calcRuns += 1;
+        }
+      });
+      if (calcRuns > 0) runs = calcRuns;
+    }
+
     const nonAb = atBats.filter(isNonAb).length;
     const abCount = Math.max(hits, atBats.length - nonAb);
     const avg = abCount > 0 ? (hits / abCount).toFixed(3).replace(/^0\./, '.') : '.000';

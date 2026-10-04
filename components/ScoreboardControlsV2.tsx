@@ -93,7 +93,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
   const fieldingTeamKey = isTop ? 'home' : 'away';
   const battingTeam = isTop ? state.awayTeam : state.homeTeam;
   const fieldingTeam = isTop ? state.homeTeam : state.awayTeam;
-  const activeBatter = battingTeam.lineup[battingTeam.currentBatterIndex] || { name: '打者', number: '', stat: '.000', position: 'DH' };
+  const activeBatter: Partial<Player> = battingTeam.lineup[battingTeam.currentBatterIndex] || { name: '打者', number: '', stat: '.000', position: 'DH' };
   const activePitcher = fieldingTeam.pitcher || { name: '投手', number: '', stat: '0', position: 'P' };
   
   // Current active base color
@@ -103,29 +103,22 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
 
   // Confirm Walk from Modal
   const handleConfirmWalk = (walkType: '四球' | '觸身' | '不死三振') => {
-    if (!state.bases[0]) {
-      dispatch({ type: 'TOGGLE_BASE', baseIndex: 0 });
-    } else if (!state.bases[1]) {
-      dispatch({ type: 'TOGGLE_BASE', baseIndex: 1 });
-    } else if (!state.bases[2]) {
-      dispatch({ type: 'TOGGLE_BASE', baseIndex: 2 });
+    if (walkType === '不死三振') {
+      dispatch({ type: 'WALK', walkType: '不死三振' });
+      dispatch({ type: 'TRIGGER_K' });
     } else {
-      dispatch({ type: 'ADD_SCORE', team: isTop ? 'away' : 'home', amount: 1 });
+      dispatch({ type: 'WALK', walkType });
     }
-    dispatch({ type: 'RESET_COUNT' });
-    dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
-    dispatch({ type: 'RECORD_AT_BAT', result: walkType === '不死三振' ? '不死' : walkType });
-    dispatch({ type: 'NEXT_BATTER' });
     setIsWalkModalOpen(false);
   };
 
   // Confirm Out from Modal
-  const handleConfirmOut = (outType: '高飛' | '滾地' | '野選' | '雙殺' | '三振' | '出局') => {
-    if (outType === '雙殺') {
+  const handleConfirmOut = (outType: '高飛' | '滾地' | '野選' | '雙殺' | '三振' | '出局' | '高飛犧牲打') => {
+    if (outType === '高飛犧牲打' || (outType === '高飛' && state.bases[2])) {
+      dispatch({ type: 'SAC_FLY' });
+    } else if (outType === '雙殺') {
       dispatch({ type: 'RECORD_AT_BAT', result: '雙殺' });
       if (state.outs >= 1) {
-        dispatch({ type: 'RESET_COUNT' });
-        dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
         dispatch({ type: 'NEXT_BATTER' });
         dispatch({ type: 'NEXT_INNING' });
       } else {
@@ -135,7 +128,6 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
           dispatch({ type: 'TOGGLE_BASE', baseIndex: 0 });
         }
         dispatch({ type: 'RESET_COUNT' });
-        dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
         dispatch({ type: 'NEXT_BATTER' });
       }
     } else if (outType === '野選') {
@@ -145,22 +137,15 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
       }
       dispatch({ type: 'INCREMENT_OUT' });
       dispatch({ type: 'RESET_COUNT' });
-      dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
       dispatch({ type: 'NEXT_BATTER' });
     } else if (outType === '三振') {
       dispatch({ type: 'RECORD_AT_BAT', result: '三振' });
       dispatch({ type: 'TRIGGER_K' });
       dispatch({ type: 'INCREMENT_OUT' });
       dispatch({ type: 'RESET_COUNT' });
-      dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
       dispatch({ type: 'NEXT_BATTER' });
     } else {
-      // 高飛, 滾地, 出局
-      dispatch({ type: 'RECORD_AT_BAT', result: outType });
-      dispatch({ type: 'INCREMENT_OUT' });
-      dispatch({ type: 'RESET_COUNT' });
-      dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
-      dispatch({ type: 'NEXT_BATTER' });
+      dispatch({ type: 'BATTER_OUT' });
     }
     setIsOutModalOpen(false);
   };
@@ -169,60 +154,26 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
   const handleQuickOutcome = (type: '1B' | '2B' | '3B' | 'HR' | 'BB' | 'OUT' | '3OUT') => {
     switch (type) {
       case '1B': {
-        const newBases: [boolean, boolean, boolean] = [true, state.bases[0], state.bases[1]];
-        if (state.bases[2]) {
-          dispatch({ type: 'ADD_SCORE', team: isTop ? 'away' : 'home', amount: 1 });
-        }
-        if (state.bases[0] !== newBases[0]) dispatch({ type: 'TOGGLE_BASE', baseIndex: 0 });
-        if (state.bases[1] !== newBases[1]) dispatch({ type: 'TOGGLE_BASE', baseIndex: 1 });
-        if (state.bases[2] !== newBases[2]) dispatch({ type: 'TOGGLE_BASE', baseIndex: 2 });
-        dispatch({ type: 'RESET_COUNT' });
-        dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
-        dispatch({ type: 'ADD_HIT', team: isTop ? 'away' : 'home' });
-        dispatch({ type: 'RECORD_AT_BAT', result: '一安' });
-        dispatch({ type: 'NEXT_BATTER' });
+        dispatch({ type: 'SINGLE' });
         break;
       }
       case '2B': {
-        if (state.bases[2]) dispatch({ type: 'ADD_SCORE', team: isTop ? 'away' : 'home', amount: 1 });
-        if (state.bases[1]) dispatch({ type: 'ADD_SCORE', team: isTop ? 'away' : 'home', amount: 1 });
-        const newB: [boolean, boolean, boolean] = [false, true, state.bases[0]];
-        if (state.bases[0] !== newB[0]) dispatch({ type: 'TOGGLE_BASE', baseIndex: 0 });
-        if (state.bases[1] !== newB[1]) dispatch({ type: 'TOGGLE_BASE', baseIndex: 1 });
-        if (state.bases[2] !== newB[2]) dispatch({ type: 'TOGGLE_BASE', baseIndex: 2 });
-        dispatch({ type: 'RESET_COUNT' });
-        dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
-        dispatch({ type: 'ADD_HIT', team: isTop ? 'away' : 'home' });
-        dispatch({ type: 'RECORD_AT_BAT', result: '二安' });
-        dispatch({ type: 'NEXT_BATTER' });
+        dispatch({ type: 'DOUBLE' });
         break;
       }
       case '3B': {
-        const runners = state.bases.filter(Boolean).length;
-        if (runners > 0) dispatch({ type: 'ADD_SCORE', team: isTop ? 'away' : 'home', amount: runners });
-        if (state.bases[0]) dispatch({ type: 'TOGGLE_BASE', baseIndex: 0 });
-        if (state.bases[1]) dispatch({ type: 'TOGGLE_BASE', baseIndex: 1 });
-        if (!state.bases[2]) dispatch({ type: 'TOGGLE_BASE', baseIndex: 2 });
-        dispatch({ type: 'RESET_COUNT' });
-        dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
-        dispatch({ type: 'ADD_HIT', team: isTop ? 'away' : 'home' });
-        dispatch({ type: 'RECORD_AT_BAT', result: '三安' });
-        dispatch({ type: 'NEXT_BATTER' });
+        dispatch({ type: 'TRIPLE' });
         break;
       }
       case 'HR': {
-        // Reducer handles score calculation, team hits +1, atBat '全壘打', runners clear, and celebration animation!
-        dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
         dispatch({ type: 'HOME_RUN' });
         break;
       }
       case 'BB': {
-        // Opens Walk Type Selection Modal
         setIsWalkModalOpen(true);
         break;
       }
       case 'OUT': {
-        // Opens Out Type Selection Modal
         setIsOutModalOpen(true);
         break;
       }
@@ -651,6 +602,14 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: battingTeam.color }} />
                       <span>{battingTeam.name} 第{battingTeam.currentBatterIndex + 1}棒</span>
                     </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 px-1 py-0.5 rounded font-mono font-bold" title="得分 (Runs)">
+                        R: {activeBatter.runs || 0}
+                      </span>
+                      <span className="text-[10px] bg-blue-950/80 text-blue-300 border border-blue-500/30 px-1 py-0.5 rounded font-mono font-bold" title="打點 (RBI)">
+                        RBI: {activeBatter.rbi || 0}
+                      </span>
+                    </div>
                   </div>
                   <div className="font-bold text-white text-sm sm:text-base truncate my-0.5">
                     {activeBatter.name} {activeBatter.number ? `#${activeBatter.number}` : ''}
@@ -1609,6 +1568,22 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                 <X size={20} />
               </button>
             </div>
+            {state.bases[2] && (
+              <button
+                onClick={() => handleConfirmOut('高飛犧牲打')}
+                className="w-full p-3 bg-gradient-to-r from-emerald-950/80 to-teal-950/80 border-2 border-emerald-500/80 rounded-xl transition-all group text-left active:scale-98 shadow-lg"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-black px-2 py-0.5 rounded bg-emerald-500/30 text-emerald-300 border border-emerald-400">
+                    SF
+                  </span>
+                  <span className="text-xs text-emerald-400 font-bold font-mono">+1 得分 · +1 打點 · +1 OUT</span>
+                </div>
+                <div className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors">
+                  {language === 'zh' ? '高飛犧牲打 (三壘跑者回本壘得分)' : language === 'ja' ? '犠牲フライ (三塁走者生還)' : 'Sacrifice Fly (Runner on 3rd scores)'}
+                </div>
+              </button>
+            )}
 
             <div className="grid grid-cols-2 gap-2.5">
               <button

@@ -922,44 +922,20 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
 
   const handleConfirmWalk = (walkType: '四球' | '觸身' | '不死三振') => {
     if (walkType === '不死三振') {
-      if (!state.bases[0]) {
-        dispatch({ type: 'TOGGLE_BASE', baseIndex: 0 });
-      } else if (!state.bases[1]) {
-        dispatch({ type: 'TOGGLE_BASE', baseIndex: 1 });
-      } else if (!state.bases[2]) {
-        dispatch({ type: 'TOGGLE_BASE', baseIndex: 2 });
-      } else {
-        dispatch({ type: 'ADD_SCORE', team: state.isTop ? 'away' : 'home', amount: 1 });
-      }
-      dispatch({ type: 'RESET_COUNT' });
-      dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
+      dispatch({ type: 'WALK', walkType: '不死三振' });
       dispatch({ type: 'TRIGGER_K' });
-      dispatch({ type: 'RECORD_AT_BAT', result: '不死' });
-      dispatch({ type: 'NEXT_BATTER' });
     } else {
-      if (!state.bases[0]) {
-        dispatch({ type: 'TOGGLE_BASE', baseIndex: 0 });
-      } else if (!state.bases[1]) {
-        dispatch({ type: 'TOGGLE_BASE', baseIndex: 1 });
-      } else if (!state.bases[2]) {
-        dispatch({ type: 'TOGGLE_BASE', baseIndex: 2 });
-      } else {
-        dispatch({ type: 'ADD_SCORE', team: state.isTop ? 'away' : 'home', amount: 1 });
-      }
-      dispatch({ type: 'RESET_COUNT' });
-      dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
-      dispatch({ type: 'RECORD_AT_BAT', result: walkType });
-      dispatch({ type: 'NEXT_BATTER' });
+      dispatch({ type: 'WALK', walkType });
     }
     setIsWalkModalOpen(false);
   };
 
-  const handleConfirmOut = (outType: '高飛' | '滾地' | '野選' | '雙殺' | '三振' | '出局') => {
-    if (outType === '雙殺') {
+  const handleConfirmOut = (outType: '高飛' | '滾地' | '野選' | '雙殺' | '三振' | '出局' | '高飛犧牲打') => {
+    if (outType === '高飛犧牲打' || (outType === '高飛' && state.bases[2])) {
+      dispatch({ type: 'SAC_FLY' });
+    } else if (outType === '雙殺') {
       dispatch({ type: 'RECORD_AT_BAT', result: '雙殺' });
       if (state.outs >= 1) {
-        dispatch({ type: 'RESET_COUNT' });
-        dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
         dispatch({ type: 'NEXT_BATTER' });
         dispatch({ type: 'NEXT_INNING' });
       } else {
@@ -969,7 +945,6 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
           dispatch({ type: 'TOGGLE_BASE', baseIndex: 0 });
         }
         dispatch({ type: 'RESET_COUNT' });
-        dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
         dispatch({ type: 'NEXT_BATTER' });
       }
     } else if (outType === '野選') {
@@ -979,21 +954,15 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
       }
       dispatch({ type: 'INCREMENT_OUT' });
       dispatch({ type: 'RESET_COUNT' });
-      dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
       dispatch({ type: 'NEXT_BATTER' });
     } else if (outType === '三振') {
       dispatch({ type: 'RECORD_AT_BAT', result: '三振' });
       dispatch({ type: 'TRIGGER_K' });
       dispatch({ type: 'INCREMENT_OUT' });
       dispatch({ type: 'RESET_COUNT' });
-      dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
       dispatch({ type: 'NEXT_BATTER' });
     } else {
-      dispatch({ type: 'RECORD_AT_BAT', result: outType });
-      dispatch({ type: 'INCREMENT_OUT' });
-      dispatch({ type: 'RESET_COUNT' });
-      dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
-      dispatch({ type: 'NEXT_BATTER' });
+      dispatch({ type: 'BATTER_OUT' });
     }
     setIsOutModalOpen(false);
   };
@@ -1322,6 +1291,14 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                       <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: activeBatterTeamObj.color }} />
                       <span className="truncate">{activeBatterTeamObj.name} {language === 'zh' ? `第${activeBatterTeamObj.currentBatterIndex + 1}棒` : language === 'ja' ? `${activeBatterTeamObj.currentBatterIndex + 1}番打者` : `#${activeBatterTeamObj.currentBatterIndex + 1} Batter`}</span>
                     </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-mono font-bold px-1.5 py-0.5 rounded" title="得分 (Runs)">
+                        R: {activeBatter?.runs || 0}
+                      </span>
+                      <span className="text-[10px] bg-blue-100 text-blue-800 font-mono font-bold px-1.5 py-0.5 rounded" title="打點 (RBI)">
+                        RBI: {activeBatter?.rbi || 0}
+                      </span>
+                    </div>
                   </div>
                   <div className="font-bold text-gray-900 text-sm truncate my-0.5">
                     {activeBatter?.name || '---'} {activeBatter?.number ? `#${activeBatter.number}` : ''}
@@ -2127,6 +2104,23 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                 <X size={20} />
               </button>
             </div>
+
+            {state.bases[2] && (
+              <button
+                onClick={() => handleConfirmOut('高飛犧牲打')}
+                className="w-full p-3 bg-gradient-to-r from-emerald-950/80 to-teal-950/80 border-2 border-emerald-500/80 rounded-xl transition-all group text-left active:scale-98 shadow-lg cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-black px-2 py-0.5 rounded bg-emerald-500/30 text-emerald-300 border border-emerald-400">
+                    SF (高飛犧牲打)
+                  </span>
+                  <span className="text-xs text-emerald-400 font-bold font-mono">+1 得分 · +1 打點 · +1 OUT</span>
+                </div>
+                <div className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors">
+                  {language === 'zh' ? '高飛犧牲打 (三壘跑者回本壘得分)' : language === 'ja' ? '犠牲フライ (三塁走者生還)' : 'Sacrifice Fly (Runner on 3rd scores)'}
+                </div>
+              </button>
+            )}
 
             <div className="grid grid-cols-2 gap-2.5">
               <button
