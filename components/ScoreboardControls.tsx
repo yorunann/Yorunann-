@@ -763,9 +763,14 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
         onClose={() => setImportModalOpen(false)}
         language={language}
         currentPlayers={draft.lineup}
-        onImport={(newLineup, newBench) => {
+        onImport={(newLineup, newBench, newPitcher) => {
           const updatedBench = newBench && newBench.length > 0 ? [...draft.bench, ...newBench] : draft.bench;
-          const newDraft = { ...draft, lineup: newLineup, bench: updatedBench };
+          const newDraft = { 
+            ...draft, 
+            lineup: newLineup, 
+            bench: updatedBench,
+            ...(newPitcher ? { pitcher: newPitcher } : {})
+          };
           setDraft(newDraft);
           dispatch({ type: 'APPLY_TEAM_CONFIG', team: teamKey, config: newDraft });
         }}

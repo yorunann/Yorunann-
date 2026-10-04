@@ -80,15 +80,13 @@ export function parseLineupText(text: string) {
         s = s.replace(/^[#＃]?([1-9]|1[0-9]|20)[\.\-\:\)\/、_]+[\s]*/i, ' ');
 
         // 2d. Leading order number followed by whitespace or immediately followed by text
-        // e.g. "1 角中勝也 #61 指定打擊", "1角中勝也 #61 指定打擊", "1 角中勝也 61", "1 角中勝也"
+        // Only strip as batting order if there is ANOTHER number on the line to serve as the jersey number
+        // e.g. "1 角中勝也 #61 指定打擊", "1 61 角中勝也", "1 角中勝也 61"
         const leadingOrderMatch = s.match(/^([1-9]|1[0-9]|20)(\s+|(?=[^\d\s]))/);
         if (leadingOrderMatch) {
             const remainder = s.substring(leadingOrderMatch[0].length).trim();
             const hasAnotherNum = /\b\d{1,3}\b/.test(remainder) || /#\d+/.test(remainder);
-            const hasExplicitPos = Object.keys(MULTI_POS_MAP).some(k => remainder.includes(k)) || 
-                                   /\b(1B|2B|3B|0B|SS|LF|CF|RF|DH|OF|IF|SP|RP|CP|PH|PR|BENCH|BN|P|C)\b/i.test(remainder);
-            // If there's another number, a position, or if it was separated by whitespace/punctuation
-            if (hasAnotherNum || hasExplicitPos || leadingOrderMatch[2].trim() === '' || leadingOrderMatch[0].includes(' ')) {
+            if (hasAnotherNum) {
                 s = remainder;
             }
         }

@@ -6,7 +6,7 @@ import { parseLineupText } from '../utils/parseLineupText';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (players: Player[], benchPlayers?: Player[]) => void;
+  onImport: (players: Player[], benchPlayers?: Player[], pitcher?: Player) => void;
   language?: 'en' | 'zh' | 'ja';
   currentPlayers?: Player[];
 }
@@ -109,6 +109,9 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
   const separatePlayers = (data: Partial<Player>[]) => {
     const lineupPlayers: Player[] = [];
     const benchPlayers: Player[] = [];
+    let importedPitcher: Player | undefined = undefined;
+
+    const nonPitchers = data.filter(p => p.position !== 'P' && p.position !== 'SP' && !(p as any).isBench);
 
     data.forEach((p, index) => {
       const isB = (p as any).isBench || p.position === 'BN' || p.position === '0B' || p.position?.toUpperCase() === 'BENCH' || p.position === '板凳';
@@ -119,20 +122,23 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
         stat: p.stat || (p as any).avg || '.000',
         position: isB ? 'BN' : (p.position || 'DH')
       };
-      if (isB) {
+
+      if ((p.position === 'P' || p.position === 'SP') && nonPitchers.length >= 9 && !importedPitcher) {
+        importedPitcher = playerObj;
+      } else if (isB) {
         benchPlayers.push(playerObj);
       } else {
         lineupPlayers.push(playerObj);
       }
     });
 
-    return { lineupPlayers, benchPlayers };
+    return { lineupPlayers, benchPlayers, importedPitcher };
   };
 
   const handleImportReplace = () => {
     if (confirm(language === 'en' ? 'Are you sure you want to clear the current lineup and import?' : language === 'zh' ? '確定要清空現有名單並匯入嗎？' : '現在のラインナップをクリアしてインポートしますか？')) {
-      const { lineupPlayers, benchPlayers } = separatePlayers(previewData);
-      onImport(lineupPlayers, benchPlayers);
+      const { lineupPlayers, benchPlayers, importedPitcher } = separatePlayers(previewData);
+      onImport(lineupPlayers, benchPlayers, importedPitcher);
       setPreviewData([]);
       setText('');
       onClose();
@@ -146,8 +152,8 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
       : (language === 'en' ? 'Append these players to the current lineup?' : language === 'zh' ? '確定要直接接續現有名單並匯入嗎？' : '現在のラインナップに追加してインポートしますか？');
       
     if (confirm(msg)) {
-      const { lineupPlayers, benchPlayers } = separatePlayers(previewData);
-      onImport([...localCurrentPlayers, ...lineupPlayers], benchPlayers);
+      const { lineupPlayers, benchPlayers, importedPitcher } = separatePlayers(previewData);
+      onImport([...localCurrentPlayers, ...lineupPlayers], benchPlayers, importedPitcher);
       setPreviewData([]);
       setText('');
       onClose();

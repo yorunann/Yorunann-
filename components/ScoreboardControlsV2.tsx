@@ -1466,11 +1466,16 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
         onClose={() => setImportModalOpen(false)}
         language={language}
         currentPlayers={editingTeamKey === 'away' ? state.awayTeam.lineup : state.homeTeam.lineup}
-        onImport={(newLineup, newBench) => {
+        onImport={(newLineup, newBench, newPitcher) => {
           const targetKey = editingTeamKey;
           const currentTeam = targetKey === 'away' ? state.awayTeam : state.homeTeam;
           const updatedBench = newBench && newBench.length > 0 ? [...currentTeam.bench, ...newBench] : currentTeam.bench;
-          const newTeam = { ...currentTeam, lineup: newLineup, bench: updatedBench };
+          const newTeam = { 
+            ...currentTeam, 
+            lineup: newLineup, 
+            bench: updatedBench,
+            ...(newPitcher ? { pitcher: newPitcher } : {})
+          };
           dispatch({ type: 'APPLY_TEAM_CONFIG', team: targetKey, config: newTeam });
         }}
       />
