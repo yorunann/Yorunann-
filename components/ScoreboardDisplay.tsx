@@ -1272,12 +1272,12 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         </div>
 
                         {/* Bottom: Underneath Batter (At-Bats) OR Underneath Pitcher (Stats) */}
-                        <div className="flex items-center min-w-0 py-0.5 overflow-visible">
+                        <div className="flex items-center min-w-0 h-5 sm:h-6 overflow-visible">
                             {state.isTop ? (
                                 /* Batter At-Bats (Max 4 latest) */
-                                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1.5 pb-1 px-1">
+                                <div className="flex items-center gap-1 sm:gap-1.5 overflow-visible">
                                     {((awayBatter.atBats || []).length === 0) ? (
-                                        <span className="text-xs sm:text-sm text-slate-400 font-mono font-bold">
+                                        <span className="text-[11px] sm:text-xs text-slate-400 font-mono font-bold leading-none">
                                             {language === 'zh' ? '首打席' : language === 'ja' ? '初打席' : '1st AB'}
                                         </span>
                                     ) : (
@@ -1286,16 +1286,16 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                              return (
                                                  <div 
                                                      key={idx} 
-                                                     className="relative inline-flex items-center shrink-0 pt-1.5 pr-2.5 pb-0.5 my-0.5"
+                                                     className="relative inline-flex items-center shrink-0 my-0"
                                                  >
                                                      <span 
-                                                         className={`text-xs sm:text-sm px-2 sm:px-2.5 py-0.5 sm:py-1 rounded border ${item.style} shadow-sm font-bold tracking-tight shrink-0`}
+                                                         className={`text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded border ${item.style} shadow-sm font-bold tracking-tight shrink-0 h-[18px] sm:h-[19px] flex items-center justify-center leading-none`}
                                                      >
                                                          {item.label}
                                                      </span>
                                                      {item.rbi !== undefined && item.rbi > 0 && (
                                                          <span 
-                                                             className="absolute top-0 right-0 min-w-[15px] h-[15px] px-1 rounded-[3px] bg-red-600 text-white font-mono font-black text-[9px] sm:text-[10px] leading-none flex items-center justify-center shadow-md border border-red-400 z-20 select-none pointer-events-none"
+                                                             className="absolute -top-1 -right-1 min-w-[12px] h-[12px] px-0.5 rounded-[2px] bg-red-600 text-white font-mono font-black text-[8px] leading-none flex items-center justify-center shadow border border-red-300 z-10 select-none pointer-events-none"
                                                              title={`打點: ${item.rbi}`}
                                                          >
                                                              {item.rbi}
@@ -1308,7 +1308,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                 </div>
                             ) : (
                                 /* Pitcher Stats: 打者, 三振, 用球數 */
-                                <div className="flex items-center gap-2 sm:gap-2.5 text-xs sm:text-sm lg:text-base text-slate-200 font-mono">
+                                <div className="flex items-center gap-2 sm:gap-2.5 text-xs sm:text-sm text-slate-200 font-mono leading-none">
                                     <span className="flex items-center gap-1">
                                         <span className="text-xs sm:text-sm text-slate-400 font-bold">{language === 'zh' ? '打者' : language === 'ja' ? '打者' : 'BF'}</span>
                                         <span className="text-sm sm:text-base text-yellow-400 font-bold">
@@ -1367,12 +1367,12 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         </div>
 
                         {/* Bottom: Underneath Batter (At-Bats) OR Underneath Pitcher (Stats) */}
-                        <div className="flex items-center min-w-0 py-0.5 overflow-visible">
+                        <div className="flex items-center min-w-0 h-5 sm:h-6 overflow-visible">
                             {!state.isTop ? (
                                 /* Batter At-Bats (Max 4 latest) */
-                                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1.5 pb-1 px-1">
+                                <div className="flex items-center gap-1 sm:gap-1.5 overflow-visible">
                                     {((homeBatter.atBats || []).length === 0) ? (
-                                         <span className="text-xs sm:text-sm text-slate-400 font-mono font-bold">
+                                         <span className="text-[11px] sm:text-xs text-slate-400 font-mono font-bold leading-none">
                                              {language === 'zh' ? '首打席' : language === 'ja' ? '初打席' : '1st AB'}
                                          </span>
                                     ) : (
@@ -1381,16 +1381,16 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                               return (
                                                   <div 
                                                       key={idx} 
-                                                      className="relative inline-flex items-center shrink-0 pt-1.5 pr-2.5 pb-0.5 my-0.5"
+                                                      className="relative inline-flex items-center shrink-0 my-0"
                                                  >
                                                       <span 
-                                                          className={`text-xs sm:text-sm px-2 sm:px-2.5 py-0.5 sm:py-1 rounded border ${item.style} shadow-sm font-bold tracking-tight shrink-0`}
+                                                          className={`text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded border ${item.style} shadow-sm font-bold tracking-tight shrink-0 h-[18px] sm:h-[19px] flex items-center justify-center leading-none`}
                                                      >
                                                          {item.label}
                                                      </span>
                                                      {item.rbi !== undefined && item.rbi > 0 && (
                                                          <span 
-                                                             className="absolute top-0 right-0 min-w-[15px] h-[15px] px-1 rounded-[3px] bg-red-600 text-white font-mono font-black text-[9px] sm:text-[10px] leading-none flex items-center justify-center shadow-md border border-red-400 z-20 select-none pointer-events-none"
+                                                             className="absolute -top-1 -right-1 min-w-[12px] h-[12px] px-0.5 rounded-[2px] bg-red-600 text-white font-mono font-black text-[8px] leading-none flex items-center justify-center shadow border border-red-300 z-10 select-none pointer-events-none"
                                                              title={`打點: ${item.rbi}`}
                                                          >
                                                              {item.rbi}
@@ -1403,7 +1403,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                 </div>
                             ) : (
                                 /* Pitcher Stats: 打者, 三振, 用球數 */
-                                <div className="flex items-center gap-2 sm:gap-2.5 text-xs sm:text-sm lg:text-base text-slate-200 font-mono">
+                                <div className="flex items-center gap-2 sm:gap-2.5 text-xs sm:text-sm text-slate-200 font-mono leading-none">
                                     <span className="flex items-center gap-1">
                                         <span className="text-xs sm:text-sm text-slate-400 font-bold">{language === 'zh' ? '打者' : language === 'ja' ? '打者' : 'BF'}</span>
                                         <span className="text-sm sm:text-base text-yellow-400 font-bold">

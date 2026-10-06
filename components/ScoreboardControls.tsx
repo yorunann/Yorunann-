@@ -931,7 +931,7 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
   };
 
   const handleConfirmOut = (outType: '高飛' | '滾地' | '野選' | '雙殺' | '三振' | '出局' | '高飛犧牲打') => {
-    if (outType === '高飛犧牲打' || (outType === '高飛' && state.bases[2])) {
+    if (outType === '高飛犧牲打' && state.outs < 2) {
       dispatch({ type: 'SAC_FLY' });
     } else if (outType === '雙殺') {
       dispatch({ type: 'RECORD_AT_BAT', result: '雙殺' });
@@ -2105,7 +2105,7 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
               </button>
             </div>
 
-            {state.bases[2] && (
+            {Boolean(state.bases[2] && state.outs < 2) && (
               <button
                 onClick={() => handleConfirmOut('高飛犧牲打')}
                 className="w-full p-3 bg-gradient-to-r from-emerald-950/80 to-teal-950/80 border-2 border-emerald-500/80 rounded-xl transition-all group text-left active:scale-98 shadow-lg cursor-pointer"
