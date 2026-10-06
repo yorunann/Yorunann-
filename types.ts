@@ -162,7 +162,7 @@ export type ActionType =
   | { type: 'SWAP_TEAMS' }
   | { type: 'WALK'; walkType?: '四球' | '觸身' | '不死三振' | '敬遠' }
   | { type: 'SAC_FLY' }
-  | { type: 'BATTER_OUT' }
+  | { type: 'BATTER_OUT'; outType?: string }
   | { type: 'SINGLE' }
   | { type: 'DOUBLE' }
   | { type: 'TRIPLE' }

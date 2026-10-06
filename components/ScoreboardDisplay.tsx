@@ -30,110 +30,151 @@ interface ScoreboardDisplayProps {
   isVerticalFullscreen?: boolean;
 }
 
-export const formatAtBatChinese = (ab: string, lang: 'en' | 'zh' | 'ja' = 'zh'): { label: string; style: string } => {
-    switch (ab) {
-        case '1B':
-        case '一安':
-            return { 
-                label: lang === 'en' ? '1B' : lang === 'ja' ? '単打' : '一安', 
-                style: 'text-emerald-300 bg-emerald-950/80 border-emerald-500/70 font-bold' 
-            };
-        case '2B':
-        case '二安':
-            return { 
-                label: lang === 'en' ? '2B' : lang === 'ja' ? '二塁打' : '二安', 
-                style: 'text-emerald-300 bg-emerald-950/80 border-emerald-500/70 font-bold' 
-            };
-        case '3B':
-        case '三安':
-            return { 
-                label: lang === 'en' ? '3B' : lang === 'ja' ? '三塁打' : '三安', 
-                style: 'text-emerald-300 bg-emerald-950/80 border-emerald-500/70 font-bold' 
-            };
-        case 'HR':
-        case '全壘打':
-            return { 
-                label: lang === 'en' ? 'HR' : lang === 'ja' ? '本塁打' : '全壘打', 
-                style: 'text-amber-300 bg-amber-950/90 border-amber-400 font-black shadow-[0_0_10px_rgba(251,191,36,0.3)]' 
-            };
-        case '場內全':
-        case '場內全壘打':
-        case 'IPHR':
-            return {
-                label: lang === 'en' ? 'IPHR' : lang === 'ja' ? 'ランニング本塁打' : '場內全',
-                style: 'text-amber-300 bg-amber-950/90 border-amber-400 font-black shadow-[0_0_10px_rgba(251,191,36,0.3)]'
-            };
-        case '妨礙打擊':
-        case 'CI':
-            return {
-                label: lang === 'en' ? 'CI' : lang === 'ja' ? '打撃妨害' : '妨礙打擊',
-                style: 'text-sky-300 bg-sky-950/80 border-sky-500/70 font-bold'
-            };
-        case '妨礙守備':
-        case 'OBS':
-            return {
-                label: lang === 'en' ? 'OBS' : lang === 'ja' ? '守備妨害' : '妨礙守備',
-                style: 'text-rose-300 bg-rose-950/80 border-rose-500/70 font-bold'
-            };
-        case 'BB':
-        case '四球':
-        case '四壞':
-            return { 
-                label: lang === 'en' ? 'BB' : lang === 'ja' ? '四球' : '四球', 
-                style: 'text-sky-300 bg-sky-950/80 border-sky-500/70 font-bold' 
-            };
-        case 'HBP':
-        case '觸身':
-            return { 
-                label: lang === 'en' ? 'HBP' : lang === 'ja' ? '死球' : '觸身', 
-                style: 'text-cyan-300 bg-cyan-950/80 border-cyan-500/70 font-bold' 
-            };
-        case 'D3K':
-        case '不死三振':
-        case '不死':
-            return { 
-                label: lang === 'en' ? 'D3K' : lang === 'ja' ? '振逃' : '不死', 
-                style: 'text-purple-300 bg-purple-950/80 border-purple-500/70 font-black' 
-            };
-        case 'K':
-        case '三振':
-            return { 
-                label: lang === 'en' ? 'K' : lang === 'ja' ? '三振' : '三振', 
-                style: 'text-rose-300 bg-rose-950/80 border-rose-500/70 font-bold' 
-            };
-        case '高飛':
-        case 'FO':
-            return { 
-                label: lang === 'en' ? 'FO' : lang === 'ja' ? '飛球' : '高飛', 
-                style: 'text-slate-200 bg-slate-800/90 border-slate-600 font-bold' 
-            };
-        case '滾地':
-        case 'GO':
-            return { 
-                label: lang === 'en' ? 'GO' : lang === 'ja' ? 'ゴロ' : '滾地', 
-                style: 'text-slate-200 bg-slate-800/90 border-slate-600 font-bold' 
-            };
-        case '野選':
-        case 'FC':
-            return { 
-                label: lang === 'en' ? 'FC' : lang === 'ja' ? '野選' : '野選', 
-                style: 'text-orange-300 bg-orange-950/80 border-orange-500/70 font-bold' 
-            };
-        case '雙殺':
-        case 'DP':
-            return { 
-                label: lang === 'en' ? 'DP' : lang === 'ja' ? '併殺' : '雙殺', 
-                style: 'text-rose-400 bg-red-950/90 border-rose-600 font-black shadow-[0_0_10px_rgba(244,63,94,0.3)]' 
-            };
-        case 'OUT':
-        case '出局':
-            return { 
-                label: lang === 'en' ? 'OUT' : lang === 'ja' ? '凡退' : '出局', 
-                style: 'text-slate-300 bg-slate-800/80 border-slate-700 font-medium' 
-            };
-        default:
-            return { label: ab, style: 'text-slate-300 bg-slate-800/80 border-slate-700' };
+export const formatAtBatChinese = (rawAb: string, lang: 'en' | 'zh' | 'ja' = 'zh'): { label: string; style: string; rbi?: number } => {
+    let ab = (rawAb || '').trim();
+    let rbi: number | undefined = undefined;
+
+    // Extract RBI if present in parentheses e.g. "一安(1)", "二安(2)", "全壘打(3)", "高飛(1)", "四球(1)"
+    // Supports both half-width () and full-width （）
+    const rbiMatch = ab.match(/[\(（]\s*(\d+)\s*[\)）]/);
+    if (rbiMatch) {
+        rbi = parseInt(rbiMatch[1], 10);
+        ab = ab.replace(/[\(（]\s*\d+\s*[\)）]/, '').trim();
     }
+
+    // Normalized hit checks
+    if (ab === '1B' || ab === '一安' || ab === '安' || ab === '安打' || ab === '中安' || ab === '左安' || ab === '右安' || ab === '一壘打' || ab === '一壘安打' || ab === '內安' || ab === '內野安打' || ab.toLowerCase() === 'single') {
+        return { 
+            label: lang === 'en' ? '1B' : lang === 'ja' ? '単打' : '一安', 
+            style: 'text-emerald-300 bg-emerald-950/80 border-emerald-500/70 font-bold',
+            rbi
+        };
+    }
+    if (ab === '2B' || ab === '二安' || ab === '二壘打' || ab === '二壘安打' || ab.toLowerCase() === 'double') {
+        return { 
+            label: lang === 'en' ? '2B' : lang === 'ja' ? '二塁打' : '二安', 
+            style: 'text-emerald-300 bg-emerald-950/80 border-emerald-500/70 font-bold',
+            rbi
+        };
+    }
+    if (ab === '3B' || ab === '三安' || ab === '三壘打' || ab === '三壘安打' || ab.toLowerCase() === 'triple') {
+        return { 
+            label: lang === 'en' ? '3B' : lang === 'ja' ? '三塁打' : '三安', 
+            style: 'text-emerald-300 bg-emerald-950/80 border-emerald-500/70 font-bold',
+            rbi
+        };
+    }
+    if (ab === 'HR' || ab === '全壘打' || ab === '全' || ab === '本壘打' || ab.toLowerCase() === 'homerun') {
+        return { 
+            label: lang === 'en' ? 'HR' : lang === 'ja' ? '本塁打' : '全壘打', 
+            style: 'text-amber-300 bg-amber-950/90 border-amber-400 font-black shadow-[0_0_10px_rgba(251,191,36,0.3)]',
+            rbi: rbi !== undefined ? rbi : 1
+        };
+    }
+    if (ab === '場內全' || ab === '場內全壘打' || ab === 'IPHR') {
+        return {
+            label: lang === 'en' ? 'IPHR' : lang === 'ja' ? 'ランニング本塁打' : '場內全',
+            style: 'text-amber-300 bg-amber-950/90 border-amber-400 font-black shadow-[0_0_10px_rgba(251,191,36,0.3)]',
+            rbi: rbi !== undefined ? rbi : 1
+        };
+    }
+    if (ab === 'SF' || ab === '高飛犧牲打' || ab === '高飛犧' || ab === '犧飛') {
+        return { 
+            label: lang === 'en' ? 'SF' : lang === 'ja' ? '犠飛' : '高飛犧', 
+            style: 'text-emerald-300 bg-teal-950/80 border-emerald-500/70 font-bold',
+            rbi: rbi ?? 1
+        };
+    }
+    if (ab === 'SAC' || ab === '犧牲短打' || ab === '犧打') {
+        return {
+            label: lang === 'en' ? 'SAC' : lang === 'ja' ? '犠打' : '犧打',
+            style: 'text-amber-300 bg-amber-950/80 border-amber-500/70 font-bold',
+            rbi
+        };
+    }
+    if (ab === 'BB' || ab === '四球' || ab === '四壞' || ab === '保送' || ab === '敬遠' || ab === 'IBB') {
+        return { 
+            label: lang === 'en' ? 'BB' : lang === 'ja' ? '四球' : (ab === '敬遠' || ab === 'IBB' ? '敬遠' : '四球'), 
+            style: 'text-sky-300 bg-sky-950/80 border-sky-500/70 font-bold',
+            rbi
+        };
+    }
+    if (ab === 'HBP' || ab === '觸身' || ab === '死球') {
+        return { 
+            label: lang === 'en' ? 'HBP' : lang === 'ja' ? '死球' : '觸身', 
+            style: 'text-cyan-300 bg-cyan-950/80 border-cyan-500/70 font-bold',
+            rbi
+        };
+    }
+    if (ab === 'D3K' || ab === '不死三振' || ab === '不死') {
+        return { 
+            label: lang === 'en' ? 'D3K' : lang === 'ja' ? '振逃' : '不死', 
+            style: 'text-purple-300 bg-purple-950/80 border-purple-500/70 font-black',
+            rbi
+        };
+    }
+    if (ab === 'K' || ab === '三振' || ab === '見三振' || ab === 'SO' || ab === 'ꓘ') {
+        return { 
+            label: lang === 'en' ? 'K' : lang === 'ja' ? '三振' : '三振', 
+            style: 'text-rose-300 bg-rose-950/80 border-rose-500/70 font-bold',
+            rbi
+        };
+    }
+    if (ab === '高飛' || ab === 'FO' || ab === '飛球' || ab === '平飛' || ab === '內飛' || ab === '界外飛' || ab === '左飛' || ab === '中飛' || ab === '右飛' || ab === '捕飛' || ab === '一飛' || ab === '二飛' || ab === '三飛' || ab === '游飛') {
+        return { 
+            label: lang === 'en' ? 'FO' : lang === 'ja' ? '飛球' : '高飛', 
+            style: 'text-slate-200 bg-slate-800/90 border-slate-600 font-bold',
+            rbi
+        };
+    }
+    if (ab === '滾地' || ab === 'GO' || ab === '投滾' || ab === '捕滾' || ab === '一滾' || ab === '二滾' || ab === '三滾' || ab === '游滾') {
+        return { 
+            label: lang === 'en' ? 'GO' : lang === 'ja' ? 'ゴロ' : '滾地', 
+            style: 'text-slate-200 bg-slate-800/90 border-slate-600 font-bold',
+            rbi
+        };
+    }
+    if (ab === '野選' || ab === 'FC') {
+        return { 
+            label: lang === 'en' ? 'FC' : lang === 'ja' ? '野選' : '野選', 
+            style: 'text-orange-300 bg-orange-950/80 border-orange-500/70 font-bold',
+            rbi
+        };
+    }
+    if (ab === '雙殺' || ab === 'DP' || ab === '雙殺打' || ab === '併殺' || ab === 'GDP' || ab === 'GIDP') {
+        return { 
+            label: lang === 'en' ? 'DP' : lang === 'ja' ? '併殺' : '雙殺', 
+            style: 'text-rose-400 bg-red-950/90 border-rose-600 font-black shadow-[0_0_10px_rgba(244,63,94,0.3)]',
+            rbi
+        };
+    }
+    if (ab === '妨礙打擊' || ab === 'CI') {
+        return {
+            label: lang === 'en' ? 'CI' : lang === 'ja' ? '打撃妨害' : '妨礙打擊',
+            style: 'text-sky-300 bg-sky-950/80 border-sky-500/70 font-bold',
+            rbi
+        };
+    }
+    if (ab === '妨礙守備' || ab === 'OBS') {
+        return {
+            label: lang === 'en' ? 'OBS' : lang === 'ja' ? '守備妨害' : '妨礙守備',
+            style: 'text-rose-300 bg-rose-950/80 border-rose-500/70 font-bold',
+            rbi
+        };
+    }
+    if (ab === 'OUT' || ab === '出局') {
+        return { 
+            label: lang === 'en' ? 'OUT' : lang === 'ja' ? '凡退' : '出局', 
+            style: 'text-slate-300 bg-slate-800/80 border-slate-700 font-medium',
+            rbi
+        };
+    }
+
+    return { 
+        label: ab, 
+        style: 'text-slate-300 bg-slate-800/80 border-slate-700',
+        rbi 
+    };
 };
 
 // Simple Audio Context Helper
@@ -201,8 +242,8 @@ interface AnimatedIndicatorProps {
 const TeamLogo = ({ team, isActive }: { team: Team, isActive?: boolean }) => {
     return (
         <div className="relative shrink-0 w-10 h-10 sm:w-16 sm:h-16 lg:w-20 lg:h-20">
-            {isActive && <div className="absolute inset-[-2px] rounded-full border-2 border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.6)] animate-[pulse_2s_ease-in-out_infinite] z-20 pointer-events-none"></div>}
-            <div className={`w-full h-full rounded-full bg-slate-800 flex items-center justify-center overflow-hidden border-2 z-10 shadow-lg ${isActive ? 'border-yellow-400' : 'border-slate-700 shadow-black/20'}`} style={{ backgroundColor: team.color }}>
+            {isActive && <div className="absolute inset-[-2px] rounded-full border-2 border-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.6)] animate-[pulse_2s_ease-in-out_infinite] z-20 pointer-events-none"></div>}
+            <div className={`w-full h-full rounded-full bg-slate-800 flex items-center justify-center overflow-hidden border-2 z-10 shadow-lg ${isActive ? 'border-blue-400' : 'border-slate-700 shadow-black/20'}`} style={{ backgroundColor: team.color }}>
                 {team.logoUrl ? (
                     <img src={team.logoUrl} alt={team.name} className="w-full h-full object-cover" />
                 ) : (
@@ -315,10 +356,12 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
                 </div>
             </div>
 
+
+
             {/* Position Display (replaces batting average) */}
             <span className={`${posTextSize} shrink-0 ml-1.5 ${
                 isActive 
-                    ? "text-amber-300 font-black bg-white/10 px-1 py-0.5 rounded text-[10px]" 
+                    ? "text-blue-300 font-black bg-blue-500/20 px-1 py-0.5 rounded text-[10px]" 
                     : "text-amber-400"
             }`}>
                 {p.position || (isBench ? 'BN' : 'DH')}
@@ -1129,7 +1172,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                         }}
                     >
                         <div className="flex items-center gap-1.5 sm:gap-2 select-none leading-none">
-                            <span className="text-3xl sm:text-4xl lg:text-5xl font-black text-yellow-400 font-mono leading-none select-none">
+                            <span className="text-[11px] sm:text-xs font-bold text-yellow-400 leading-none select-none">
                                 {state.isTop ? '▲' : '▼'}
                             </span>
                             <span className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-100 font-mono leading-none select-none">
@@ -1228,11 +1271,11 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                             )}
                         </div>
 
-                        {/* Bottom: Underneath Batter (At-Bat Results, max 4 latest) OR Underneath Pitcher (IP, K, NP) */}
-                        <div className="flex items-center min-w-0 pt-0.5">
+                        {/* Bottom: Underneath Batter (At-Bats) OR Underneath Pitcher (Stats) */}
+                        <div className="flex items-center min-w-0 py-0.5 overflow-visible">
                             {state.isTop ? (
                                 /* Batter At-Bats (Max 4 latest) */
-                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1.5 pb-1 px-1">
                                     {((awayBatter.atBats || []).length === 0) ? (
                                         <span className="text-xs sm:text-sm text-slate-400 font-mono font-bold">
                                             {language === 'zh' ? '首打席' : language === 'ja' ? '初打席' : '1st AB'}
@@ -1241,12 +1284,24 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                                         (awayBatter.atBats || []).slice(-4).map((ab, idx) => {
                                              const item = formatAtBatChinese(ab, language);
                                              return (
-                                                 <span 
+                                                 <div 
                                                      key={idx} 
-                                                     className={`text-xs sm:text-sm px-2 sm:px-2.5 py-0.5 sm:py-1 rounded border ${item.style} shadow-sm font-bold tracking-tight shrink-0`}
+                                                     className="relative inline-flex items-center shrink-0 pt-1.5 pr-2.5 pb-0.5 my-0.5"
                                                  >
-                                                     {item.label}
-                                                 </span>
+                                                     <span 
+                                                         className={`text-xs sm:text-sm px-2 sm:px-2.5 py-0.5 sm:py-1 rounded border ${item.style} shadow-sm font-bold tracking-tight shrink-0`}
+                                                     >
+                                                         {item.label}
+                                                     </span>
+                                                     {item.rbi !== undefined && item.rbi > 0 && (
+                                                         <span 
+                                                             className="absolute top-0 right-0 min-w-[15px] h-[15px] px-1 rounded-[3px] bg-red-600 text-white font-mono font-black text-[9px] sm:text-[10px] leading-none flex items-center justify-center shadow-md border border-red-400 z-20 select-none pointer-events-none"
+                                                             title={`打點: ${item.rbi}`}
+                                                         >
+                                                             {item.rbi}
+                                                         </span>
+                                                     )}
+                                                 </div>
                                              );
                                          })
                                      )}
@@ -1311,25 +1366,37 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                             )}
                         </div>
 
-                        {/* Bottom: Underneath Batter (At-Bat Results, max 4 latest) OR Underneath Pitcher (IP, K, NP) */}
-                        <div className="flex items-center min-w-0 pt-0.5">
+                        {/* Bottom: Underneath Batter (At-Bats) OR Underneath Pitcher (Stats) */}
+                        <div className="flex items-center min-w-0 py-0.5 overflow-visible">
                             {!state.isTop ? (
                                 /* Batter At-Bats (Max 4 latest) */
-                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1.5 pb-1 px-1">
                                     {((homeBatter.atBats || []).length === 0) ? (
-                                        <span className="text-xs sm:text-sm text-slate-400 font-mono font-bold">
-                                            {language === 'zh' ? '首打席' : language === 'ja' ? '初打席' : '1st AB'}
-                                        </span>
+                                         <span className="text-xs sm:text-sm text-slate-400 font-mono font-bold">
+                                             {language === 'zh' ? '首打席' : language === 'ja' ? '初打席' : '1st AB'}
+                                         </span>
                                     ) : (
-                                        (homeBatter.atBats || []).slice(-4).map((ab, idx) => {
-                                             const item = formatAtBatChinese(ab, language);
-                                             return (
-                                                 <span 
-                                                     key={idx} 
-                                                     className={`text-xs sm:text-sm px-2 sm:px-2.5 py-0.5 sm:py-1 rounded border ${item.style} shadow-sm font-bold tracking-tight shrink-0`}
+                                         (homeBatter.atBats || []).slice(-4).map((ab, idx) => {
+                                              const item = formatAtBatChinese(ab, language);
+                                              return (
+                                                  <div 
+                                                      key={idx} 
+                                                      className="relative inline-flex items-center shrink-0 pt-1.5 pr-2.5 pb-0.5 my-0.5"
                                                  >
-                                                     {item.label}
-                                                 </span>
+                                                      <span 
+                                                          className={`text-xs sm:text-sm px-2 sm:px-2.5 py-0.5 sm:py-1 rounded border ${item.style} shadow-sm font-bold tracking-tight shrink-0`}
+                                                     >
+                                                         {item.label}
+                                                     </span>
+                                                     {item.rbi !== undefined && item.rbi > 0 && (
+                                                         <span 
+                                                             className="absolute top-0 right-0 min-w-[15px] h-[15px] px-1 rounded-[3px] bg-red-600 text-white font-mono font-black text-[9px] sm:text-[10px] leading-none flex items-center justify-center shadow-md border border-red-400 z-20 select-none pointer-events-none"
+                                                             title={`打點: ${item.rbi}`}
+                                                         >
+                                                             {item.rbi}
+                                                         </span>
+                                                     )}
+                                                 </div>
                                              );
                                          })
                                      )}

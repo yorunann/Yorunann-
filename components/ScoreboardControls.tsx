@@ -764,7 +764,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
         language={language}
         currentPlayers={draft.lineup}
         onImport={(newLineup, newBench, newPitcher) => {
-          const updatedBench = newBench && newBench.length > 0 ? [...draft.bench, ...newBench] : draft.bench;
+          const updatedBench = newBench !== undefined ? newBench : draft.bench;
           const newDraft = { 
             ...draft, 
             lineup: newLineup, 
@@ -962,7 +962,7 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
       dispatch({ type: 'RESET_COUNT' });
       dispatch({ type: 'NEXT_BATTER' });
     } else {
-      dispatch({ type: 'BATTER_OUT' });
+      dispatch({ type: 'BATTER_OUT', outType });
     }
     setIsOutModalOpen(false);
   };
@@ -2163,8 +2163,15 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
               </button>
 
               <button
+                type="button"
+                disabled={!(Boolean(state.bases[0]) && state.outs < 2)}
                 onClick={() => handleConfirmOut('雙殺')}
-                className="text-left p-3 rounded-xl bg-slate-800/90 hover:bg-rose-600/30 border border-slate-700 hover:border-rose-500 transition-all group flex flex-col justify-between cursor-pointer"
+                className={`text-left p-3 rounded-xl border transition-all group flex flex-col justify-between ${
+                  !(Boolean(state.bases[0]) && state.outs < 2)
+                    ? 'opacity-30 cursor-not-allowed bg-slate-900/50 border-slate-800 pointer-events-none'
+                    : 'bg-slate-800/90 hover:bg-rose-600/30 border-slate-700 hover:border-rose-500 cursor-pointer active:scale-95'
+                }`}
+                title={!(Boolean(state.bases[0]) && state.outs < 2) ? (language === 'zh' ? '一壘無人或已2出局不成立雙殺' : 'Requires runner on 1st and < 2 outs') : undefined}
               >
                 <div className="font-bold text-white group-hover:text-rose-400 text-sm flex items-center gap-1.5">
                   <span className="px-1.5 py-0.5 bg-rose-500/20 text-rose-300 rounded text-[10px] font-mono">DP</span>
@@ -2173,6 +2180,11 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                 <div className="text-[10px] text-slate-400 mt-1">
                   {language === 'zh' ? '出局數 +2，一壘跑者出局' : language === 'ja' ? '併殺 (2アウト計上)' : 'Double play (2 outs)'}
                 </div>
+                {!(Boolean(state.bases[0]) && state.outs < 2) && (
+                  <div className="text-[10px] text-rose-400 font-bold mt-1">
+                    {language === 'zh' ? '（一壘無人或2出局不成立）' : language === 'ja' ? '（走者無または2死時無効）' : '(No runner on 1st or 2 outs)'}
+                  </div>
+                )}
               </button>
 
               <button

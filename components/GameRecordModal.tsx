@@ -236,7 +236,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
     if (rbi === 0 && atBats.length > 0) {
       let calcRbi = 0;
       atBats.forEach(ab => {
-        const m = ab.match(/\((\d+)\)/);
+        const m = ab.match(/[\(（]\s*(\d+)\s*[\)）]/);
         if (m) {
           calcRbi += parseInt(m[1], 10);
         } else if (ab.includes('全壘打') || ab.includes('HR')) {

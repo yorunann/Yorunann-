@@ -1,6 +1,37 @@
 export function parseLineupText(text: string) {
+    if (!text || !text.trim()) return [];
+
+    const trimmed = text.trim();
+    // JSON support if user pastes JSON format
+    if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+        try {
+            const data = JSON.parse(trimmed);
+            const list = Array.isArray(data) ? data : (data.players || data.lineup || []);
+            if (Array.isArray(list) && list.length > 0) {
+                return list.map((item: any, idx: number) => ({
+                    position: item.position || item.pos || 'DH',
+                    number: String(item.number || item.num || item.no || '00'),
+                    name: String(item.name || `Player ${idx + 1}`),
+                    avg: String(item.stat || item.avg || '.000'),
+                    isBench: Boolean(item.isBench || item.position === 'BN' || item.position === '0B')
+                }));
+            }
+        } catch (e) {
+            // Fall through to text parsing
+        }
+    }
+
     // Treat full-width comma (，), enumeration comma (、), full-width semicolon (；), and half-width semicolon (;) as line breaks
-    const normalizedText = text.replace(/[，、；;]/g, '\n');
+    let normalizedText = text
+        .replace(/[\u00A0\u1680\u180E\u2000-\u200B\u202F\u205F\u3000\uFEFF]/g, ' ')
+        .replace(/[，、；;]/g, '\n');
+
+    // Split before order numbering e.g. " 2. ", " 2棒 ", " 第2棒 ", " [2] ", " (2) "
+    normalizedText = normalizedText.replace(/(?<=\S)\s+(?=(?:第?[1-9]|1[0-9]|20)[棒番\.\-、:_／/\)\]】]\s*)/g, '\n');
+
+    // Split after parenthesized position e.g. "(1B) 3 井端弘和", "[CF] 24 陳傑憲"
+    normalizedText = normalizedText.replace(/(?<=[\)\]】])\s*(?=[#＃]?[1-9]\d{0,2}\s+[\u4e00-\u9fa5a-zA-Z])/g, '\n');
+
     const rawLines = normalizedText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     const results = [];
 
@@ -79,10 +110,11 @@ export function parseLineupText(text: string) {
         // 2c. "1.", "1-", "1:", "1)", "1/", "1、", "1_" with punctuation (1-20)
         s = s.replace(/^[#＃]?([1-9]|1[0-9]|20)[\.\-\:\)\/、_]+[\s]*/i, ' ');
 
-        // 2d. Leading order number followed by whitespace or immediately followed by text
+        // 2d. Leading order number followed by whitespace or punctuation (never strip 1B, 2B, 3B, 0B)
         // Only strip as batting order if there is ANOTHER number on the line to serve as the jersey number
         // e.g. "1 角中勝也 #61 指定打擊", "1 61 角中勝也", "1 角中勝也 61"
-        const leadingOrderMatch = s.match(/^([1-9]|1[0-9]|20)(\s+|(?=[^\d\s]))/);
+        const isPosPrefix = /^(?:1B|2B|3B|0B)\b/i.test(s);
+        const leadingOrderMatch = !isPosPrefix ? s.match(/^([1-9]|1[0-9]|20)(?:[\.\-、:_／/\)\s]+)/) : null;
         if (leadingOrderMatch) {
             const remainder = s.substring(leadingOrderMatch[0].length).trim();
             const hasAnotherNum = /\b\d{1,3}\b/.test(remainder) || /#\d+/.test(remainder);

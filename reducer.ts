@@ -620,11 +620,13 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       
       const willResetInning = state.outs >= 2;
 
+      const resultText = (action as any).outType || '出局';
+
       const newLineup = [...teamObj.lineup];
       if (newLineup[curIndex]) {
         newLineup[curIndex] = {
           ...newLineup[curIndex],
-          atBats: [...(newLineup[curIndex].atBats || []), '出局']
+          atBats: [...(newLineup[curIndex].atBats || []), resultText]
         };
       }
 
@@ -827,7 +829,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       if (newLineup[curIndex]) {
         newLineup[curIndex] = {
           ...newLineup[curIndex],
-          atBats: [...(newLineup[curIndex].atBats || []), runsScored > 1 ? `全壘打(${runsScored})` : '全壘打']
+          atBats: [...(newLineup[curIndex].atBats || []), `全壘打(${runsScored})`]
         };
       }
 
@@ -1418,8 +1420,15 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         let rbi = action.rbi;
         let runs = action.runs;
         if (rbi === undefined) {
-          const m = action.result.match(/\((\d+)\)/);
-          if (m) rbi = parseInt(m[1], 10);
+          const m = action.result.match(/[\(（]\s*(\d+)\s*[\)）]/);
+          if (m) {
+            rbi = parseInt(m[1], 10);
+          } else if (action.result.includes('全壘打') || action.result.includes('HR')) {
+            rbi = 1;
+          }
+        }
+        if (runs === undefined && (action.result.includes('全壘打') || action.result.includes('HR'))) {
+          runs = 1;
         }
         newLineup[pIdx] = {
           ...curPlayer,

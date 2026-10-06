@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, FileText, Trash2, RotateCcw } from 'lucide-react';
+import { X, Check, FileText, Trash2, RotateCcw, Clipboard } from 'lucide-react';
 import { Player } from '../types';
 import { parseLineupText } from '../utils/parseLineupText';
 
@@ -42,15 +42,8 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
 
   const handleBulkDelete = () => {
     if (selectedPlayerIds.length === 0) return;
-    const msg = language === 'en' 
-      ? `Delete ${selectedPlayerIds.length} selected player(s)?` 
-      : language === 'zh' 
-      ? `確定要刪除選取的 ${selectedPlayerIds.length} 位球員嗎？` 
-      : `選択した${selectedPlayerIds.length}名の選手を削除しますか？`;
-    if (confirm(msg)) {
-      setLocalCurrentPlayers(prev => prev.filter(p => !selectedPlayerIds.includes(p.id)));
-      setSelectedPlayerIds([]);
-    }
+    setLocalCurrentPlayers(prev => prev.filter(p => !selectedPlayerIds.includes(p.id)));
+    setSelectedPlayerIds([]);
   };
 
   const handleUpdateCurrent = (index: number, field: keyof Player, value: string) => {
@@ -135,29 +128,33 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
     return { lineupPlayers, benchPlayers, importedPitcher };
   };
 
-  const handleImportReplace = () => {
-    if (confirm(language === 'en' ? 'Are you sure you want to clear the current lineup and import?' : language === 'zh' ? '確定要清空現有名單並匯入嗎？' : '現在のラインナップをクリアしてインポートしますか？')) {
-      const { lineupPlayers, benchPlayers, importedPitcher } = separatePlayers(previewData);
-      onImport(lineupPlayers, benchPlayers, importedPitcher);
-      setPreviewData([]);
-      setText('');
-      onClose();
+  const handlePasteFromClipboard = async () => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
+        const clipText = await navigator.clipboard.readText();
+        if (clipText) {
+          handleTextChange(clipText);
+        }
+      }
+    } catch (e) {
+      console.warn('Clipboard read error or not permitted', e);
     }
   };
 
+  const handleImportReplace = () => {
+    const { lineupPlayers, benchPlayers, importedPitcher } = separatePlayers(previewData);
+    onImport(lineupPlayers, benchPlayers, importedPitcher);
+    setPreviewData([]);
+    setText('');
+    onClose();
+  };
+
   const handleImportAppend = () => {
-    const isSaveOnly = previewData.length === 0;
-    const msg = isSaveOnly 
-      ? (language === 'en' ? 'Save changes to current lineup?' : language === 'zh' ? '確定要儲存變更嗎？' : '変更を保存しますか？')
-      : (language === 'en' ? 'Append these players to the current lineup?' : language === 'zh' ? '確定要直接接續現有名單並匯入嗎？' : '現在のラインナップに追加してインポートしますか？');
-      
-    if (confirm(msg)) {
-      const { lineupPlayers, benchPlayers, importedPitcher } = separatePlayers(previewData);
-      onImport([...localCurrentPlayers, ...lineupPlayers], benchPlayers, importedPitcher);
-      setPreviewData([]);
-      setText('');
-      onClose();
-    }
+    const { lineupPlayers, benchPlayers, importedPitcher } = separatePlayers(previewData);
+    onImport([...localCurrentPlayers, ...lineupPlayers], benchPlayers, importedPitcher);
+    setPreviewData([]);
+    setText('');
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -191,15 +188,26 @@ export const LineupImportModal: React.FC<Props> = ({ isOpen, onClose, onImport, 
               <label className="text-sm font-semibold text-slate-200 flex items-center gap-1.5">
                 <span>{language === 'en' ? 'Paste Lineup Text' : language === 'zh' ? '貼上打線文字' : 'ラインナップテキストを貼り付ける'}</span>
               </label>
-              {text && (
+              <div className="flex items-center gap-2">
                 <button 
-                  onClick={handleClear}
-                  className="text-xs text-slate-400 hover:text-red-400 flex items-center gap-1 transition-colors"
+                  type="button"
+                  onClick={handlePasteFromClipboard}
+                  className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-2.5 py-1 rounded flex items-center gap-1 transition-colors cursor-pointer shadow-sm active:scale-95"
+                  title={language === 'en' ? 'Read from clipboard' : language === 'zh' ? '從剪貼簿讀取貼上' : 'クリップボードから貼付'}
                 >
-                  <RotateCcw size={12} />
-                  {language === 'en' ? 'Clear' : language === 'zh' ? '清空' : 'クリア'}
+                  <Clipboard size={12} />
+                  <span>{language === 'en' ? 'Paste Clipboard' : language === 'zh' ? '讀取剪貼簿' : '貼付'}</span>
                 </button>
-              )}
+                {text && (
+                  <button 
+                    onClick={handleClear}
+                    className="text-xs text-slate-400 hover:text-red-400 flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <RotateCcw size={12} />
+                    {language === 'en' ? 'Clear' : language === 'zh' ? '清空' : 'クリア'}
+                  </button>
+                )}
+              </div>
             </div>
             
             <textarea 
