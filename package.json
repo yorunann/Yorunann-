@@ -1,7 +1,7 @@
 {
   "name": "pro-baseball-scoreboard",
   "private": true,
-  "version": "3.0.2",
+  "version": "3.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,8 +14,11 @@
     "@dnd-kit/modifiers": "^9.0.0",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@types/qrcode": "^1.5.6",
     "lucide-react": "^0.555.0",
     "motion": "^12.38.0",
+    "peerjs": "^1.5.5",
+    "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-easy-crop": "^5.5.6"

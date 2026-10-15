@@ -24,7 +24,8 @@ import {
   Flame,
   Check,
   X,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Smartphone
 } from 'lucide-react';
 import { LineupImportModal } from './LineupImportModal';
 import { ImageCropperModal } from './ImageCropperModal';

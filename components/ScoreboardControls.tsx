@@ -4,7 +4,7 @@ import { LineupImportModal } from './LineupImportModal';
 import React, { useRef, useEffect, useState } from 'react';
 import { GameState, ActionType, Player, Team, PitchInfo, GameMeta } from '../types';
 import { getPitcherCount } from '../reducer';
-import { Play, Pause, RotateCcw, Eye, EyeOff, User, Trash2, Plus, PenTool, Tv, LayoutTemplate, Square, Image as ImageIcon, RefreshCw, ArrowDown, ArrowUp, GripVertical, Settings, Check, CircleDot, ChevronDown, ChevronUp, ChevronRight, X, Flame, FileSpreadsheet } from 'lucide-react';
+import { Play, Pause, RotateCcw, Eye, EyeOff, User, Trash2, Plus, PenTool, Tv, LayoutTemplate, Square, Image as ImageIcon, RefreshCw, ArrowDown, ArrowUp, GripVertical, Settings, Check, CircleDot, ChevronDown, ChevronUp, ChevronRight, X, Flame, FileSpreadsheet, Smartphone } from 'lucide-react';
 import { ImageCropperModal } from './ImageCropperModal';
 import { 
   DndContext, 

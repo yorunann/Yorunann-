@@ -10,7 +10,7 @@ interface UserGuideModalProps {
 
 export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose, language = 'zh' }) => {
   const [page, setPage] = useState(1);
-  const totalPages = 7;
+  const totalPages = 8;
 
   if (!isOpen) return null;
 
@@ -133,7 +133,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose,
           {page === 5 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
               <h3 className="text-2xl font-bold text-blue-600">{language === 'en' ? '5. Shortcuts' : language === 'zh' ? '5. 快捷鍵 (Shortcuts)' : '5. ショートカット'}</h3>
-              <p className="text-slate-700">{language === 'en' ? 'Supports keyboard and gamepads (e.g. PS4 Controller) for blind operation!' : language === 'zh' ? '支援鍵盤與遊戲手把 (如 PS4 控制器)，讓計分員可以盲操作，視線不離開球場！' : 'キーボードやゲームパッド(PS4等)に対応し、ブラインド操作が可能！'}</p>
+              <p className="text-slate-700">{language === 'en' ? 'Supports full keyboard shortcuts for blind operation!' : language === 'zh' ? '支援完整鍵盤快捷鍵，讓計分員可以盲操作，視線不離開球場！' : 'キーボードショートカットに対応し、ブラインド操作が可能！'}</p>
               
               <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-4 text-sm">
                 <div className="flex justify-between border-b py-1">
@@ -169,7 +169,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose,
                   <kbd className="bg-slate-100 px-2 rounded border font-mono">Enter</kbd>
                 </div>
               </div>
-              <p className="text-xs text-slate-500 mt-2">{language === 'en' ? '* You can customize keys in Shortcuts menu. Use tools like JoyToKey for gamepads.' : language === 'zh' ? '* 您可以在頂部工具列的「Shortcuts」中自訂所有按鍵。若連接手把，可使用 JoyToKey 等軟體將手把按鍵映射為鍵盤按鍵。' : '* ショートカットメニューでキーをカスタマイズできます。ゲームパッドを使用する場合は JoyToKey などのツールを使用してください。'}</p>
+              <p className="text-xs text-slate-500 mt-2">{language === 'en' ? '* You can customize keys in the Shortcuts menu.' : language === 'zh' ? '* 您可以在頂部工具列的「Shortcuts」中自訂所有鍵盤按鍵。' : '* ショートカットメニューでキーをカスタマイズできます。'}</p>
             </div>
           )}
 
@@ -198,6 +198,46 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose,
           )}
 
           {page === 7 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+              <h3 className="text-2xl font-bold text-blue-600">
+                {language === 'en' ? '7. Mobile Remote Control (Serverless P2P)' : language === 'zh' ? '7. 手機遠端遙控 (免伺服器 P2P)' : '7. スマホ遠隔操作 (P2P)'}
+              </h3>
+              <p className="text-slate-700">
+                {language === 'en'
+                  ? 'Use your smartphone or a second device as a wireless handheld remote for the scoreboard, without needing any backend server!'
+                  : language === 'zh'
+                  ? '使用您的智慧型手機或另一台裝置，直接作為大螢幕記分板的無線掌上型遙控器，完全不需要架設後端伺服器！'
+                  : 'サーバー不要で、スマートフォン等を無線リモコンとしてスコアボードを操作できます！'}
+              </p>
+              
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mt-4">
+                <ol className="list-decimal list-inside space-y-3 text-slate-700">
+                  <li>
+                    {language === 'zh'
+                      ? '點擊頂部工具列或控制台的「手機遙控」按鈕。'
+                      : 'Click the Mobile Remote button in the top toolbar or controls.'}
+                  </li>
+                  <li>
+                    {language === 'zh'
+                      ? '使用手機相機掃描畫面上的專屬 QR Code，或輸入 6 碼房間代碼。'
+                      : 'Scan the displayed QR code with your phone camera, or enter the 6-character room code.'}
+                  </li>
+                  <li>
+                    {language === 'zh'
+                      ? '手機會自動進入「極簡快控模式」，提供超大好壞球、得分、出局數、打席結果按鈕與震動觸控回饋！'
+                      : 'Your phone opens the tactile fast-remote pad with BSO buttons, runs, outs, and haptic feedback!'}
+                  </li>
+                  <li>
+                    {language === 'zh'
+                      ? '⚡ 純前端 WebRTC 加密傳輸：訊號直接點對點送到遠處記分板，超低延遲且無伺服器成本。'
+                      : '⚡ Pure WebRTC DataChannel: zero backend server, direct encrypted peer-to-peer.'}
+                  </li>
+                </ol>
+              </div>
+            </div>
+          )}
+
+          {page === 8 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4 flex flex-col items-center justify-center h-64 text-center">
               <h3 className="text-2xl font-bold text-slate-800 mb-2">Credits</h3>
               <div className="text-lg text-slate-600">

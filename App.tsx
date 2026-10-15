@@ -6,15 +6,26 @@ import { INITIAL_STATE } from './constants';
 import { ScoreboardDisplay } from './components/ScoreboardDisplay';
 import { ScoreboardControls } from './components/ScoreboardControls';
 import { ScoreboardControlsV2 } from './components/ScoreboardControlsV2';
-import { MonitorPlay, Maximize, Minimize, Keyboard, Settings, ExternalLink, RotateCcw, Gamepad2, BookOpen, Plus, Minus, Menu, X } from 'lucide-react';
+import { MonitorPlay, Maximize, Minimize, Keyboard, Settings, ExternalLink, RotateCcw, BookOpen, Plus, Minus, Menu, X, Smartphone } from 'lucide-react';
 import { useShortcuts, DEFAULT_SHORTCUTS, ShortcutMap } from './hooks/useShortcuts';
-import { useGamepad } from './hooks/useGamepad';
 import { ShortcutSettingsModal } from './components/ShortcutSettingsModal';
 import { UserGuideModal } from './components/UserGuideModal';
 import { SettingsModal } from './components/SettingsModal';
 import { GameRecordModal } from './components/GameRecordModal';
+import { RemoteSyncModal } from './components/RemoteSyncModal';
+import { MobileRemoteView } from './components/MobileRemoteView';
+import { usePeerSync } from './hooks/usePeerSync';
 
 import { reducer } from './reducer';
+
+const generateRoomCode = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let result = '';
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
 
 const getInitialState = (init: GameState): GameState => {
   try {
@@ -83,8 +94,59 @@ export const App: React.FC = () => {
   };
 
   const [isDisplayMode, setIsDisplayMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('mode') === 'display';
+  });
+
+  const [isRemoteMode, setIsRemoteMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('mode') === 'remote' || urlParams.get('mode') === 'controller';
+  });
+
+  const [roomCode, setRoomCode] = useState(() => {
+    if (typeof window === 'undefined') return 'SCORE1';
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomParam = urlParams.get('room');
+    if (roomParam) return roomParam.toUpperCase();
+    try {
+      const saved = localStorage.getItem('scoreboard_room_code');
+      if (saved) return saved;
+      const gen = generateRoomCode();
+      localStorage.setItem('scoreboard_room_code', gen);
+      return gen;
+    } catch {
+      return generateRoomCode();
+    }
+  });
+
+  const [isRemoteSyncModalOpen, setIsRemoteSyncModalOpen] = useState(false);
+  const handleDispatchRef = useRef<(action: ActionType) => void>(() => {});
+
+  const {
+    status: peerStatus,
+    connectedClientsCount,
+    latency: peerLatency,
+    errorMessage: peerErrorMessage,
+    broadcastState: peerBroadcastState,
+    sendAction: peerSendAction,
+    requestState: peerRequestState,
+  } = usePeerSync({
+    isHost: !isRemoteMode,
+    roomCode,
+    currentState: state,
+    language,
+    onRemoteDispatch: (remoteAction) => {
+      console.log('[Host Scoreboard] Remote action received via WebRTC P2P:', remoteAction);
+      handleDispatchRef.current(remoteAction);
+    },
+    onRemoteStateUpdate: (remoteState, remoteLang) => {
+      console.log('[Remote Controller] State update received from scoreboard host');
+      dispatch({ type: 'REPLACE_STATE', state: remoteState });
+      if (remoteLang) setLanguage(remoteLang);
+    },
+    enabled: true,
   });
 
   const isResizingRef = useRef(false);
@@ -137,7 +199,7 @@ export const App: React.FC = () => {
     };
 
     const handleRequestState = () => {
-      if (!isDisplayMode) {
+      if (!isDisplayMode && !isRemoteMode) {
         const currentState = stateRef.current;
         channel.postMessage({ type: 'SYNC_STATE', state: currentState, language });
         localStorage.setItem('scoreboard_state', JSON.stringify(currentState));
@@ -151,6 +213,10 @@ export const App: React.FC = () => {
         handleSyncState(event.data.state, event.data.language);
       } else if (event.data.type === 'REQUEST_STATE') {
         handleRequestState();
+      } else if (event.data.type === 'DISPATCH') {
+        if (!isRemoteMode) {
+          handleDispatchRef.current(event.data.action);
+        }
       }
     };
 
@@ -187,7 +253,7 @@ export const App: React.FC = () => {
     window.addEventListener('storage', handleStorage);
 
     // Request initial state or broadcast current state
-    if (isDisplayMode) {
+    if (isDisplayMode || isRemoteMode) {
       channel.postMessage({ type: 'REQUEST_STATE' });
       if (window.opener) {
         window.opener.postMessage({ type: 'REQUEST_STATE' }, '*');
@@ -272,6 +338,14 @@ export const App: React.FC = () => {
   }, [state, isDisplayMode]);
 
   const handleDispatch = (action: ActionType) => {
+    // If in remote mobile mode, send action to host scoreboard via WebRTC & BroadcastChannel
+    if (isRemoteMode) {
+      peerSendAction(action);
+      if (channelRef.current) {
+        channelRef.current.postMessage({ type: 'DISPATCH', action });
+      }
+    }
+
     if (action.type === 'UNDO') {
       if (history.length > 0) {
         const previousState = history[history.length - 1];
@@ -291,6 +365,14 @@ export const App: React.FC = () => {
     isLocalAction.current = true;
     dispatch(action);
   };
+  handleDispatchRef.current = handleDispatch;
+
+  // Broadcast state to all connected peers whenever host state changes
+  useEffect(() => {
+    if (!isRemoteMode) {
+      peerBroadcastState(state, language);
+    }
+  }, [state, language, isRemoteMode, peerBroadcastState]);
 
   // Shortcuts are always enabled now
   useShortcuts(true, shortcuts, handleDispatch, state);
@@ -303,16 +385,6 @@ export const App: React.FC = () => {
   const handleCancelReset = () => {
     setIsResetConfirmOpen(false);
   };
-
-  const isGamepadConnected = useGamepad(
-    true, 
-    handleDispatch, 
-    state, 
-    () => setIsResetConfirmOpen(true),
-    isResetConfirmOpen,
-    handleConfirmReset,
-    handleCancelReset
-  );
 
   // Timer Effect
   useEffect(() => {
@@ -444,6 +516,47 @@ export const App: React.FC = () => {
     };
   }, [isPseudoFullscreen]);
 
+  if (isRemoteMode) {
+    return (
+      <div className="w-full h-full min-h-screen bg-slate-950">
+        <MobileRemoteView
+          state={state}
+          dispatch={handleDispatch}
+          language={language}
+          connectionStatus={peerStatus}
+          latency={peerLatency}
+          errorMessage={peerErrorMessage}
+          roomCode={roomCode}
+          onChangeRoomCode={(newCode) => {
+            const clean = newCode.toUpperCase();
+            setRoomCode(clean);
+            try {
+              localStorage.setItem('scoreboard_room_code', clean);
+            } catch (e) {}
+          }}
+          onReconnect={() => {
+            peerRequestState();
+          }}
+          useBetaControls={useBetaControls}
+          onExitRemoteMode={() => {
+            setIsRemoteMode(false);
+            const url = new URL(window.location.href);
+            url.searchParams.delete('mode');
+            window.history.replaceState({}, '', url.toString());
+          }}
+          onOpenRecordModal={() => setIsGameRecordModalOpen(true)}
+        />
+        <GameRecordModal
+          isOpen={isGameRecordModalOpen}
+          onClose={() => setIsGameRecordModalOpen(false)}
+          state={state}
+          dispatch={handleDispatch}
+          language={language}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-slate-900 flex flex-col font-sans overflow-hidden">
       {/* Navigation Header */}
@@ -496,17 +609,26 @@ export const App: React.FC = () => {
               {isToolbarExpanded && <span className="text-xs font-medium ml-1">Project</span>}
             </button>
             <div className="w-px h-6 bg-slate-700 mx-1"></div>
-            <div 
-              className={`hidden sm:flex p-1.5 rounded-md items-center space-x-1 transition-colors ${
-                isGamepadConnected 
-                  ? 'bg-green-600 text-white' 
-                  : 'text-slate-500'
+            <button
+              onClick={() => setIsRemoteSyncModalOpen(true)}
+              className={`p-1.5 rounded-md transition-all flex items-center space-x-1 ${
+                connectedClientsCount > 0
+                  ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-600/40 shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700'
               }`}
-              title={isGamepadConnected ? "Gamepad Connected" : "Gamepad Disconnected"}
+              title={language === 'zh' ? '手機遠端遙控 (實驗性免伺服器)' : 'Mobile Remote Control'}
             >
-              <Gamepad2 size={18} />
-              {isToolbarExpanded && <span className="text-xs font-medium ml-1">Gamepad</span>}
-            </div>
+              <Smartphone size={18} />
+              {connectedClientsCount > 0 && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              )}
+              {isToolbarExpanded && (
+                <span className="text-xs font-medium ml-1">
+                  {language === 'zh' ? '手機遙控' : 'Remote'}
+                </span>
+              )}
+            </button>
+            <div className="w-px h-6 bg-slate-700 mx-1"></div>
             <button
               onClick={() => setIsUserGuideModalOpen(true)}
               className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center space-x-1"
@@ -680,7 +802,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v3.0.2</span>
+          <span className="text-slate-600 ml-2">v3.1.0</span>
        </footer>
 
         <ShortcutSettingsModal
@@ -710,6 +832,22 @@ export const App: React.FC = () => {
           onClose={() => setIsGameRecordModalOpen(false)}
           state={state}
           dispatch={handleDispatch}
+          language={language}
+        />
+
+        <RemoteSyncModal
+          isOpen={isRemoteSyncModalOpen}
+          onClose={() => setIsRemoteSyncModalOpen(false)}
+          roomCode={roomCode}
+          onRegenerateRoomCode={() => {
+            const newCode = generateRoomCode();
+            setRoomCode(newCode);
+            try {
+              localStorage.setItem('scoreboard_room_code', newCode);
+            } catch (e) {}
+          }}
+          connectionStatus={peerStatus}
+          connectedClientsCount={connectedClientsCount}
           language={language}
         />
 
