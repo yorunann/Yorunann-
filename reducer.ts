@@ -859,8 +859,10 @@ function baseReducer(state: GameState, action: ActionType): GameState {
     }
 
     case 'WILD_PITCH': {
-      const teamKey = state.isTop ? 'awayTeam' : 'homeTeam';
-      const teamObj = state[teamKey];
+      const battingTeamKey = state.isTop ? 'awayTeam' : 'homeTeam';
+      const fieldingTeamKey = state.isTop ? 'homeTeam' : 'awayTeam';
+      const battingTeam = state[battingTeamKey];
+      const fieldingTeam = state[fieldingTeamKey];
       const curRunners = state.baseRunners || [null, null, null];
       
       let newBases = [...state.bases] as [boolean, boolean, boolean];
@@ -870,7 +872,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       
       if (newBases[2]) {
         runsScored = 1;
-        scoringRunnerIds = resolveScoringRunners(teamObj, [2], state.baseRunners, teamObj.currentBatterIndex);
+        scoringRunnerIds = resolveScoringRunners(battingTeam, [2], state.baseRunners, battingTeam.currentBatterIndex);
         newBases[2] = false;
         newRunners[2] = null;
       }
@@ -887,11 +889,17 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         newRunners[0] = null;
       }
 
+      // Increment errors (+1) on the fielding (defending) team
+      const updatedFieldingTeam = {
+        ...fieldingTeam,
+        errors: (fieldingTeam.errors || 0) + 1
+      };
+
       if (runsScored > 0) {
         const { lineup: updatedLineup, bench: updatedBench } = recordTeamScoring(
-          teamObj,
+          battingTeam,
           scoringRunnerIds,
-          undefined, // no batter RBI on wild pitch
+          undefined, // no batter RBI on wild pitch / passed ball
           0,
           false
         );
@@ -900,20 +908,22 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           ...state,
           bases: newBases,
           baseRunners: newRunners,
-          [teamKey]: {
-            ...teamObj,
-            score: teamObj.score + runsScored,
+          [battingTeamKey]: {
+            ...battingTeam,
+            score: battingTeam.score + runsScored,
             lineup: updatedLineup,
             bench: updatedBench,
-            inningScores: updateInningScore(teamObj, state.inning, runsScored)
-          }
+            inningScores: updateInningScore(battingTeam, state.inning, runsScored)
+          },
+          [fieldingTeamKey]: updatedFieldingTeam
         };
       }
       
       return {
         ...state,
         bases: newBases,
-        baseRunners: newRunners
+        baseRunners: newRunners,
+        [fieldingTeamKey]: updatedFieldingTeam
       };
     }
 

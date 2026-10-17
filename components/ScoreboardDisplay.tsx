@@ -326,9 +326,7 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
             style={style} 
             {...attributes} 
             {...listeners} 
-            className={`flex-1 min-h-0 w-full flex justify-between items-center ${rowPadding} rounded-none transition-colors cursor-grab active:cursor-grabbing ${
-                isActive ? "bg-blue-600/35 ring-1.5 ring-blue-400 shadow-md" : "hover:bg-slate-800/40"
-            }`}
+            className={`flex-1 min-h-0 w-full flex justify-between items-center ${rowPadding} rounded-none transition-colors cursor-grab active:cursor-grabbing hover:bg-slate-800/40`}
         >
             <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1 overflow-hidden">
                 {!isBench && (
@@ -356,14 +354,8 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
                 </div>
             </div>
 
-
-
-            {/* Position Display (replaces batting average) */}
-            <span className={`${posTextSize} shrink-0 ml-1.5 ${
-                isActive 
-                    ? "text-blue-300 font-black bg-blue-500/20 px-1 py-0.5 rounded text-[10px]" 
-                    : "text-amber-400"
-            }`}>
+            {/* Position Display */}
+            <span className={`${posTextSize} shrink-0 ml-1.5 text-amber-400`}>
                 {p.position || (isBench ? 'BN' : 'DH')}
             </span>
         </div>
@@ -503,7 +495,7 @@ const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: b
                     </SortableContext>
 
                     {/* Pitcher Row (Fitted dynamically in column with AutoCondenseText) */}
-                    <div className={`flex-1 min-h-0 flex justify-between items-center ${scaleMode === 'large' ? "px-2.5 py-0.5 sm:py-1" : scaleMode === 'compact' ? "px-2 py-0" : "px-2.5 py-0.5"} rounded-none transition-colors border-t border-slate-700/60 ${isTeamPitching ? "bg-blue-600/35 ring-1.5 ring-blue-400 shadow-md" : "hover:bg-slate-700/50"}`}>
+                    <div className={`flex-1 min-h-0 flex justify-between items-center ${scaleMode === 'large' ? "px-2.5 py-0.5 sm:py-1" : scaleMode === 'compact' ? "px-2 py-0" : "px-2.5 py-0.5"} rounded-none transition-colors border-t border-slate-700/60 hover:bg-slate-700/50`}>
                         <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1 overflow-hidden">
                             <span className={`${scaleMode === 'large' ? "text-xs sm:text-sm font-black w-4 sm:w-5" : scaleMode === 'compact' ? "text-[9px] w-3" : "text-[10px] sm:text-xs w-3.5"} text-slate-400 font-mono shrink-0`}>
                                 P.
@@ -511,17 +503,12 @@ const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: b
                             <div className="flex-1 min-w-0 overflow-hidden flex items-center">
                                 <AutoCondenseText 
                                     text={team.pitcher.name} 
-                                    className={`${scaleMode === 'large' ? "text-xs sm:text-base lg:text-lg font-black" : scaleMode === 'compact' ? "text-[10px] font-bold" : "text-xs sm:text-sm font-bold"} leading-tight ${isTeamPitching ? "text-white" : "text-slate-300"}`} 
+                                    className={`${scaleMode === 'large' ? "text-xs sm:text-base lg:text-lg font-black" : scaleMode === 'compact' ? "text-[10px] font-bold" : "text-xs sm:text-sm font-bold"} leading-tight text-slate-200`} 
                                     align="left" 
                                 />
                                 {team.pitcher.number && <span className={`ml-1 ${scaleMode === 'large' ? "text-xs sm:text-sm text-slate-400 font-semibold" : "text-[9px] sm:text-[10px] text-slate-400"} shrink-0`}>#{team.pitcher.number}</span>}
                             </div>
                         </div>
-                        {(state.showCount ?? true) && (
-                            <span className={`${scaleMode === 'large' ? "text-xs sm:text-sm font-bold" : "text-[9px] sm:text-[10px]"} font-mono text-slate-400 shrink-0 ml-1.5`}>
-                                P: {getPitcherCount(team.pitcher)}
-                            </span>
-                        )}
                     </div>
                 </div>
 

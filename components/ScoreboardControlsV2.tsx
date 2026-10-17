@@ -50,6 +50,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
   const [tempImageSrc, setTempImageSrc] = useState('');
   const [isWalkModalOpen, setIsWalkModalOpen] = useState(false);
   const [isOutModalOpen, setIsOutModalOpen] = useState(false);
+  const [isWpPbModalOpen, setIsWpPbModalOpen] = useState(false);
 
   // Customizable Timer Presets (stored in localStorage)
   const [preset1, setPreset1] = useState<number>(() => {
@@ -96,6 +97,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
   const fieldingTeam = isTop ? state.homeTeam : state.awayTeam;
   const activeBatter: Partial<Player> = battingTeam.lineup[battingTeam.currentBatterIndex] || { name: '打者', number: '', stat: '.000', position: 'DH' };
   const activePitcher = fieldingTeam.pitcher || { name: '投手', number: '', stat: '0', position: 'P' };
+  const activeCatcher: Partial<Player> = fieldingTeam.lineup.find(p => p.position === 'C' || p.position === '捕手' || p.position === '2') || { name: '捕手', number: '', position: 'C' };
   
   // Current active base color
   const activeBaseColor = isTop 
@@ -450,11 +452,11 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                     +
                   </button>
                   <button
-                    onClick={() => dispatch({ type: 'WILD_PITCH' })}
+                    onClick={() => setIsWpPbModalOpen(true)}
                     className="px-1.5 py-0.5 bg-orange-700/80 hover:bg-orange-600 text-white text-[10px] font-bold rounded ml-0.5 active:scale-95 cursor-pointer"
-                    title="Wild Pitch / Passed Ball (暴投/捕逸)"
+                    title={language === 'zh' ? '暴投 / 捕逸 (WP / PB)' : 'Wild Pitch / Passed Ball (WP/PB)'}
                   >
-                    WP
+                    {language === 'zh' ? '暴投/捕逸' : 'WP/PB'}
                   </button>
                 </div>
 
@@ -534,7 +536,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                   onClick={() => handleQuickOutcome('BB')}
                   className="py-2.5 px-1 bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs rounded-lg text-center transition-all active:scale-95 shadow-sm"
                 >
-                  BB 保送
+                  保送/不死
                 </button>
                 <button
                   onClick={() => handleQuickOutcome('OUT')}
@@ -1539,6 +1541,106 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
             <div className="flex justify-end pt-2 border-t border-slate-800">
               <button
                 onClick={() => setIsWalkModalOpen(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition-colors"
+              >
+                {language === 'zh' ? '取消' : language === 'ja' ? 'キャンセル' : 'Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WILD PITCH / PASSED BALL MODAL (暴投/捕逸彈窗) */}
+      {isWpPbModalOpen && (
+        <div className="absolute inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl space-y-4 max-h-[90%] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-lg font-black text-white flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                  <span>{language === 'zh' ? '選擇暴投 / 捕逸' : language === 'ja' ? '暴投 / 捕逸の選択' : 'Select Wild Pitch / Passed Ball'}</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {language === 'zh' 
+                    ? `守備：${fieldingTeam.name} | 投手：#${activePitcher.number || '--'} ${activePitcher.name} | 捕手：#${activeCatcher.number || '--'} ${activeCatcher.name}` 
+                    : language === 'ja' 
+                    ? `守備：${fieldingTeam.name} | 投手：#${activePitcher.number || '--'} ${activePitcher.name} | 捕手：#${activeCatcher.number || '--'} ${activeCatcher.name}` 
+                    : `Fielding: ${fieldingTeam.name} | P: #${activePitcher.number || '--'} ${activePitcher.name} | C: #${activeCatcher.number || '--'} ${activeCatcher.name}`}
+                </p>
+              </div>
+              <button 
+                onClick={() => setIsWpPbModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-2.5 bg-amber-950/30 border border-amber-500/30 rounded-xl text-[11px] text-amber-200 leading-relaxed">
+              {language === 'zh' 
+                ? '兩者皆會使壘上跑者向前推進各 1 壘（三壘跑者回本壘得分），並自動將守備方失誤 (E) +1。' 
+                : language === 'ja'
+                ? '走者を各1塁進塁させ、守備側の失策 (E) を +1 します。'
+                : 'Both advance runners by 1 base and automatically add +1 to fielding team Errors (E).'}
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              <button
+                onClick={() => {
+                  dispatch({ type: 'WILD_PITCH', subType: 'WP' });
+                  setIsWpPbModalOpen(false);
+                }}
+                className="flex items-center justify-between p-3.5 bg-slate-800/80 hover:bg-orange-950/70 border-2 border-slate-700 hover:border-orange-500 rounded-xl transition-all group text-left active:scale-98"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-black px-2.5 py-1.5 rounded-lg bg-orange-500/20 text-orange-300 border border-orange-500/50 font-mono">
+                    WP
+                  </span>
+                  <div>
+                    <div className="text-base font-black text-white group-hover:text-orange-300 transition-colors flex items-center gap-2">
+                      <span>{language === 'zh' ? '暴投 (Wild Pitch)' : language === 'ja' ? '暴投 (ワイルドピッチ)' : 'Wild Pitch (WP)'}</span>
+                      <span className="text-xs px-2 py-0.5 rounded bg-orange-600/30 text-orange-300 border border-orange-500/40">
+                        {language === 'zh' ? `記投手：${activePitcher.name}` : `P: ${activePitcher.name}`}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">
+                      {language === 'zh' ? '投球過偏或挖地瓜導致捕手無法正常接捕，失誤記在投手身上。' : 'Pitch is errant, charged to pitcher.'}
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight size={20} className="text-slate-500 group-hover:text-orange-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+              </button>
+
+              <button
+                onClick={() => {
+                  dispatch({ type: 'WILD_PITCH', subType: 'PB' });
+                  setIsWpPbModalOpen(false);
+                }}
+                className="flex items-center justify-between p-3.5 bg-slate-800/80 hover:bg-purple-950/70 border-2 border-slate-700 hover:border-purple-500 rounded-xl transition-all group text-left active:scale-98"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-black px-2.5 py-1.5 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/50 font-mono">
+                    PB
+                  </span>
+                  <div>
+                    <div className="text-base font-black text-white group-hover:text-purple-300 transition-colors flex items-center gap-2">
+                      <span>{language === 'zh' ? '捕逸 (Passed Ball)' : language === 'ja' ? '捕逸 (パスボール)' : 'Passed Ball (PB)'}</span>
+                      <span className="text-xs px-2 py-0.5 rounded bg-purple-600/30 text-purple-300 border border-purple-500/40">
+                        {language === 'zh' ? `記捕手：${activeCatcher.name}` : `C: ${activeCatcher.name}`}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">
+                      {language === 'zh' ? '投手投出可正常接捕之球，但捕手發生漏接，失誤記在捕手身上。' : 'Catchable pitch missed by catcher, charged to catcher.'}
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight size={20} className="text-slate-500 group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+              </button>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-800">
+              <button
+                onClick={() => setIsWpPbModalOpen(false)}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition-colors"
               >
                 {language === 'zh' ? '取消' : language === 'ja' ? 'キャンセル' : 'Cancel'}

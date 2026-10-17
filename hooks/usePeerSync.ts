@@ -133,14 +133,35 @@ export function usePeerSync({
 
     const hostPeerId = `${PEER_PREFIX}${cleanRoom}`;
 
+    let reconnectTimer: any = null;
+    let reconnectAttempts = 0;
+
+    const scheduleReconnect = () => {
+      if (isDestroyed || !peerRef.current || peerRef.current.destroyed) return;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      const delay = Math.min(1500 * Math.pow(1.5, Math.min(reconnectAttempts, 5)), 12000);
+      reconnectTimer = setTimeout(() => {
+        if (isDestroyed || !peerRef.current || peerRef.current.destroyed) return;
+        if (peerRef.current.disconnected) {
+          try {
+            reconnectAttempts++;
+            console.log(`[PeerSync] Reconnecting to signaling server (attempt ${reconnectAttempts})...`);
+            peerRef.current.reconnect();
+          } catch (e) {
+            console.warn('[PeerSync] Reconnection invocation error', e);
+          }
+        }
+      }, delay);
+    };
+
     try {
       const peer = isHost
         ? new Peer(hostPeerId, {
-            debug: 1,
+            debug: 0,
             config: { iceServers },
           })
         : new Peer({
-            debug: 1,
+            debug: 0,
             config: { iceServers },
           });
 
@@ -148,6 +169,8 @@ export function usePeerSync({
 
       peer.on('open', (id) => {
         if (isDestroyed) return;
+        reconnectAttempts = 0;
+        if (reconnectTimer) clearTimeout(reconnectTimer);
         console.log(`[PeerSync] Peer opened as ${isHost ? 'Host' : 'Client'}, ID: ${id}`);
         
         if (isHost) {
@@ -195,9 +218,9 @@ export function usePeerSync({
 
           conn.on('error', (err) => {
             if (isDestroyed) return;
-            console.error('[PeerSync] Connection error:', err);
+            console.warn('[PeerSync] Client connection error:', err);
             setStatus('error');
-            setErrorMessage(err.message || '連線錯誤');
+            setErrorMessage(err?.message || '連線錯誤');
           });
         }
       });
@@ -256,28 +279,40 @@ export function usePeerSync({
         });
       }
 
-      peer.on('error', (err) => {
+      peer.on('error', (err: any) => {
         if (isDestroyed) return;
-        console.error('[PeerSync] Peer error:', err);
-        if (err.type === 'unavailable-id') {
-          setErrorMessage('房間代碼已被佔用，請重新生成');
-        } else if (err.type === 'peer-unavailable') {
-          setErrorMessage('找不到遠端記分板，請確認記分板畫面是否開啟且代碼正確');
-        } else {
-          setErrorMessage(err.message || '連線服務暫時無法存取');
+        const msg = String(err?.message || err || '');
+        const errType = err?.type || '';
+
+        // Transient signaling server disconnect - should not be treated as fatal error
+        if (errType === 'network' || errType === 'server-error' || errType === 'socket-closed' || errType === 'socket-error' || msg.includes('Lost connection to server')) {
+          console.log('[PeerSync] Signaling server connection lost temporarily; will reconnect automatically');
+          scheduleReconnect();
+          return;
         }
-        setStatus('error');
+
+        if (errType === 'unavailable-id') {
+          console.warn('[PeerSync] Room code already in use on signaling server:', err);
+          setErrorMessage('房間代碼已被佔用，請重新生成或換一組代碼');
+          setStatus('error');
+        } else if (errType === 'peer-unavailable') {
+          console.log('[PeerSync] Host not found yet:', err);
+          setErrorMessage('找不到遠端記分板，請確認記分板畫面已開啟且代碼正確');
+          setStatus('error');
+        } else {
+          console.warn('[PeerSync] Peer notice:', err);
+          setErrorMessage(msg || '連線服務暫時無法存取');
+          setStatus('error');
+        }
       });
 
       peer.on('disconnected', () => {
         if (isDestroyed) return;
-        console.warn('[PeerSync] Peer disconnected from signaling server, attempting reconnect...');
-        if (!peer.destroyed) {
-          peer.reconnect();
-        }
+        console.log('[PeerSync] Peer disconnected from signaling server; scheduling reconnect...');
+        scheduleReconnect();
       });
     } catch (err: any) {
-      console.error('[PeerSync] Initialization failed', err);
+      console.warn('[PeerSync] Initialization failed', err);
       setStatus('error');
       setErrorMessage(err?.message || '初始化 P2P 服務失敗');
     }
@@ -295,6 +330,7 @@ export function usePeerSync({
 
     return () => {
       isDestroyed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       if (pingInterval) clearInterval(pingInterval);
       connectionsRef.current.forEach((conn) => conn.close());
       connectionsRef.current.clear();

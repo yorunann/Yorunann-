@@ -146,7 +146,7 @@ export const App: React.FC = () => {
       dispatch({ type: 'REPLACE_STATE', state: remoteState });
       if (remoteLang) setLanguage(remoteLang);
     },
-    enabled: true,
+    enabled: !isDisplayMode,
   });
 
   const isResizingRef = useRef(false);

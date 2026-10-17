@@ -167,7 +167,7 @@ export type ActionType =
   | { type: 'DOUBLE' }
   | { type: 'TRIPLE' }
   | { type: 'HOME_RUN' }
-  | { type: 'WILD_PITCH' }
+  | { type: 'WILD_PITCH'; subType?: 'WP' | 'PB' }
   | { type: 'SET_ANIMATION'; animation: AnimationData | null }
   | { type: 'NEXT_INNING' }
   | { type: 'PREVIOUS_HALF_INNING' }

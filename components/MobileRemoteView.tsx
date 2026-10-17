@@ -491,7 +491,7 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
                   onClick={() => handleAction({ type: 'WALK', walkType: '四球' })}
                   className="py-2.5 px-1 bg-slate-800 hover:bg-slate-700 active:scale-95 text-emerald-300 font-bold rounded-xl text-xs border border-slate-700 cursor-pointer"
                 >
-                  四壞 (BB)
+                  {language === 'zh' ? '保送/不死' : 'BB / D3K'}
                 </button>
                 <button
                   onClick={() => handleAction({ type: 'BATTER_OUT', outType: '三振' })}
