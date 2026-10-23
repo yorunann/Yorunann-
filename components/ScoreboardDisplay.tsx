@@ -106,6 +106,20 @@ export const formatAtBatChinese = (rawAb: string, lang: 'en' | 'zh' | 'ja' = 'zh
             rbi
         };
     }
+    if (ab === 'K+WP' || ab === 'K/WP') {
+        return { 
+            label: 'K+WP', 
+            style: 'text-purple-300 bg-purple-950/80 border-purple-500/70 font-black',
+            rbi
+        };
+    }
+    if (ab === 'K+PB' || ab === 'K/PB') {
+        return { 
+            label: 'K+PB', 
+            style: 'text-purple-300 bg-purple-950/80 border-purple-500/70 font-black',
+            rbi
+        };
+    }
     if (ab === 'D3K' || ab === '不死三振' || ab === '不死') {
         return { 
             label: lang === 'en' ? 'D3K' : lang === 'ja' ? '振逃' : '不死', 
@@ -272,10 +286,11 @@ const getTextColorForBg = (hexColor?: string) => {
   return '#ffffff';
 };
 
-interface SortablePlayerItemProps { 
+interface SortablePlayerItemProps {
   p: Player; 
   idx: number; 
   activeBatterId: string | undefined; 
+  isCurrentBatter?: boolean;
   isAway: boolean; 
   isBench?: boolean; 
   state?: any; 
@@ -288,6 +303,7 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
   p, 
   idx, 
   activeBatterId, 
+  isCurrentBatter,
   isAway, 
   isBench, 
   scaleMode = 'medium',
@@ -302,7 +318,7 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
         isDragging
     } = useSortable({ id: p.id });
 
-    const isActive = activeBatterId === p.id && !isBench;
+    const isActive = !isBench && (isCurrentBatter !== undefined ? isCurrentBatter : (Boolean(activeBatterId) && activeBatterId === p.id));
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -318,7 +334,7 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
     const orderTextSize = isLarge ? "text-xs sm:text-sm font-black w-4 sm:w-5" : isCompact ? "text-[9px] w-3" : "text-[10px] sm:text-xs w-3.5";
     const nameTextSize = isLarge ? "text-xs sm:text-base lg:text-lg font-black" : isCompact ? "text-[10px] font-bold" : "text-xs sm:text-sm font-bold";
     const numberTextSize = isLarge ? "text-xs sm:text-sm font-semibold" : isCompact ? "text-[8px]" : "text-[9px] sm:text-[10px]";
-    const posTextSize = isLarge ? "text-xs sm:text-sm font-mono font-black" : isCompact ? "text-[9px] font-mono font-bold" : "text-[10px] sm:text-xs font-mono font-bold";
+    const posTextSize = isLarge ? "text-xs sm:text-sm font-mono font-bold" : isCompact ? "text-[9px] font-mono font-bold" : "text-[10px] sm:text-xs font-mono font-bold";
 
     return (
         <div 
@@ -326,12 +342,14 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
             style={style} 
             {...attributes} 
             {...listeners} 
-            className={`flex-1 min-h-0 w-full flex justify-between items-center ${rowPadding} rounded-none transition-colors cursor-grab active:cursor-grabbing hover:bg-slate-800/40`}
+            className={`flex-1 min-h-0 w-full flex justify-between items-center ${rowPadding} rounded-none transition-colors cursor-grab active:cursor-grabbing ${
+                isActive ? "bg-blue-600/40 ring-1.5 ring-blue-400 shadow-md text-white font-black" : "hover:bg-slate-800/40 text-slate-200"
+            }`}
         >
             <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1 overflow-hidden">
                 {!isBench && (
                     <span className={`${orderTextSize} font-mono shrink-0 ${
-                        isActive ? "text-slate-200 font-black" : "text-slate-400"
+                        isActive ? "text-blue-300 font-black" : "text-slate-400"
                     }`}>
                         {idx + 1}.
                     </span>
@@ -346,7 +364,7 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
                     />
                     {p.number && (
                         <span className={`ml-1 ${numberTextSize} shrink-0 ${
-                            isActive ? "text-slate-300 font-bold" : "text-slate-400"
+                            isActive ? "text-blue-200 font-bold" : "text-slate-400"
                         }`}>
                             #{p.number}
                         </span>
@@ -354,8 +372,8 @@ const SortablePlayerItem: React.FC<SortablePlayerItemProps> = ({
                 </div>
             </div>
 
-            {/* Position Display */}
-            <span className={`${posTextSize} shrink-0 ml-1.5 text-amber-400`}>
+            {/* Position Display - neutral color, not standing out */}
+            <span className={`${posTextSize} shrink-0 ml-1.5 text-slate-400 font-mono`}>
                 {p.position || (isBench ? 'BN' : 'DH')}
             </span>
         </div>
@@ -484,6 +502,7 @@ const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: b
                                 p={p}
                                 idx={idx}
                                 activeBatterId={activeBatterId}
+                                isCurrentBatter={isTeamBatting && idx === team.currentBatterIndex}
                                 isAway={isAway}
                                 state={state}
                                 dispatch={dispatch}
@@ -495,7 +514,7 @@ const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: b
                     </SortableContext>
 
                     {/* Pitcher Row (Fitted dynamically in column with AutoCondenseText) */}
-                    <div className={`flex-1 min-h-0 flex justify-between items-center ${scaleMode === 'large' ? "px-2.5 py-0.5 sm:py-1" : scaleMode === 'compact' ? "px-2 py-0" : "px-2.5 py-0.5"} rounded-none transition-colors border-t border-slate-700/60 hover:bg-slate-700/50`}>
+                    <div className={`flex-1 min-h-0 flex justify-between items-center ${scaleMode === 'large' ? "px-2.5 py-0.5 sm:py-1" : scaleMode === 'compact' ? "px-2 py-0" : "px-2.5 py-0.5"} rounded-none transition-colors border-t border-slate-700/60 ${isTeamPitching ? "bg-blue-600/35 ring-1.5 ring-blue-400 shadow-md" : "hover:bg-slate-700/50"}`}>
                         <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1 overflow-hidden">
                             <span className={`${scaleMode === 'large' ? "text-xs sm:text-sm font-black w-4 sm:w-5" : scaleMode === 'compact' ? "text-[9px] w-3" : "text-[10px] sm:text-xs w-3.5"} text-slate-400 font-mono shrink-0`}>
                                 P.
@@ -1543,6 +1562,25 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
     const awayRuns = state.awayTeam.inningScores.reduce((sum, score) => sum + (score || 0), 0);
     const homeRuns = state.homeTeam.inningScores.reduce((sum, score) => sum + (score || 0), 0);
 
+    // In between-innings mode (RHE view), when outs === 0, the highlighted score should be the score of the PREVIOUS half-inning
+    let highlightInning = state.inning;
+    let highlightIsAway = state.isTop;
+    if (state.outs === 0) {
+      if (!state.isTop) {
+        // Mid-inning break: bottom of inning with 0 outs -> previous half-inning was top of current inning (away team)
+        highlightInning = state.inning;
+        highlightIsAway = true;
+      } else if (state.inning > 1) {
+        // Inning break: top of inning N with 0 outs -> previous half-inning was bottom of inning N - 1 (home team)
+        highlightInning = state.inning - 1;
+        highlightIsAway = false;
+      } else {
+        // 1st inning top with 0 outs: game beginning, keep 1st inning top
+        highlightInning = 1;
+        highlightIsAway = true;
+      }
+    }
+
     const renderTeamRow = (team: Team, runs: number, isBottomBorder: boolean) => (
       <tr key={team.name} className={isBottomBorder ? "border-b border-slate-800/50" : ""}>
         <td className="text-left py-6 pl-4 flex items-center gap-4">
@@ -1559,9 +1597,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
         </td>
         {inningsArray.map(i => {
           const score = team.inningScores[i - 1];
-          const isCurrentInning = i === state.inning && ((team.name === state.awayTeam.name && state.isTop) || (team.name === state.homeTeam.name && !state.isTop));
+          const isHighlightedInning = i === highlightInning && ((team.name === state.awayTeam.name && highlightIsAway) || (team.name === state.homeTeam.name && !highlightIsAway));
           return (
-            <td key={i} className={`py-6 ${isCurrentInning ? 'text-yellow-400 animate-pulse drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]' : 'text-slate-300'}`}>
+            <td key={i} className={`py-6 ${isHighlightedInning ? 'text-yellow-400 animate-pulse drop-shadow-[0_0_8px_rgba(250,204,21,0.8)] font-black' : 'text-slate-300'}`}>
               {score !== null && score !== undefined ? score : '-'}
             </td>
           );

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
-import { X, Smartphone, Copy, Check, ExternalLink, RefreshCw, Wifi, WifiOff, ShieldCheck, Zap } from 'lucide-react';
+import { X, Smartphone, Copy, Check, ExternalLink, RefreshCw, Wifi, WifiOff, Zap } from 'lucide-react';
 import { ConnectionStatus } from '../hooks/usePeerSync';
 
 interface RemoteSyncModalProps {
@@ -81,14 +81,14 @@ export const RemoteSyncModal: React.FC<RemoteSyncModalProps> = ({
                 <h2 className="text-lg font-bold text-white">
                   {language === 'zh' ? '手機遠端遙控' : language === 'ja' ? 'スマホ遠隔操作' : 'Mobile Remote Control'}
                 </h2>
-                <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full">
-                  實驗性 P2P
+                <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40 rounded-full">
+                  {language === 'zh' ? '即時同步' : language === 'ja' ? 'リアルタイム同期' : 'Live Sync'}
                 </span>
               </div>
               <p className="text-xs text-slate-400">
                 {language === 'zh'
-                  ? '無需後端伺服器 · 手機或第二台裝置即時控制'
-                  : 'サーバー不要・スマホ等でリアルタイム遠隔操作'}
+                  ? '手機或第二台裝置即時控制記分板'
+                  : 'スマホ等でリアルタイム遠隔操作'}
               </p>
             </div>
           </div>
@@ -130,9 +130,9 @@ export const RemoteSyncModal: React.FC<RemoteSyncModalProps> = ({
                   : '等待手機或外部裝置掃描連線中...'}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-1 rounded-md bg-black/40">
+            <div className="flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-1 rounded-md bg-black/40 text-slate-300">
               <Zap size={14} className="text-yellow-400" />
-              <span>WebRTC P2P</span>
+              <span>{language === 'zh' ? '即時連線' : 'Live'}</span>
             </div>
           </div>
 
@@ -206,17 +206,6 @@ export const RemoteSyncModal: React.FC<RemoteSyncModalProps> = ({
                 </a>
               </div>
             </div>
-          </div>
-
-          {/* Technology Description Banner */}
-          <div className="p-3.5 bg-slate-800/40 rounded-xl border border-slate-700/60 text-xs text-slate-300 space-y-2">
-            <div className="flex items-center gap-2 font-bold text-white">
-              <ShieldCheck size={16} className="text-emerald-400" />
-              <span>運作原理：純前端 WebRTC 點對點傳輸 (無後端伺服器)</span>
-            </div>
-            <p className="text-[11px] leading-relaxed text-slate-400">
-              手機發送的好壞球、得分、出局數、打席結果等控制訊號，會直接透過瀏覽器的 WebRTC DataChannel 點對點加密傳送給本電腦記分板，無需在雲端租用或架設後端伺服器。
-            </p>
           </div>
         </div>
 

@@ -546,6 +546,13 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         };
       }
 
+      const isDefensiveMiscue = walkText === 'K+WP' || walkText === 'K+PB';
+      const fieldingTeamKey = state.isTop ? 'homeTeam' : 'awayTeam';
+      const fieldingTeam = state[fieldingTeamKey];
+      const updatedFieldingTeam = isDefensiveMiscue
+        ? { ...fieldingTeam, errors: (fieldingTeam.errors || 0) + 1 }
+        : fieldingTeam;
+
       return {
         ...state,
         balls: 0,
@@ -559,7 +566,8 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           bench: updatedBench,
           currentBatterIndex: nextIndex,
           inningScores: runsScored > 0 ? updateInningScore(teamObj, state.inning, runsScored) : teamObj.inningScores
-        }
+        },
+        ...(isDefensiveMiscue ? { [fieldingTeamKey]: updatedFieldingTeam } : {})
       };
     }
 

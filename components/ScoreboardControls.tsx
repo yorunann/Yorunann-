@@ -922,9 +922,9 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
      endHr(true);
   };
 
-  const handleConfirmWalk = (walkType: '四球' | '觸身' | '不死三振') => {
-    if (walkType === '不死三振') {
-      dispatch({ type: 'WALK', walkType: '不死三振' });
+  const handleConfirmWalk = (walkType: '四球' | '觸身' | '不死三振' | 'K+WP' | 'K+PB') => {
+    if (walkType === '不死三振' || walkType === 'K+WP' || walkType === 'K+PB') {
+      dispatch({ type: 'WALK', walkType });
       dispatch({ type: 'TRIGGER_K' });
     } else {
       dispatch({ type: 'WALK', walkType });
@@ -2002,6 +2002,7 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
       </div>
 
       {/* WALK TYPE SELECTION MODAL */}
+      {/* WALK TYPE SELECTION MODAL */}
       {isWalkModalOpen && (
         <div className="absolute inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
           <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl space-y-4 max-h-[90%] overflow-y-auto text-white">
@@ -2011,9 +2012,6 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                   <span className="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
                   <span>{language === 'zh' ? '選擇保送類型' : language === 'ja' ? '四死球タイプの選択' : 'Select Walk Type'}</span>
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {language === 'zh' ? '確認本次打席上壘類型以記錄打席結果' : language === 'ja' ? '打席結果を記録するための出塁種別を選択' : 'Select the walk type to record at-bat outcome'}
-                </p>
               </div>
               <button
                 onClick={() => setIsWalkModalOpen(false)}
@@ -2028,14 +2026,9 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                 onClick={() => handleConfirmWalk('四球')}
                 className="w-full text-left p-3.5 rounded-xl bg-slate-800/90 hover:bg-sky-950/70 border border-slate-700 hover:border-sky-500 transition-all group flex items-center justify-between cursor-pointer"
               >
-                <div>
-                  <div className="font-bold text-white group-hover:text-sky-300 text-sm flex items-center gap-2">
-                    <span className="px-2 py-0.5 bg-sky-500/20 text-sky-300 rounded text-xs border border-sky-500/30 font-mono">BB</span>
-                    <span>{language === 'zh' ? '四球 (四壞保送)' : language === 'ja' ? '四球 (フォアボール)' : 'Base on Balls (Walk)'}</span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 mt-1">
-                    {language === 'zh' ? '累計 4 顆壞球，壘上跑者強制推進，打者上至一壘' : language === 'ja' ? '4ボールによる出塁、走者押し出し進塁' : '4 balls, forced runners advance, batter to 1st'}
-                  </div>
+                <div className="font-bold text-white group-hover:text-sky-300 text-sm flex items-center gap-2">
+                  <span className="px-2 py-0.5 bg-sky-500/20 text-sky-300 rounded text-xs border border-sky-500/30 font-mono">BB</span>
+                  <span>{language === 'zh' ? '四球 (四壞保送)' : language === 'ja' ? '四球 (フォアボール)' : 'Base on Balls (BB)'}</span>
                 </div>
                 <ChevronRight size={18} className="text-slate-500 group-hover:text-sky-400 transition-transform group-hover:translate-x-1 shrink-0 ml-2" />
               </button>
@@ -2044,30 +2037,31 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                 onClick={() => handleConfirmWalk('觸身')}
                 className="w-full text-left p-3.5 rounded-xl bg-slate-800/90 hover:bg-cyan-950/70 border border-slate-700 hover:border-cyan-500 transition-all group flex items-center justify-between cursor-pointer"
               >
-                <div>
-                  <div className="font-bold text-white group-hover:text-cyan-300 text-sm flex items-center gap-2">
-                    <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 rounded text-xs border border-cyan-500/30 font-mono">HBP</span>
-                    <span>{language === 'zh' ? '觸身 (觸身球保送)' : language === 'ja' ? '死球 (デッドボール)' : 'Hit by Pitch (HBP)'}</span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 mt-1">
-                    {language === 'zh' ? '投球擊中打者身體，打者直接獲保送上一壘' : language === 'ja' ? '投球が打者に直撃、打者1塁へ進塁' : 'Pitch hits batter, batter awarded 1st base'}
-                  </div>
+                <div className="font-bold text-white group-hover:text-cyan-300 text-sm flex items-center gap-2">
+                  <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 rounded text-xs border border-cyan-500/30 font-mono">HBP</span>
+                  <span>{language === 'zh' ? '觸身 (觸身球保送)' : language === 'ja' ? '死球 (デッドボール)' : 'Hit by Pitch (HBP)'}</span>
                 </div>
                 <ChevronRight size={18} className="text-slate-500 group-hover:text-cyan-400 transition-transform group-hover:translate-x-1 shrink-0 ml-2" />
               </button>
 
               <button
-                onClick={() => handleConfirmWalk('不死三振')}
+                onClick={() => handleConfirmWalk('K+WP')}
+                className="w-full text-left p-3.5 rounded-xl bg-slate-800/90 hover:bg-orange-950/70 border border-slate-700 hover:border-orange-500 transition-all group flex items-center justify-between cursor-pointer"
+              >
+                <div className="font-bold text-white group-hover:text-orange-300 text-sm flex items-center gap-2">
+                  <span className="px-2 py-0.5 bg-orange-500/20 text-orange-300 rounded text-xs border border-orange-500/30 font-mono">K+WP</span>
+                  <span>{language === 'zh' ? 'K+WP (暴投不死三振)' : language === 'ja' ? 'K+WP (暴投振り逃げ)' : 'K+WP (Wild Pitch D3K)'}</span>
+                </div>
+                <ChevronRight size={18} className="text-slate-500 group-hover:text-orange-400 transition-transform group-hover:translate-x-1 shrink-0 ml-2" />
+              </button>
+
+              <button
+                onClick={() => handleConfirmWalk('K+PB')}
                 className="w-full text-left p-3.5 rounded-xl bg-slate-800/90 hover:bg-purple-950/70 border border-slate-700 hover:border-purple-500 transition-all group flex items-center justify-between cursor-pointer"
               >
-                <div>
-                  <div className="font-bold text-white group-hover:text-purple-300 text-sm flex items-center gap-2">
-                    <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs border border-purple-500/30 font-mono">D3K</span>
-                    <span>{language === 'zh' ? '不死 (不死三振上壘)' : language === 'ja' ? '振り逃げ (暴投・捕逸)' : 'Uncaught 3rd Strike (D3K)'}</span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 mt-1">
-                    {language === 'zh' ? '第三好球捕手未確實接捕，打者跑上一壘安全就位' : language === 'ja' ? '第3ストライク捕球失敗により打者出塁' : 'Catcher misses 3rd strike, batter safely reaches 1st'}
-                  </div>
+                <div className="font-bold text-white group-hover:text-purple-300 text-sm flex items-center gap-2">
+                  <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs border border-purple-500/30 font-mono">K+PB</span>
+                  <span>{language === 'zh' ? 'K+PB (捕逸不死三振)' : language === 'ja' ? 'K+PB (捕逸振り逃げ)' : 'K+PB (Passed Ball D3K)'}</span>
                 </div>
                 <ChevronRight size={18} className="text-slate-500 group-hover:text-purple-400 transition-transform group-hover:translate-x-1 shrink-0 ml-2" />
               </button>
@@ -2195,9 +2189,6 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                   <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
                   <span>{language === 'zh' ? '選擇出局類型' : language === 'ja' ? 'アウト種別の選択' : 'Select Out Type'}</span>
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {language === 'zh' ? '確認本次打席出局方式以記錄打席結果' : language === 'ja' ? '打席結果を記録するためのアウト種別を選択' : 'Select out type to record at-bat outcome'}
-                </p>
               </div>
               <button
                 onClick={() => setIsOutModalOpen(false)}
@@ -2212,14 +2203,11 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                 onClick={() => handleConfirmOut('高飛犧牲打')}
                 className="w-full p-3 bg-gradient-to-r from-emerald-950/80 to-teal-950/80 border-2 border-emerald-500/80 rounded-xl transition-all group text-left active:scale-98 shadow-lg cursor-pointer"
               >
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between">
                   <span className="text-xs font-black px-2 py-0.5 rounded bg-emerald-500/30 text-emerald-300 border border-emerald-400">
                     SF (高飛犧牲打)
                   </span>
                   <span className="text-xs text-emerald-400 font-bold font-mono">+1 得分 · +1 打點 · +1 OUT</span>
-                </div>
-                <div className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors">
-                  {language === 'zh' ? '高飛犧牲打 (三壘跑者回本壘得分)' : language === 'ja' ? '犠牲フライ (三塁走者生還)' : 'Sacrifice Fly (Runner on 3rd scores)'}
                 </div>
               </button>
             )}
@@ -2227,48 +2215,42 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 onClick={() => handleConfirmOut('高飛')}
-                className="text-left p-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 hover:border-slate-500 transition-all group flex flex-col justify-between cursor-pointer"
+                className="text-left p-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 hover:border-slate-500 transition-all group flex items-center justify-between cursor-pointer"
               >
                 <div className="font-bold text-white group-hover:text-blue-300 text-sm flex items-center gap-1.5">
                   <span className="px-1.5 py-0.5 bg-slate-700 text-slate-300 rounded text-[10px] font-mono">FO</span>
                   <span>{language === 'zh' ? '高飛' : language === 'ja' ? 'フライ' : 'Flyout'}</span>
                 </div>
-                <div className="text-[10px] text-slate-400 mt-1">
-                  {language === 'zh' ? '外野或內野高飛球接殺' : language === 'ja' ? '飛球捕球' : 'Catch on fly'}
-                </div>
+                <span className="text-[10px] text-slate-500 font-mono">+1 OUT</span>
               </button>
 
               <button
                 onClick={() => handleConfirmOut('滾地')}
-                className="text-left p-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 hover:border-slate-500 transition-all group flex flex-col justify-between cursor-pointer"
+                className="text-left p-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 hover:border-slate-500 transition-all group flex items-center justify-between cursor-pointer"
               >
                 <div className="font-bold text-white group-hover:text-yellow-300 text-sm flex items-center gap-1.5">
                   <span className="px-1.5 py-0.5 bg-slate-700 text-slate-300 rounded text-[10px] font-mono">GO</span>
                   <span>{language === 'zh' ? '滾地' : language === 'ja' ? 'ゴロ' : 'Groundout'}</span>
                 </div>
-                <div className="text-[10px] text-slate-400 mt-1">
-                  {language === 'zh' ? '內野滾地球傳一壘刺殺' : language === 'ja' ? 'ゴロ送球刺殺' : 'Grounder to base'}
-                </div>
+                <span className="text-[10px] text-slate-500 font-mono">+1 OUT</span>
               </button>
 
               <button
                 onClick={() => handleConfirmOut('野選')}
-                className="text-left p-3 rounded-xl bg-slate-800/90 hover:bg-orange-600/30 border border-slate-700 hover:border-orange-500 transition-all group flex flex-col justify-between cursor-pointer"
+                className="text-left p-3 rounded-xl bg-slate-800/90 hover:bg-orange-600/30 border border-slate-700 hover:border-orange-500 transition-all group flex items-center justify-between cursor-pointer"
               >
                 <div className="font-bold text-white group-hover:text-orange-400 text-sm flex items-center gap-1.5">
                   <span className="px-1.5 py-0.5 bg-orange-500/20 text-orange-300 rounded text-[10px] font-mono">FC</span>
                   <span>{language === 'zh' ? '野選' : language === 'ja' ? '野選' : 'FC'}</span>
                 </div>
-                <div className="text-[10px] text-slate-400 mt-1">
-                  {language === 'zh' ? '野手選擇刺殺前位跑者' : language === 'ja' ? '野選による打者出塁' : "Fielder's Choice"}
-                </div>
+                <span className="text-[10px] text-slate-500 font-mono">+1 OUT</span>
               </button>
 
               <button
                 type="button"
                 disabled={!(Boolean(state.bases[0]) && state.outs < 2)}
                 onClick={() => handleConfirmOut('雙殺')}
-                className={`text-left p-3 rounded-xl border transition-all group flex flex-col justify-between ${
+                className={`text-left p-3 rounded-xl border transition-all group flex items-center justify-between ${
                   !(Boolean(state.bases[0]) && state.outs < 2)
                     ? 'opacity-30 cursor-not-allowed bg-slate-900/50 border-slate-800 pointer-events-none'
                     : 'bg-slate-800/90 hover:bg-rose-600/30 border-slate-700 hover:border-rose-500 cursor-pointer active:scale-95'
@@ -2279,40 +2261,29 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                   <span className="px-1.5 py-0.5 bg-rose-500/20 text-rose-300 rounded text-[10px] font-mono">DP</span>
                   <span>{language === 'zh' ? '雙殺' : language === 'ja' ? '併殺' : 'Double Play'}</span>
                 </div>
-                <div className="text-[10px] text-slate-400 mt-1">
-                  {language === 'zh' ? '出局數 +2，一壘跑者出局' : language === 'ja' ? '併殺 (2アウト計上)' : 'Double play (2 outs)'}
-                </div>
-                {!(Boolean(state.bases[0]) && state.outs < 2) && (
-                  <div className="text-[10px] text-rose-400 font-bold mt-1">
-                    {language === 'zh' ? '（一壘無人或2出局不成立）' : language === 'ja' ? '（走者無または2死時無効）' : '(No runner on 1st or 2 outs)'}
-                  </div>
-                )}
+                <span className="text-[10px] text-rose-400 font-mono font-bold">+2 OUT</span>
               </button>
 
               <button
                 onClick={() => handleConfirmOut('三振')}
-                className="text-left p-3 rounded-xl bg-slate-800/90 hover:bg-rose-700/30 border border-slate-700 hover:border-rose-600 transition-all group flex flex-col justify-between cursor-pointer"
+                className="text-left p-3 rounded-xl bg-slate-800/90 hover:bg-rose-700/30 border border-slate-700 hover:border-rose-600 transition-all group flex items-center justify-between cursor-pointer"
               >
                 <div className="font-bold text-white group-hover:text-rose-300 text-sm flex items-center gap-1.5">
                   <span className="px-1.5 py-0.5 bg-rose-500/20 text-rose-300 rounded text-[10px] font-mono">K</span>
                   <span>{language === 'zh' ? '三振' : language === 'ja' ? '三振' : 'Strikeout'}</span>
                 </div>
-                <div className="text-[10px] text-slate-400 mt-1">
-                  {language === 'zh' ? '揮空或定裝三振出局' : language === 'ja' ? '奪三振' : 'Strikeout (K)'}
-                </div>
+                <span className="text-[10px] text-slate-500 font-mono">+1 OUT</span>
               </button>
 
               <button
                 onClick={() => handleConfirmOut('出局')}
-                className="text-left p-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 hover:border-slate-500 transition-all group flex flex-col justify-between cursor-pointer"
+                className="text-left p-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 hover:border-slate-500 transition-all group flex items-center justify-between cursor-pointer"
               >
                 <div className="font-bold text-white text-sm flex items-center gap-1.5">
                   <span className="px-1.5 py-0.5 bg-slate-700 text-slate-300 rounded text-[10px] font-mono">OUT</span>
                   <span>{language === 'zh' ? '一般出局' : language === 'ja' ? 'アウト' : 'Out'}</span>
                 </div>
-                <div className="text-[10px] text-slate-400 mt-1">
-                  {language === 'zh' ? '普通出局數 +1' : language === 'ja' ? '1アウト追加' : 'Standard 1 out'}
-                </div>
+                <span className="text-[10px] text-slate-500 font-mono">+1 OUT</span>
               </button>
             </div>
 

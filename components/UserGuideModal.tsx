@@ -200,14 +200,14 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose,
           {page === 7 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
               <h3 className="text-2xl font-bold text-blue-600">
-                {language === 'en' ? '7. Mobile Remote Control (Serverless P2P)' : language === 'zh' ? '7. 手機遠端遙控 (免伺服器 P2P)' : '7. スマホ遠隔操作 (P2P)'}
+                {language === 'en' ? '7. Mobile Remote Control' : language === 'zh' ? '7. 手機遠端遙控' : '7. スマホ遠隔操作'}
               </h3>
               <p className="text-slate-700">
                 {language === 'en'
-                  ? 'Use your smartphone or a second device as a wireless handheld remote for the scoreboard, without needing any backend server!'
+                  ? 'Use your smartphone or a second device as a wireless handheld remote for the scoreboard.'
                   : language === 'zh'
-                  ? '使用您的智慧型手機或另一台裝置，直接作為大螢幕記分板的無線掌上型遙控器，完全不需要架設後端伺服器！'
-                  : 'サーバー不要で、スマートフォン等を無線リモコンとしてスコアボードを操作できます！'}
+                  ? '使用您的智慧型手機或另一台裝置，直接作為大螢幕記分板的無線掌上型遙控器！'
+                  : 'スマートフォン等を無線リモコンとしてスコアボードを操作できます！'}
               </p>
               
               <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mt-4">
@@ -229,8 +229,8 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose,
                   </li>
                   <li>
                     {language === 'zh'
-                      ? '⚡ 純前端 WebRTC 加密傳輸：訊號直接點對點送到遠處記分板，超低延遲且無伺服器成本。'
-                      : '⚡ Pure WebRTC DataChannel: zero backend server, direct encrypted peer-to-peer.'}
+                      ? '支援多台手機或裝置即時同步操作與即時瀏覽記分狀態。'
+                      : 'Supports multiple devices with instant real-time synchronization.'}
                   </li>
                 </ol>
               </div>

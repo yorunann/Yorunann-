@@ -105,9 +105,9 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
     : (state.homeTeam.baseColor || state.homeTeam.color || '#facc15');
 
   // Confirm Walk from Modal
-  const handleConfirmWalk = (walkType: '四球' | '觸身' | '不死三振') => {
-    if (walkType === '不死三振') {
-      dispatch({ type: 'WALK', walkType: '不死三振' });
+  const handleConfirmWalk = (walkType: '四球' | '觸身' | '不死三振' | 'K+WP' | 'K+PB') => {
+    if (walkType === '不死三振' || walkType === 'K+WP' || walkType === 'K+PB') {
+      dispatch({ type: 'WALK', walkType });
       dispatch({ type: 'TRIGGER_K' });
     } else {
       dispatch({ type: 'WALK', walkType });
@@ -1459,15 +1459,10 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
         <div className="absolute inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
           <div className="bg-slate-900 border-2 border-slate-700 rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl space-y-4 max-h-[90%] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div>
-                <h3 className="text-lg font-black text-white flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
-                  <span>{language === 'zh' ? '選擇保送類型' : language === 'ja' ? '四死球タイプの選択' : 'Select Walk Type'}</span>
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {language === 'zh' ? `打者：第 ${battingTeam.currentBatterIndex + 1} 棒 ${activeBatter.name}` : language === 'ja' ? `打者：${battingTeam.currentBatterIndex + 1}番 ${activeBatter.name}` : `Batter: #${battingTeam.currentBatterIndex + 1} ${activeBatter.name}`}
-                </p>
-              </div>
+              <h3 className="text-lg font-black text-white flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+                <span>{language === 'zh' ? '選擇保送類型' : language === 'ja' ? '四死球タイプの選択' : 'Select Walk Type'}</span>
+              </h3>
               <button 
                 onClick={() => setIsWalkModalOpen(false)}
                 className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
@@ -1485,13 +1480,8 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                   <span className="text-sm font-black px-2.5 py-1 rounded bg-sky-500/20 text-sky-300 border border-sky-500/40">
                     BB
                   </span>
-                  <div>
-                    <div className="text-sm font-bold text-white group-hover:text-sky-300 transition-colors">
-                      {language === 'zh' ? '四球 (四壞保送)' : language === 'ja' ? '四球 (フォアボール)' : 'Base on Balls (BB)'}
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      {language === 'zh' ? '投手累計 4 顆壞球，壘上跑者強制推進，打者上至一壘' : language === 'ja' ? '4ボールによる出塁、走者押し出し進塁' : '4 balls, forced runners advance, batter to 1st'}
-                    </div>
+                  <div className="text-sm font-bold text-white group-hover:text-sky-300 transition-colors">
+                    {language === 'zh' ? '四球 (四壞保送)' : language === 'ja' ? '四球 (フォアボール)' : 'Base on Balls (BB)'}
                   </div>
                 </div>
                 <ChevronRight size={18} className="text-slate-500 group-hover:text-sky-400 group-hover:translate-x-0.5 transition-all" />
@@ -1505,33 +1495,38 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                   <span className="text-sm font-black px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
                     HBP
                   </span>
-                  <div>
-                    <div className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
-                      {language === 'zh' ? '觸身 (觸身球保送)' : language === 'ja' ? '死球 (デッドボール)' : 'Hit by Pitch (HBP)'}
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      {language === 'zh' ? '投球擊中打者身體，直接保送上一壘' : language === 'ja' ? '投球が打者に直撃、打者1塁へ進塁' : 'Pitch hits batter, batter awarded 1st base'}
-                    </div>
+                  <div className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
+                    {language === 'zh' ? '觸身 (觸身球保送)' : language === 'ja' ? '死球 (デッドボール)' : 'Hit by Pitch (HBP)'}
                   </div>
                 </div>
                 <ChevronRight size={18} className="text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all" />
               </button>
 
               <button
-                onClick={() => handleConfirmWalk('不死三振')}
+                onClick={() => handleConfirmWalk('K+WP')}
+                className="flex items-center justify-between p-3.5 bg-slate-800/80 hover:bg-orange-950/60 border border-slate-700 hover:border-orange-500/80 rounded-xl transition-all group text-left active:scale-98"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-black px-2.5 py-1 rounded bg-orange-500/20 text-orange-300 border border-orange-500/40 font-mono">
+                    K+WP
+                  </span>
+                  <div className="text-sm font-bold text-white group-hover:text-orange-300 transition-colors">
+                    {language === 'zh' ? 'K+WP (暴投不死三振)' : language === 'ja' ? 'K+WP (暴投振り逃げ)' : 'K+WP (Wild Pitch D3K)'}
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-slate-500 group-hover:text-orange-400 group-hover:translate-x-0.5 transition-all" />
+              </button>
+
+              <button
+                onClick={() => handleConfirmWalk('K+PB')}
                 className="flex items-center justify-between p-3.5 bg-slate-800/80 hover:bg-purple-950/60 border border-slate-700 hover:border-purple-500/80 rounded-xl transition-all group text-left active:scale-98"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-black px-2.5 py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">
-                    D3K
+                  <span className="text-sm font-black px-2.5 py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 font-mono">
+                    K+PB
                   </span>
-                  <div>
-                    <div className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors">
-                      {language === 'zh' ? '不死 (不死三振上壘)' : language === 'ja' ? '振り逃げ (暴投・捕逸)' : 'Uncaught 3rd Strike (D3K)'}
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      {language === 'zh' ? '捕手第三好球未確實接捕，打者跑上一壘' : language === 'ja' ? '第3ストライク捕球失敗により打者出塁' : 'Catcher misses 3rd strike, batter safely reaches 1st'}
-                    </div>
+                  <div className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors">
+                    {language === 'zh' ? 'K+PB (捕逸不死三振)' : language === 'ja' ? 'K+PB (捕逸振り逃げ)' : 'K+PB (Passed Ball D3K)'}
                   </div>
                 </div>
                 <ChevronRight size={18} className="text-slate-500 group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all" />
@@ -1702,9 +1697,6 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                 <div className="text-sm font-bold text-white group-hover:text-blue-300 transition-colors">
                   {language === 'zh' ? '高飛' : language === 'ja' ? 'フライ' : 'Flyout'}
                 </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  {language === 'zh' ? '外野或內野高飛球接殺' : language === 'ja' ? '飛球捕球' : 'Catch on fly'}
-                </div>
               </button>
 
               <button
@@ -1720,9 +1712,6 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                 <div className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
                   {language === 'zh' ? '滾地' : language === 'ja' ? 'ゴロ' : 'Groundout'}
                 </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  {language === 'zh' ? '內野滾地球傳一壘刺殺' : language === 'ja' ? 'ゴロ送球刺殺' : 'Grounder to base'}
-                </div>
               </button>
 
               <button
@@ -1737,9 +1726,6 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                 </div>
                 <div className="text-sm font-bold text-white group-hover:text-orange-300 transition-colors">
                   {language === 'zh' ? '野選' : language === 'ja' ? '野選' : "Fielder's Choice"}
-                </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  {language === 'zh' ? '前位跑者出局，打者上一壘' : language === 'ja' ? '野選による打者出塁' : 'Lead runner out, batter safe'}
                 </div>
               </button>
 
@@ -1763,9 +1749,6 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                 <div className="text-sm font-black text-rose-200 group-hover:text-rose-100 transition-colors">
                   {language === 'zh' ? '雙殺' : language === 'ja' ? '併殺' : 'Double Play'}
                 </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  {language === 'zh' ? '出局數 +2，一壘跑者出局' : language === 'ja' ? '併殺 (2アウト計上)' : 'Double play (2 outs)'}
-                </div>
                 {!(Boolean(state.bases[0]) && state.outs < 2) && (
                   <div className="text-[10px] text-rose-400 font-bold mt-1">
                     {language === 'zh' ? '（一壘無人或2出局不成立）' : language === 'ja' ? '（走者無または2死時無効）' : '(No runner on 1st or 2 outs)'}
@@ -1786,9 +1769,6 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                 <div className="text-sm font-bold text-white group-hover:text-rose-300 transition-colors">
                   {language === 'zh' ? '三振' : language === 'ja' ? '三振' : 'Strikeout'}
                 </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  {language === 'zh' ? '揮空或定裝三振出局' : language === 'ja' ? '奪三振' : 'Strikeout (K)'}
-                </div>
               </button>
 
               <button
@@ -1803,9 +1783,6 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                 </div>
                 <div className="text-sm font-bold text-white group-hover:text-slate-200 transition-colors">
                   {language === 'zh' ? '一般出局' : language === 'ja' ? 'アウト' : 'Out'}
-                </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  {language === 'zh' ? '普通出局數 +1' : language === 'ja' ? '1アウト追加' : 'Standard 1 out'}
                 </div>
               </button>
             </div>

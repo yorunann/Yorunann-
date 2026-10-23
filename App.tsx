@@ -6,7 +6,7 @@ import { INITIAL_STATE } from './constants';
 import { ScoreboardDisplay } from './components/ScoreboardDisplay';
 import { ScoreboardControls } from './components/ScoreboardControls';
 import { ScoreboardControlsV2 } from './components/ScoreboardControlsV2';
-import { MonitorPlay, Maximize, Minimize, Keyboard, Settings, ExternalLink, RotateCcw, BookOpen, Plus, Minus, Menu, X, Smartphone } from 'lucide-react';
+import { MonitorPlay, Maximize, Minimize, Keyboard, Settings, ExternalLink, RotateCcw, BookOpen, Plus, Minus, Menu, X, Smartphone, Sliders } from 'lucide-react';
 import { useShortcuts, DEFAULT_SHORTCUTS, ShortcutMap } from './hooks/useShortcuts';
 import { ShortcutSettingsModal } from './components/ShortcutSettingsModal';
 import { UserGuideModal } from './components/UserGuideModal';
@@ -102,7 +102,7 @@ export const App: React.FC = () => {
   const [isRemoteMode, setIsRemoteMode] = useState(() => {
     if (typeof window === 'undefined') return false;
     const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('mode') === 'remote' || urlParams.get('mode') === 'controller';
+    return urlParams.get('mode') === 'remote' || urlParams.get('mode') === 'controller' || Boolean(urlParams.get('room'));
   });
 
   const [roomCode, setRoomCode] = useState(() => {
@@ -146,7 +146,7 @@ export const App: React.FC = () => {
       dispatch({ type: 'REPLACE_STATE', state: remoteState });
       if (remoteLang) setLanguage(remoteLang);
     },
-    enabled: !isDisplayMode,
+    enabled: isRemoteMode || !isDisplayMode,
   });
 
   const isResizingRef = useRef(false);
@@ -517,6 +517,66 @@ export const App: React.FC = () => {
   }, [isPseudoFullscreen]);
 
   if (isRemoteMode) {
+    if (isDisplayMode) {
+      return (
+        <div className="fixed inset-0 bg-slate-950 flex flex-col font-sans overflow-hidden select-none">
+          {/* Remote Projection Top Bar */}
+          <div className="absolute top-3 left-3 z-50 flex items-center gap-2 opacity-35 hover:opacity-100 transition-opacity bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700 shadow-xl">
+            <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold font-mono">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>{language === 'zh' ? '遠端同步中' : 'Live Sync'} #{roomCode}</span>
+            </div>
+            <div className="h-4 w-px bg-slate-700 mx-1"></div>
+            {(['default', 'lineup', 'rhe', 'broadcast'] as const).map(mode => {
+              const isActive = (localDisplayMode || state.displayMode) === mode;
+              return (
+                <button
+                  key={mode}
+                  onClick={() => setLocalDisplayMode(mode)}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-lg capitalize transition-colors ${
+                    isActive 
+                      ? 'bg-blue-600 text-white shadow-md' 
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  {mode}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="absolute top-3 right-3 z-50 flex items-center gap-2 opacity-40 hover:opacity-100 transition-opacity">
+            <button
+              onClick={() => setIsDisplayMode(false)}
+              className="px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-all shadow-xl backdrop-blur-md border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+              title={language === 'zh' ? '退出投影，返回控制台' : 'Back to Controls'}
+            >
+              <Sliders size={14} />
+              <span>{language === 'zh' ? '返回控制台' : 'Controls'}</span>
+            </button>
+            <button 
+              onClick={toggleFullscreen}
+              className="p-2 bg-slate-800/90 hover:bg-slate-700 text-white rounded-xl transition-colors shadow-xl backdrop-blur-md border border-slate-700 cursor-pointer"
+              title={isFullscreen || isPseudoFullscreen ? (language === 'zh' ? '退出全螢幕' : 'Exit Fullscreen') : (language === 'zh' ? '全螢幕' : 'Fullscreen')}
+            >
+              {isFullscreen || isPseudoFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+            </button>
+          </div>
+
+          {/* Fullscreen Scoreboard Display */}
+          <div className="w-full h-full p-2 sm:p-4 flex items-center justify-center overflow-hidden">
+            <ScoreboardDisplay 
+              ref={displayRef} 
+              state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
+              dispatch={handleDispatch} 
+              language={language} 
+              isVerticalFullscreen={false} 
+            />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="w-full h-full min-h-screen bg-slate-950">
         <MobileRemoteView
@@ -542,9 +602,11 @@ export const App: React.FC = () => {
             setIsRemoteMode(false);
             const url = new URL(window.location.href);
             url.searchParams.delete('mode');
+            url.searchParams.delete('room');
             window.history.replaceState({}, '', url.toString());
           }}
           onOpenRecordModal={() => setIsGameRecordModalOpen(true)}
+          onToggleProjectMode={() => setIsDisplayMode(true)}
         />
         <GameRecordModal
           isOpen={isGameRecordModalOpen}
@@ -616,7 +678,7 @@ export const App: React.FC = () => {
                   ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-600/40 shadow-sm'
                   : 'text-slate-400 hover:text-white hover:bg-slate-700'
               }`}
-              title={language === 'zh' ? '手機遠端遙控 (實驗性免伺服器)' : 'Mobile Remote Control'}
+              title={language === 'zh' ? '手機遠端遙控' : 'Mobile Remote Control'}
             >
               <Smartphone size={18} />
               {connectedClientsCount > 0 && (
@@ -802,7 +864,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v3.1.0</span>
+          <span className="text-slate-600 ml-2">v3.2.0</span>
        </footer>
 
         <ShortcutSettingsModal
