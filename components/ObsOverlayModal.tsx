@@ -19,7 +19,7 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
   roomCode,
   currentDisplayMode,
 }) => {
-  const [selectedLayout, setSelectedLayout] = useState<OverlayLayout>('broadcast');
+  const [selectedLayout, setSelectedLayout] = useState<OverlayLayout>('follow');
   const [useRemoteRoom, setUseRemoteRoom] = useState<boolean>(true);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -88,16 +88,16 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
 
   const layouts = [
     {
-      id: 'broadcast' as OverlayLayout,
-      name: language === 'zh' ? '轉播比分條 (推薦)' : language === 'ja' ? '実況スコアバー (推奨)' : 'Broadcast Scorebug (Recommended)',
-      desc: language === 'zh' ? '現代電視轉播角落小字卡，含隊名、比分、BSO、壘包與球數' : language === 'ja' ? '画面隅に配置される実況用スコアバナー' : 'Corner lower-third bug with teams, scores, counts, bases, pitcher NP',
-      badge: language === 'zh' ? '實況首選' : language === 'ja' ? '定番' : 'Popular',
+      id: 'follow' as OverlayLayout,
+      name: language === 'zh' ? '隨主控台連動 (推薦)' : language === 'ja' ? 'メイン画面に連動 (推奨)' : 'Follow Controller Mode (Recommended)',
+      desc: '',
+      badge: language === 'zh' ? '自動連動' : language === 'ja' ? '自動' : 'Auto',
     },
     {
-      id: 'follow' as OverlayLayout,
-      name: language === 'zh' ? '隨主控台連動' : language === 'ja' ? 'メイン画面に連動' : 'Follow Controller Mode',
-      desc: language === 'zh' ? '自動連動當前主畫面（轉播條、先發打線、經典比分板、局間RHE）' : language === 'ja' ? '操作側の表示モード切り替えにリアルタイム連動' : 'Switches dynamically whenever you change display mode on the dashboard',
-      badge: language === 'zh' ? '自動' : language === 'ja' ? '自動' : 'Auto',
+      id: 'broadcast' as OverlayLayout,
+      name: language === 'zh' ? '固定轉播比分條' : language === 'ja' ? '実況スコアバー固定' : 'Broadcast Scorebug (Fixed)',
+      desc: '',
+      badge: language === 'zh' ? '固定' : language === 'ja' ? '固定' : 'Fixed',
     },
     {
       id: 'default' as OverlayLayout,

@@ -292,9 +292,15 @@ export function usePeerSync({
         }
 
         if (errType === 'unavailable-id') {
-          console.warn('[PeerSync] Room code already in use on signaling server:', err);
-          setErrorMessage('房間代碼已被佔用，請重新生成或換一組代碼');
-          setStatus('error');
+          console.warn('[PeerSync] Room code currently in use, will retry recovery in 2.5s:', err);
+          setErrorMessage('房間代碼連線中...');
+          setTimeout(() => {
+            if (!isDestroyed && peerRef.current) {
+              try {
+                peerRef.current.reconnect();
+              } catch (e) {}
+            }
+          }, 2500);
         } else if (errType === 'peer-unavailable') {
           console.log('[PeerSync] Host not found yet:', err);
           setErrorMessage('找不到遠端記分板，請確認記分板畫面已開啟且代碼正確');
@@ -328,8 +334,18 @@ export function usePeerSync({
       }, 5000);
     }
 
+    const handleBeforeUnload = () => {
+      if (peerRef.current) {
+        try {
+          peerRef.current.destroy();
+        } catch (e) {}
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => {
       isDestroyed = true;
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (pingInterval) clearInterval(pingInterval);
       connectionsRef.current.forEach((conn) => conn.close());

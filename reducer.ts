@@ -1521,7 +1521,11 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       return { ...state, displayMode: state.displayMode === 'broadcast' ? 'default' : 'broadcast' };
       
     case 'TOGGLE_ADJUSTMENT_MODE':
-      return { ...state, isAdjustmentMode: !state.isAdjustmentMode };
+      return { 
+        ...state, 
+        isAdjustmentMode: !state.isAdjustmentMode,
+        displayMode: !state.isAdjustmentMode ? 'broadcast' : state.displayMode
+      };
       
     case 'FULL_RESET':
       return JSON.parse(JSON.stringify(INITIAL_STATE));
