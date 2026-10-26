@@ -293,6 +293,9 @@ export const App: React.FC = () => {
     } else {
       // Controller broadcasts its state on mount to sync any existing display windows or OBS
       channel.postMessage({ type: 'SYNC_STATE', state: stateRef.current, language });
+      try {
+        localStorage.setItem('scoreboard_state', JSON.stringify(stateRef.current));
+      } catch (e) {}
     }
 
     // Fallback: read from localStorage immediately
@@ -332,9 +335,18 @@ export const App: React.FC = () => {
 
   // Sync state whenever it changes locally
   useEffect(() => {
-    if (!isLocalAction.current) {
+    if (isDisplayMode || isObsMode || isRemoteMode) {
+      if (!isLocalAction.current) return;
+      isLocalAction.current = false;
+      if (window.opener) {
+        try {
+          window.opener.postMessage({ type: 'SYNC_STATE', state, language }, '*');
+        } catch (e) {}
+      }
       return;
     }
+
+    // Host controller: always sync to storage, broadcast channel, and opened display windows
     isLocalAction.current = false;
     
     // 1. BroadcastChannel
@@ -343,30 +355,26 @@ export const App: React.FC = () => {
     }
     
     // 2. LocalStorage
-    localStorage.setItem('scoreboard_state', JSON.stringify(state));
+    try {
+      localStorage.setItem('scoreboard_state', JSON.stringify(state));
+    } catch (e) {}
     
     // 3. postMessage
-    if (isDisplayMode) {
-      if (window.opener) {
-        window.opener.postMessage({ type: 'SYNC_STATE', state, language }, '*');
+    if (displayWindowOpenedRef.current) {
+      try {
+        displayWindowOpenedRef.current.postMessage({ type: 'SYNC_STATE', state, language }, '*');
+      } catch (e) {
+        // Window might be closed
       }
-    } else {
-      if (displayWindowOpenedRef.current) {
-        try {
-          displayWindowOpenedRef.current.postMessage({ type: 'SYNC_STATE', state, language }, '*');
-        } catch (e) {
-          // Window might be closed
-        }
-      }
-      displayWindowsRef.current.forEach(win => {
-        try {
-          (win as Window).postMessage({ type: 'SYNC_STATE', state, language }, '*');
-        } catch (e) {
-          displayWindowsRef.current.delete(win);
-        }
-      });
     }
-  }, [state, isDisplayMode]);
+    displayWindowsRef.current.forEach(win => {
+      try {
+        (win as Window).postMessage({ type: 'SYNC_STATE', state, language }, '*');
+      } catch (e) {
+        displayWindowsRef.current.delete(win);
+      }
+    });
+  }, [state, language, isDisplayMode, isObsMode, isRemoteMode]);
 
   const handleDispatch = (action: ActionType) => {
     // If in remote mobile mode, send action to host scoreboard via WebRTC & BroadcastChannel

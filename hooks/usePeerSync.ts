@@ -134,7 +134,75 @@ export function usePeerSync({
     const hostPeerId = `${PEER_PREFIX}${cleanRoom}`;
 
     let reconnectTimer: any = null;
+    let clientConnectTimer: any = null;
+    let heartbeatTimer: any = null;
     let reconnectAttempts = 0;
+
+    const connectClientToHost = () => {
+      if (isDestroyed || !peerRef.current || peerRef.current.destroyed || isHost) return;
+      if (clientConnRef.current && clientConnRef.current.open) return;
+
+      console.log(`[PeerSync] Connecting client to host peer ${hostPeerId}...`);
+      try {
+        const conn = peerRef.current.connect(hostPeerId, {
+          reliable: true,
+        });
+        clientConnRef.current = conn;
+
+        conn.on('open', () => {
+          if (isDestroyed) return;
+          console.log('[PeerSync] Connected to remote host scoreboard!');
+          setStatus('connected');
+          setErrorMessage(null);
+          // Request full state immediately
+          conn.send({
+            type: 'REQUEST_STATE',
+            device: typeof navigator !== 'undefined' ? navigator.userAgent : 'mobile',
+            timestamp: Date.now(),
+          });
+          // Repeat request once shortly after to ensure initial sync
+          setTimeout(() => {
+            if (!isDestroyed && conn.open) {
+              conn.send({ type: 'REQUEST_STATE', timestamp: Date.now() });
+            }
+          }, 350);
+        });
+
+        conn.on('data', (data: any) => {
+          if (isDestroyed) return;
+          const msg = data as PeerMessage;
+          if (msg.type === 'SYNC_STATE' && msg.state) {
+            if (onRemoteStateUpdateRef.current) {
+              onRemoteStateUpdateRef.current(msg.state, msg.language);
+            }
+          } else if (msg.type === 'PONG' && msg.timestamp) {
+            const rtt = Date.now() - msg.timestamp;
+            setLatency(rtt);
+          }
+        });
+
+        conn.on('close', () => {
+          if (isDestroyed) return;
+          console.warn('[PeerSync] Connection to host closed; scheduling auto-retry...');
+          setStatus('disconnected');
+          setLatency(null);
+          if (clientConnectTimer) clearTimeout(clientConnectTimer);
+          clientConnectTimer = setTimeout(connectClientToHost, 2500);
+        });
+
+        conn.on('error', (err) => {
+          if (isDestroyed) return;
+          console.warn('[PeerSync] Client connection error:', err);
+          setStatus('error');
+          if (clientConnectTimer) clearTimeout(clientConnectTimer);
+          clientConnectTimer = setTimeout(connectClientToHost, 3000);
+        });
+      } catch (e) {
+        console.warn('[PeerSync] connectClientToHost invocation failed:', e);
+        if (clientConnectTimer) clearTimeout(clientConnectTimer);
+        clientConnectTimer = setTimeout(connectClientToHost, 3000);
+      }
+    };
 
     const scheduleReconnect = () => {
       if (isDestroyed || !peerRef.current || peerRef.current.destroyed) return;
@@ -154,184 +222,174 @@ export function usePeerSync({
       }, delay);
     };
 
-    try {
-      const peer = isHost
-        ? new Peer(hostPeerId, {
-            debug: 0,
-            config: { iceServers },
-          })
-        : new Peer({
-            debug: 0,
-            config: { iceServers },
-          });
+    const initPeer = () => {
+      if (isDestroyed) return;
+      try {
+        if (peerRef.current) {
+          try {
+            peerRef.current.destroy();
+          } catch (e) {}
+        }
 
-      peerRef.current = peer;
+        const peer = isHost
+          ? new Peer(hostPeerId, {
+              debug: 0,
+              config: { iceServers },
+            })
+          : new Peer({
+              debug: 0,
+              config: { iceServers },
+            });
 
-      peer.on('open', (id) => {
-        if (isDestroyed) return;
-        reconnectAttempts = 0;
-        if (reconnectTimer) clearTimeout(reconnectTimer);
-        console.log(`[PeerSync] Peer opened as ${isHost ? 'Host' : 'Client'}, ID: ${id}`);
-        
-        if (isHost) {
-          setStatus('connected');
-        } else {
-          // Connect to the host
-          console.log(`[PeerSync] Connecting to host peer ${hostPeerId}...`);
-          const conn = peer.connect(hostPeerId, {
-            reliable: true,
-          });
-          clientConnRef.current = conn;
+        peerRef.current = peer;
 
-          conn.on('open', () => {
-            if (isDestroyed) return;
-            console.log('[PeerSync] Connected to remote host scoreboard!');
+        peer.on('open', (id) => {
+          if (isDestroyed) return;
+          reconnectAttempts = 0;
+          if (reconnectTimer) clearTimeout(reconnectTimer);
+          console.log(`[PeerSync] Peer opened as ${isHost ? 'Host' : 'Client'}, ID: ${id}`);
+          
+          if (isHost) {
             setStatus('connected');
             setErrorMessage(null);
-            // Request full state immediately
-            conn.send({
-              type: 'REQUEST_STATE',
-              device: typeof navigator !== 'undefined' ? navigator.userAgent : 'mobile',
-              timestamp: Date.now(),
-            });
-          });
+          } else {
+            connectClientToHost();
+          }
+        });
 
-          conn.on('data', (data: any) => {
+        if (isHost) {
+          peer.on('connection', (conn) => {
             if (isDestroyed) return;
-            const msg = data as PeerMessage;
-            if (msg.type === 'SYNC_STATE' && msg.state) {
-              if (onRemoteStateUpdateRef.current) {
-                onRemoteStateUpdateRef.current(msg.state, msg.language);
-              }
-            } else if (msg.type === 'PONG' && msg.timestamp) {
-              const rtt = Date.now() - msg.timestamp;
-              setLatency(rtt);
-            }
-          });
+            console.log('[PeerSync Host] Incoming connection from client:', conn.peer);
 
-          conn.on('close', () => {
-            if (isDestroyed) return;
-            console.warn('[PeerSync] Connection to host closed');
-            setStatus('disconnected');
-            setLatency(null);
-          });
+            conn.on('open', () => {
+              if (isDestroyed) return;
+              connectionsRef.current.set(conn.peer, conn);
+              setConnectedClientsCount(connectionsRef.current.size);
 
-          conn.on('error', (err) => {
-            if (isDestroyed) return;
-            console.warn('[PeerSync] Client connection error:', err);
-            setStatus('error');
-            setErrorMessage(err?.message || '連線錯誤');
-          });
-        }
-      });
-
-      if (isHost) {
-        peer.on('connection', (conn) => {
-          if (isDestroyed) return;
-          console.log('[PeerSync Host] Incoming connection from client:', conn.peer);
-
-          conn.on('open', () => {
-            if (isDestroyed) return;
-            connectionsRef.current.set(conn.peer, conn);
-            setConnectedClientsCount(connectionsRef.current.size);
-
-            // Send current game state to client
-            conn.send({
-              type: 'SYNC_STATE',
-              state: currentStateRef.current,
-              language: currentLanguageRef.current,
-              timestamp: Date.now(),
-            });
-          });
-
-          conn.on('data', (data: any) => {
-            if (isDestroyed) return;
-            const msg = data as PeerMessage;
-            if (msg.type === 'DISPATCH' && msg.action) {
-              if (onRemoteDispatchRef.current) {
-                onRemoteDispatchRef.current(msg.action);
-              }
-            } else if (msg.type === 'REQUEST_STATE') {
+              // Immediately push full current state and lineup to the newly connected client
               conn.send({
                 type: 'SYNC_STATE',
                 state: currentStateRef.current,
                 language: currentLanguageRef.current,
                 timestamp: Date.now(),
               });
-            } else if (msg.type === 'PING' && msg.timestamp) {
-              conn.send({
-                type: 'PONG',
-                timestamp: msg.timestamp,
-              });
-            }
+            });
+
+            conn.on('data', (data: any) => {
+              if (isDestroyed) return;
+              const msg = data as PeerMessage;
+              if (msg.type === 'DISPATCH' && msg.action) {
+                if (onRemoteDispatchRef.current) {
+                  onRemoteDispatchRef.current(msg.action);
+                }
+              } else if (msg.type === 'REQUEST_STATE') {
+                conn.send({
+                  type: 'SYNC_STATE',
+                  state: currentStateRef.current,
+                  language: currentLanguageRef.current,
+                  timestamp: Date.now(),
+                });
+              } else if (msg.type === 'PING' && msg.timestamp) {
+                conn.send({
+                  type: 'PONG',
+                  timestamp: msg.timestamp,
+                });
+              }
+            });
+
+            conn.on('close', () => {
+              connectionsRef.current.delete(conn.peer);
+              setConnectedClientsCount(connectionsRef.current.size);
+            });
+
+            conn.on('error', (e) => {
+              console.warn('[PeerSync Host] Client connection error', e);
+              connectionsRef.current.delete(conn.peer);
+              setConnectedClientsCount(connectionsRef.current.size);
+            });
           });
-
-          conn.on('close', () => {
-            connectionsRef.current.delete(conn.peer);
-            setConnectedClientsCount(connectionsRef.current.size);
-          });
-
-          conn.on('error', (e) => {
-            console.warn('[PeerSync Host] Client connection error', e);
-            connectionsRef.current.delete(conn.peer);
-            setConnectedClientsCount(connectionsRef.current.size);
-          });
-        });
-      }
-
-      peer.on('error', (err: any) => {
-        if (isDestroyed) return;
-        const msg = String(err?.message || err || '');
-        const errType = err?.type || '';
-
-        // Transient signaling server disconnect - should not be treated as fatal error
-        if (errType === 'network' || errType === 'server-error' || errType === 'socket-closed' || errType === 'socket-error' || msg.includes('Lost connection to server')) {
-          console.log('[PeerSync] Signaling server connection lost temporarily; will reconnect automatically');
-          scheduleReconnect();
-          return;
         }
 
-        if (errType === 'unavailable-id') {
-          console.warn('[PeerSync] Room code currently in use, will retry recovery in 2.5s:', err);
-          setErrorMessage('房間代碼連線中...');
-          setTimeout(() => {
-            if (!isDestroyed && peerRef.current) {
+        peer.on('error', (err: any) => {
+          if (isDestroyed) return;
+          const msg = String(err?.message || err || '');
+          const errType = err?.type || '';
+
+          if (errType === 'network' || errType === 'server-error' || errType === 'socket-closed' || errType === 'socket-error' || msg.includes('Lost connection to server')) {
+            console.log('[PeerSync] Signaling server connection lost temporarily; will reconnect automatically');
+            scheduleReconnect();
+            return;
+          }
+
+          if (errType === 'unavailable-id') {
+            console.warn('[PeerSync] Room code temporarily locked by server; destroying and recreating in 2s...');
+            setErrorMessage('房間代碼連線中...');
+            setTimeout(() => {
+              if (!isDestroyed) {
+                initPeer();
+              }
+            }, 2000);
+          } else if (errType === 'peer-unavailable') {
+            console.log('[PeerSync] Host not found yet, will retry connecting in 2.5s:', err);
+            setErrorMessage('等待連線至計分板...');
+            setStatus('connecting');
+            if (clientConnectTimer) clearTimeout(clientConnectTimer);
+            clientConnectTimer = setTimeout(connectClientToHost, 2500);
+          } else {
+            console.warn('[PeerSync] Peer notice:', err);
+            setErrorMessage(msg || '連線服務暫時無法存取');
+            setStatus('error');
+          }
+        });
+
+        peer.on('disconnected', () => {
+          if (isDestroyed) return;
+          console.log('[PeerSync] Peer disconnected from signaling server; scheduling reconnect...');
+          scheduleReconnect();
+        });
+      } catch (err: any) {
+        console.warn('[PeerSync] Initialization failed', err);
+        setStatus('error');
+        setErrorMessage(err?.message || '初始化 P2P 服務失敗');
+      }
+    };
+
+    initPeer();
+
+    // Periodic heartbeat sync for Host: push state every 3.5s to all connected peers
+    if (isHost) {
+      heartbeatTimer = setInterval(() => {
+        if (connectionsRef.current.size > 0) {
+          const msg: PeerMessage = {
+            type: 'SYNC_STATE',
+            state: currentStateRef.current,
+            language: currentLanguageRef.current,
+            timestamp: Date.now(),
+          };
+          connectionsRef.current.forEach((conn) => {
+            if (conn.open) {
               try {
-                peerRef.current.reconnect();
+                conn.send(msg);
               } catch (e) {}
             }
-          }, 2500);
-        } else if (errType === 'peer-unavailable') {
-          console.log('[PeerSync] Host not found yet:', err);
-          setErrorMessage('找不到遠端記分板，請確認記分板畫面已開啟且代碼正確');
-          setStatus('error');
-        } else {
-          console.warn('[PeerSync] Peer notice:', err);
-          setErrorMessage(msg || '連線服務暫時無法存取');
-          setStatus('error');
+          });
         }
-      });
-
-      peer.on('disconnected', () => {
-        if (isDestroyed) return;
-        console.log('[PeerSync] Peer disconnected from signaling server; scheduling reconnect...');
-        scheduleReconnect();
-      });
-    } catch (err: any) {
-      console.warn('[PeerSync] Initialization failed', err);
-      setStatus('error');
-      setErrorMessage(err?.message || '初始化 P2P 服務失敗');
+      }, 3500);
     }
 
-    // Ping interval for client to measure latency
+    // Ping interval for client to measure latency & auto-reconnect check
     let pingInterval: any = null;
     if (!isHost) {
       pingInterval = setInterval(() => {
         const conn = clientConnRef.current;
         if (conn && conn.open) {
           conn.send({ type: 'PING', timestamp: Date.now() });
+        } else {
+          // If disconnected, try to reconnect
+          connectClientToHost();
         }
-      }, 5000);
+      }, 4000);
     }
 
     const handleBeforeUnload = () => {
@@ -347,6 +405,8 @@ export function usePeerSync({
       isDestroyed = true;
       window.removeEventListener('beforeunload', handleBeforeUnload);
       if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (clientConnectTimer) clearTimeout(clientConnectTimer);
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
       if (pingInterval) clearInterval(pingInterval);
       connectionsRef.current.forEach((conn) => conn.close());
       connectionsRef.current.clear();

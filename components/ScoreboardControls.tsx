@@ -298,7 +298,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
         newDraft[loc1.list][loc1.idx] = { ...newDraft[loc1.list][loc1.idx], position: p2Pos };
         newDraft[loc2.list][loc2.idx] = { ...newDraft[loc2.list][loc2.idx], position: p1Pos };
         
-        setDraft(newDraft);
+        commitTeam(newDraft);
       }
       setSelectedPosId(null);
     } else {
@@ -338,7 +338,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
           newDraft[loc2.list][loc2.idx] = p1;
         }
         
-        setDraft(newDraft);
+        commitTeam(newDraft);
       }
       setSelectedPlayerId(null);
     } else {
@@ -351,18 +351,16 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
     setEditingPosId(id);
   };
 
+  // Sync draft whenever globalTeam changes (e.g. initial load, remote sync, or line-up import)
   React.useEffect(() => {
     setDraft(globalTeam);
-  }, [state.meta.settingsVersion]);
+  }, [globalTeam]);
 
-  // Sync score and currentBatterIndex from global to draft so they don't get overwritten with stale values
-  React.useEffect(() => {
-    setDraft(prev => ({
-      ...prev,
-      score: globalTeam.score,
-      currentBatterIndex: globalTeam.currentBatterIndex
-    }));
-  }, [globalTeam.score, globalTeam.currentBatterIndex]);
+  // Helper to commit changes directly to state and broadcast in real time
+  const commitTeam = (newTeam: Team) => {
+    setDraft(newTeam);
+    dispatch({ type: 'APPLY_TEAM_CONFIG', team: teamKey, config: newTeam });
+  };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -378,103 +376,105 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
   };
 
   const handleCropComplete = (croppedImage: string) => {
-    setDraft(prev => ({ ...prev, logoUrl: croppedImage }));
+    const next = { ...draft, logoUrl: croppedImage };
+    commitTeam(next);
     setCropModalOpen(false);
     setTempImageSrc('');
   };
 
   const updateDraft = (field: keyof Team, value: any) => {
-    setDraft(prev => ({ ...prev, [field]: value }));
+    const next = { ...draft, [field]: value };
+    commitTeam(next);
   };
 
   const updatePitcher = (field: keyof Player, value: any) => {
-    setDraft(prev => {
-      const newPitcher = { ...prev.pitcher, [field]: value };
-      if (field === 'stat') {
-        const num = parseInt(String(value || '').replace(/[^0-9]/g, ''), 10);
-        if (!isNaN(num)) newPitcher.pitchCount = num;
-      } else if (field === 'pitchCount') {
-        newPitcher.stat = String(value);
-      }
-      return { ...prev, pitcher: newPitcher };
-    });
+    const newPitcher = { ...draft.pitcher, [field]: value };
+    if (field === 'stat') {
+      const num = parseInt(String(value || '').replace(/[^0-9]/g, ''), 10);
+      if (!isNaN(num)) newPitcher.pitchCount = num;
+    } else if (field === 'pitchCount') {
+      newPitcher.stat = String(value);
+    }
+    const next = { ...draft, pitcher: newPitcher };
+    commitTeam(next);
   };
 
   const updateLineupPlayer = (index: number, field: keyof Player, value: string) => {
-    setDraft(prev => {
-      const newLineup = [...prev.lineup];
-      newLineup[index] = { ...newLineup[index], [field]: value };
-      return { ...prev, lineup: newLineup };
-    });
+    const newLineup = [...draft.lineup];
+    newLineup[index] = { ...newLineup[index], [field]: value };
+    const next = { ...draft, lineup: newLineup };
+    commitTeam(next);
   };
 
   const updateBenchPlayer = (index: number, field: keyof Player, value: string) => {
-    setDraft(prev => {
-      const newBench = [...prev.bench];
-      newBench[index] = { ...newBench[index], [field]: value };
-      return { ...prev, bench: newBench };
-    });
+    const newBench = [...draft.bench];
+    newBench[index] = { ...newBench[index], [field]: value };
+    const next = { ...draft, bench: newBench };
+    commitTeam(next);
   };
 
   const addLineupPlayer = () => {
-    setDraft(prev => ({
-      ...prev,
-      lineup: [...prev.lineup, { id: Math.random().toString(36).substr(2, 9), name: '', number: '', stat: '', position: '' }]
-    }));
+    const next = {
+      ...draft,
+      lineup: [...draft.lineup, { id: Math.random().toString(36).substr(2, 9), name: '', number: '', stat: '', position: '' }]
+    };
+    commitTeam(next);
   };
 
   const addBenchPlayer = () => {
-    setDraft(prev => ({
-      ...prev,
-      bench: [...prev.bench, { id: Math.random().toString(36).substr(2, 9), name: '', number: '', stat: '', position: '' }]
-    }));
+    const next = {
+      ...draft,
+      bench: [...draft.bench, { id: Math.random().toString(36).substr(2, 9), name: '', number: '', stat: '', position: '' }]
+    };
+    commitTeam(next);
   };
 
   const removeLineupPlayer = (index: number) => {
-    setDraft(prev => ({
-      ...prev,
-      lineup: prev.lineup.filter((_, i) => i !== index)
-    }));
+    const next = {
+      ...draft,
+      lineup: draft.lineup.filter((_, i) => i !== index)
+    };
+    commitTeam(next);
   };
 
   const removeBenchPlayer = (index: number) => {
-    setDraft(prev => ({
-      ...prev,
-      bench: prev.bench.filter((_, i) => i !== index)
-    }));
+    const next = {
+      ...draft,
+      bench: draft.bench.filter((_, i) => i !== index)
+    };
+    commitTeam(next);
   };
 
   const moveToBench = (index: number) => {
-    setDraft(prev => {
-      const player = prev.lineup[index];
-      return {
-        ...prev,
-        lineup: prev.lineup.filter((_, i) => i !== index),
-        bench: [...prev.bench, player]
-      };
-    });
+    const player = draft.lineup[index];
+    const next = {
+      ...draft,
+      lineup: draft.lineup.filter((_, i) => i !== index),
+      bench: [...draft.bench, player]
+    };
+    commitTeam(next);
   };
 
   const moveToLineup = (index: number) => {
-    setDraft(prev => {
-      const player = prev.bench[index];
-      return {
-        ...prev,
-        bench: prev.bench.filter((_, i) => i !== index),
-        lineup: [...prev.lineup, { ...player, position: 'PH' }]
-      };
-    });
+    const player = draft.bench[index];
+    const next = {
+      ...draft,
+      bench: draft.bench.filter((_, i) => i !== index),
+      lineup: [...draft.lineup, { ...player, position: 'PH' }]
+    };
+    commitTeam(next);
   };
 
   const setAsPitcher = (player: Player) => {
-    setDraft(prev => ({
-      ...prev,
+    const next = {
+      ...draft,
       pitcher: { 
-        ...prev.pitcher, 
+        ...draft.pitcher, 
         name: player.name, 
         number: player.number 
       }
-    }));
+    };
+    commitTeam(next);
   };
 
   const handleSubmit = () => {
@@ -509,15 +509,17 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
     const overInBenchIdx = draft.bench.findIndex(p => p.id === overId);
 
     if (activeInLineupIdx !== -1 && overInLineupIdx !== -1) {
-      setDraft(prev => ({
-        ...prev,
-        lineup: arrayMove(prev.lineup, activeInLineupIdx, overInLineupIdx)
-      }));
+      const next = {
+        ...draft,
+        lineup: arrayMove(draft.lineup, activeInLineupIdx, overInLineupIdx)
+      };
+      commitTeam(next);
     } else if (activeInBenchIdx !== -1 && overInBenchIdx !== -1) {
-      setDraft(prev => ({
-        ...prev,
-        bench: arrayMove(prev.bench, activeInBenchIdx, overInBenchIdx)
-      }));
+      const next = {
+        ...draft,
+        bench: arrayMove(draft.bench, activeInBenchIdx, overInBenchIdx)
+      };
+      commitTeam(next);
     }
   };
 
