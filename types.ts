@@ -160,7 +160,7 @@ export type ActionType =
   | { type: 'RESET_TEAM'; team: 'home' | 'away' }
   | { type: 'RESET_TEAM_SETTINGS' }
   | { type: 'SWAP_TEAMS' }
-  | { type: 'WALK'; walkType?: '四球' | '觸身' | '不死三振' | '敬遠' | 'K+WP' | 'K+PB' }
+  | { type: 'WALK'; walkType?: '四球' | '觸身' | '不死三振' | '敬遠' | 'K+WP' | 'K+PB' | '失誤' }
   | { type: 'SAC_FLY' }
   | { type: 'BATTER_OUT'; outType?: string }
   | { type: 'SINGLE' }

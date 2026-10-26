@@ -28,6 +28,7 @@ interface ScoreboardDisplayProps {
   dispatch: React.Dispatch<ActionType>;
   language?: 'en' | 'zh' | 'ja';
   isVerticalFullscreen?: boolean;
+  isObsMode?: boolean;
 }
 
 export const formatAtBatChinese = (rawAb: string, lang: 'en' | 'zh' | 'ja' = 'zh'): { label: string; style: string; rbi?: number } => {
@@ -106,24 +107,17 @@ export const formatAtBatChinese = (rawAb: string, lang: 'en' | 'zh' | 'ja' = 'zh
             rbi
         };
     }
-    if (ab === 'K+WP' || ab === 'K/WP') {
-        return { 
-            label: 'K+WP', 
-            style: 'text-purple-300 bg-purple-950/80 border-purple-500/70 font-black',
-            rbi
-        };
-    }
-    if (ab === 'K+PB' || ab === 'K/PB') {
-        return { 
-            label: 'K+PB', 
-            style: 'text-purple-300 bg-purple-950/80 border-purple-500/70 font-black',
-            rbi
-        };
-    }
-    if (ab === 'D3K' || ab === '不死三振' || ab === '不死') {
+    if (ab === 'K+WP' || ab === 'K/WP' || ab === 'K+PB' || ab === 'K/PB' || ab === 'D3K' || ab === '不死三振' || ab === '不死') {
         return { 
             label: lang === 'en' ? 'D3K' : lang === 'ja' ? '振逃' : '不死', 
             style: 'text-purple-300 bg-purple-950/80 border-purple-500/70 font-black',
+            rbi
+        };
+    }
+    if (ab === '失誤' || ab === 'E' || ab === 'ROE' || ab === '失誤上壘' || ab === 'エラー') {
+        return { 
+            label: lang === 'en' ? 'E' : lang === 'ja' ? '失策' : '失誤', 
+            style: 'text-amber-300 bg-amber-950/80 border-amber-500/70 font-bold',
             rbi
         };
     }
@@ -566,7 +560,7 @@ const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: b
     );
 };
 
-export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayProps>(({ state, dispatch, language = 'zh', isVerticalFullscreen = false }, ref) => {
+export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayProps>(({ state, dispatch, language = 'zh', isVerticalFullscreen = false, isObsMode = false }, ref) => {
   const [showInningControls, setShowInningControls] = useState(false);
   const [showScoreControlsHome, setShowScoreControlsHome] = useState(false);
   const [showScoreControlsAway, setShowScoreControlsAway] = useState(false);
@@ -1830,48 +1824,50 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
         onTouchMove={handleBroadcastTouchMove}
         onTouchEnd={handleBroadcastTouchEnd}
       >
-        {/* Mobile-Friendly Floating Broadcast Scaler: Always visible on mobile or adjustment mode */}
-        <div className="absolute top-3 right-3 z-50 flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 px-2.5 py-1.5 rounded-xl shadow-2xl backdrop-blur-md text-xs font-bold text-white pointer-events-auto">
-          <span className="text-slate-400 text-[10px] hidden sm:inline">{language === 'en' ? 'Scale' : language === 'zh' ? '縮放' : 'サイズ'}:</span>
-          <button 
-            onClick={() => dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: Math.max(0.3, Number(((state.meta.broadcastScale ?? 1) - 0.1).toFixed(2))) })}
-            className="w-7 h-7 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 rounded-lg flex items-center justify-center text-sm font-black border border-slate-600 active:scale-95 transition-transform"
-            title="Scale down -10%"
-          >
-            -
-          </button>
-          <span className="min-w-[42px] text-center text-yellow-400 font-mono text-xs font-bold">
-            {Math.round((state.meta.broadcastScale ?? 1) * 100)}%
-          </span>
-          <button 
-            onClick={() => dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: Math.min(2.5, Number(((state.meta.broadcastScale ?? 1) + 0.1).toFixed(2))) })}
-            className="w-7 h-7 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 rounded-lg flex items-center justify-center text-sm font-black border border-slate-600 active:scale-95 transition-transform"
-            title="Scale up +10%"
-          >
-            +
-          </button>
-          <button 
-            onClick={() => dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: 1.0 })}
-            className="px-2 py-1 text-[10px] text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded border border-slate-600 ml-0.5 active:scale-95"
-            title="Reset 100%"
-          >
-            100%
-          </button>
-          <button
-            onClick={() => dispatch({ type: 'TOGGLE_VISIBILITY', field: 'isAdjustmentMode' })}
-            className={`px-2 py-1 text-[10px] rounded border transition-colors ml-1 ${
-              state.isAdjustmentMode 
-                ? 'bg-blue-600 text-white border-blue-400 shadow-sm' 
-                : 'text-slate-400 hover:text-white bg-slate-800 border-slate-600'
-            }`}
-            title={language === 'zh' ? '版面位置拖曳調整' : 'Position Drag Mode'}
-          >
-            {language === 'zh' ? (state.isAdjustmentMode ? '拖曳中' : '拖曳') : 'Drag'}
-          </button>
-        </div>
+        {/* Mobile-Friendly Floating Broadcast Scaler: Always visible on mobile or adjustment mode, hidden in OBS overlay */}
+        {!isObsMode && (
+          <div className="absolute top-3 right-3 z-50 flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 px-2.5 py-1.5 rounded-xl shadow-2xl backdrop-blur-md text-xs font-bold text-white pointer-events-auto">
+            <span className="text-slate-400 text-[10px] hidden sm:inline">{language === 'en' ? 'Scale' : language === 'zh' ? '縮放' : 'サイズ'}:</span>
+            <button 
+              onClick={() => dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: Math.max(0.3, Number(((state.meta.broadcastScale ?? 1) - 0.1).toFixed(2))) })}
+              className="w-7 h-7 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 rounded-lg flex items-center justify-center text-sm font-black border border-slate-600 active:scale-95 transition-transform"
+              title="Scale down -10%"
+            >
+              -
+            </button>
+            <span className="min-w-[42px] text-center text-yellow-400 font-mono text-xs font-bold">
+              {Math.round((state.meta.broadcastScale ?? 1) * 100)}%
+            </span>
+            <button 
+              onClick={() => dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: Math.min(2.5, Number(((state.meta.broadcastScale ?? 1) + 0.1).toFixed(2))) })}
+              className="w-7 h-7 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 rounded-lg flex items-center justify-center text-sm font-black border border-slate-600 active:scale-95 transition-transform"
+              title="Scale up +10%"
+            >
+              +
+            </button>
+            <button 
+              onClick={() => dispatch({ type: 'UPDATE_META', field: 'broadcastScale', value: 1.0 })}
+              className="px-2 py-1 text-[10px] text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded border border-slate-600 ml-0.5 active:scale-95"
+              title="Reset 100%"
+            >
+              100%
+            </button>
+            <button
+              onClick={() => dispatch({ type: 'TOGGLE_VISIBILITY', field: 'isAdjustmentMode' })}
+              className={`px-2 py-1 text-[10px] rounded border transition-colors ml-1 ${
+                state.isAdjustmentMode 
+                  ? 'bg-blue-600 text-white border-blue-400 shadow-sm' 
+                  : 'text-slate-400 hover:text-white bg-slate-800 border-slate-600'
+              }`}
+              title={language === 'zh' ? '版面位置拖曳調整' : 'Position Drag Mode'}
+            >
+              {language === 'zh' ? (state.isAdjustmentMode ? '拖曳中' : '拖曳') : 'Drag'}
+            </button>
+          </div>
+        )}
 
         <div 
-          className={`absolute bg-gradient-to-br from-cyan-950/30 via-slate-900/50 to-teal-950/30 backdrop-blur-xl border border-white/20 text-white font-display shadow-2xl shadow-black/50 pointer-events-auto overflow-hidden flex flex-col origin-top-left select-none ${state.isAdjustmentMode ? 'cursor-move ring-4 ring-blue-500 ring-offset-4 ring-offset-transparent' : ''}`} 
+          className={`absolute bg-gradient-to-br from-cyan-950/30 via-slate-900/50 to-teal-950/30 backdrop-blur-xl border border-white/20 text-white font-display shadow-2xl shadow-black/50 pointer-events-auto overflow-hidden flex flex-col origin-top-left select-none ${state.isAdjustmentMode && !isObsMode ? 'cursor-move ring-4 ring-blue-500 ring-offset-4 ring-offset-transparent' : ''}`} 
           style={{ 
             width: `${state.meta.broadcastWidth ?? 450}px`,
             left: `${state.meta.broadcastMarginX ?? 20}px`,

@@ -6,13 +6,14 @@ import { INITIAL_STATE } from './constants';
 import { ScoreboardDisplay } from './components/ScoreboardDisplay';
 import { ScoreboardControls } from './components/ScoreboardControls';
 import { ScoreboardControlsV2 } from './components/ScoreboardControlsV2';
-import { MonitorPlay, Maximize, Minimize, Keyboard, Settings, ExternalLink, RotateCcw, BookOpen, Plus, Minus, Menu, X, Smartphone, Sliders } from 'lucide-react';
+import { MonitorPlay, Maximize, Minimize, Keyboard, Settings, ExternalLink, RotateCcw, BookOpen, Plus, Minus, Menu, X, Smartphone, Sliders, Tv } from 'lucide-react';
 import { useShortcuts, DEFAULT_SHORTCUTS, ShortcutMap } from './hooks/useShortcuts';
 import { ShortcutSettingsModal } from './components/ShortcutSettingsModal';
 import { UserGuideModal } from './components/UserGuideModal';
 import { SettingsModal } from './components/SettingsModal';
 import { GameRecordModal } from './components/GameRecordModal';
 import { RemoteSyncModal } from './components/RemoteSyncModal';
+import { ObsOverlayModal } from './components/ObsOverlayModal';
 import { MobileRemoteView } from './components/MobileRemoteView';
 import { usePeerSync } from './hooks/usePeerSync';
 
@@ -76,11 +77,18 @@ export const App: React.FC = () => {
     const handleOrientation = () => {
       setIsPortrait(window.innerHeight > window.innerWidth);
     };
+    handleOrientation();
     window.addEventListener('resize', handleOrientation);
     window.addEventListener('orientationchange', handleOrientation);
+    if (window.screen?.orientation) {
+      window.screen.orientation.addEventListener('change', handleOrientation);
+    }
     return () => {
       window.removeEventListener('resize', handleOrientation);
       window.removeEventListener('orientationchange', handleOrientation);
+      if (window.screen?.orientation) {
+        window.screen.orientation.removeEventListener('change', handleOrientation);
+      }
     };
   }, []);
 
@@ -99,10 +107,31 @@ export const App: React.FC = () => {
     return urlParams.get('mode') === 'display';
   });
 
+  const [isObsMode, setIsObsMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode');
+    return mode === 'obs' || mode === 'overlay' || urlParams.get('transparent') === '1' || urlParams.get('transparent') === 'true';
+  });
+
+  const [obsLayoutParam] = useState<GameState['displayMode'] | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const urlParams = new URLSearchParams(window.location.search);
+    const layout = urlParams.get('layout');
+    if (layout === 'broadcast' || layout === 'default' || layout === 'lineup' || layout === 'rhe') {
+      return layout;
+    }
+    return null;
+  });
+
+  const [isObsModalOpen, setIsObsModalOpen] = useState(false);
+
   const [isRemoteMode, setIsRemoteMode] = useState(() => {
     if (typeof window === 'undefined') return false;
     const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('mode') === 'remote' || urlParams.get('mode') === 'controller' || Boolean(urlParams.get('room'));
+    const mode = urlParams.get('mode');
+    if (mode === 'obs' || mode === 'overlay' || urlParams.get('transparent') === '1') return false;
+    return mode === 'remote' || mode === 'controller' || Boolean(urlParams.get('room'));
   });
 
   const [roomCode, setRoomCode] = useState(() => {
@@ -124,6 +153,8 @@ export const App: React.FC = () => {
   const [isRemoteSyncModalOpen, setIsRemoteSyncModalOpen] = useState(false);
   const handleDispatchRef = useRef<(action: ActionType) => void>(() => {});
 
+  const hasRoomQuery = typeof window !== 'undefined' ? Boolean(new URLSearchParams(window.location.search).get('room')) : false;
+
   const {
     status: peerStatus,
     connectedClientsCount,
@@ -133,7 +164,7 @@ export const App: React.FC = () => {
     sendAction: peerSendAction,
     requestState: peerRequestState,
   } = usePeerSync({
-    isHost: !isRemoteMode,
+    isHost: !isRemoteMode && !isObsMode && !isDisplayMode,
     roomCode,
     currentState: state,
     language,
@@ -142,11 +173,11 @@ export const App: React.FC = () => {
       handleDispatchRef.current(remoteAction);
     },
     onRemoteStateUpdate: (remoteState, remoteLang) => {
-      console.log('[Remote Controller] State update received from scoreboard host');
+      console.log('[Remote Controller / Display / OBS] State update received from scoreboard host');
       dispatch({ type: 'REPLACE_STATE', state: remoteState });
       if (remoteLang) setLanguage(remoteLang);
     },
-    enabled: isRemoteMode || !isDisplayMode,
+    enabled: isRemoteMode || (isObsMode && hasRoomQuery) || !isDisplayMode,
   });
 
   const isResizingRef = useRef(false);
@@ -246,14 +277,14 @@ export const App: React.FC = () => {
         } catch (e) {
           console.error("Failed to parse state from localStorage", e);
         }
-      } else if (event.key === 'scoreboard_request_state' && !isDisplayMode) {
+      } else if (event.key === 'scoreboard_request_state' && !isDisplayMode && !isObsMode) {
         localStorage.setItem('scoreboard_state', JSON.stringify(stateRef.current));
       }
     };
     window.addEventListener('storage', handleStorage);
 
     // Request initial state or broadcast current state
-    if (isDisplayMode || isRemoteMode) {
+    if (isDisplayMode || isRemoteMode || isObsMode) {
       channel.postMessage({ type: 'REQUEST_STATE' });
       if (window.opener) {
         window.opener.postMessage({ type: 'REQUEST_STATE' }, '*');
@@ -442,8 +473,8 @@ export const App: React.FC = () => {
       return;
     }
 
-    // Try native fullscreen first
-    const target = displayRef.current || document.documentElement;
+    // Try native fullscreen
+    const target = document.documentElement;
     let nativeSuccess = false;
 
     try {
@@ -468,12 +499,10 @@ export const App: React.FC = () => {
       nativeSuccess = false;
     }
 
-    if (nativeSuccess) {
-      setIsFullscreen(true);
-    } else {
+    setIsFullscreen(true);
+    if (!nativeSuccess) {
       // Native fullscreen not supported (e.g. iPhone Safari) -> Seamless CSS Immersive Fullscreen
       setIsPseudoFullscreen(true);
-      setIsFullscreen(true);
 
       const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -490,7 +519,6 @@ export const App: React.FC = () => {
         setIsFullscreen(false);
       } else if (isNative) {
         setIsFullscreen(true);
-        setIsPseudoFullscreen(false);
       }
     };
 
@@ -515,6 +543,47 @@ export const App: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isPseudoFullscreen]);
+
+  // OBS Transparent Browser Source Effect
+  useEffect(() => {
+    if (isObsMode) {
+      document.documentElement.classList.add('obs-mode');
+      document.body.classList.add('obs-mode');
+      document.documentElement.style.background = 'transparent';
+      document.body.style.background = 'transparent';
+      const root = document.getElementById('root');
+      if (root) {
+        root.style.background = 'transparent';
+      }
+      return () => {
+        document.documentElement.classList.remove('obs-mode');
+        document.body.classList.remove('obs-mode');
+        document.documentElement.style.background = '';
+        document.body.style.background = '';
+      };
+    }
+  }, [isObsMode]);
+
+  // Dedicated OBS Overlay View
+  if (isObsMode) {
+    const effectiveDisplayMode = obsLayoutParam || localDisplayMode || state.displayMode;
+    return (
+      <div className="fixed inset-0 w-screen h-screen bg-transparent overflow-hidden select-none pointer-events-none">
+        <ScoreboardDisplay
+          ref={displayRef}
+          state={{
+            ...state,
+            displayMode: effectiveDisplayMode,
+            isAdjustmentMode: false,
+          }}
+          dispatch={handleDispatch}
+          language={language}
+          isVerticalFullscreen={false}
+          isObsMode={true}
+        />
+      </div>
+    );
+  }
 
   if (isRemoteMode) {
     if (isDisplayMode) {
@@ -570,7 +639,7 @@ export const App: React.FC = () => {
               state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
               dispatch={handleDispatch} 
               language={language} 
-              isVerticalFullscreen={false} 
+              isVerticalFullscreen={isPortrait} 
             />
           </div>
         </div>
@@ -664,11 +733,20 @@ export const App: React.FC = () => {
                 const win = window.open('/?mode=display', '_blank');
                 if (win) displayWindowOpenedRef.current = win;
               }}
-              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center space-x-1"
+              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center space-x-1 cursor-pointer"
               title="Open Display Window"
             >
               <ExternalLink size={18} />
               {isToolbarExpanded && <span className="text-xs font-medium ml-1">Project</span>}
+            </button>
+            <div className="w-px h-6 bg-slate-700 mx-1"></div>
+            <button
+              onClick={() => setIsObsModalOpen(true)}
+              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center space-x-1 cursor-pointer"
+              title={language === 'zh' ? 'OBS 實況透明圖層' : language === 'ja' ? 'OBS 透過オーバーレイ' : 'OBS Overlay'}
+            >
+              <Tv size={18} />
+              {isToolbarExpanded && <span className="text-xs font-medium ml-1">OBS</span>}
             </button>
             <div className="w-px h-6 bg-slate-700 mx-1"></div>
             <button
@@ -746,15 +824,13 @@ export const App: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-1 overflow-hidden relative flex">
         {/* Split Screen Layout */}
-        <div className={`w-full h-full flex ${useBetaControls ? (isPortrait && typeof window !== 'undefined' && window.innerWidth < 768 ? 'flex-col' : 'flex-col md:flex-row') : 'flex-row'} gap-0 overflow-hidden`}>
+        <div className={`w-full h-full flex ${(isPortrait && typeof window !== 'undefined' && window.innerWidth < 768) ? 'flex-col' : (useBetaControls ? 'flex-col md:flex-row' : 'flex-row')} gap-0 overflow-hidden`}>
           {/* Left/Top: Display */}
           <div 
             className={`flex-none p-2 sm:p-4 bg-slate-950 flex flex-col items-center justify-center overflow-y-auto overscroll-contain overflow-x-hidden border-b md:border-b-0 md:border-r border-slate-700 relative ${
-              useBetaControls 
-                ? (isPortrait && typeof window !== 'undefined' && window.innerWidth < 768 
-                    ? 'w-full h-[35vh] sm:h-[42vh] shrink-0' 
-                    : 'w-full md:w-[var(--left-width)] h-[35vh] sm:h-[42vh] md:h-full shrink-0')
-                : 'w-[var(--left-width)] h-full'
+              (isPortrait && typeof window !== 'undefined' && window.innerWidth < 768)
+                ? 'w-full h-[35vh] sm:h-[42vh] shrink-0' 
+                : (useBetaControls ? 'w-full md:w-[var(--left-width)] h-[35vh] sm:h-[42vh] md:h-full shrink-0' : 'w-[var(--left-width)] h-full')
             }`}
             style={{ 
               '--left-width': isDisplayMode ? '100%' : `calc(${100 - controlPanelWidth}% - 4px)`,
@@ -787,7 +863,7 @@ export const App: React.FC = () => {
               {isDisplayMode && (
                 <button 
                   onClick={toggleFullscreen}
-                  className="absolute top-4 right-4 p-2 bg-slate-800/60 hover:bg-slate-700/80 text-white rounded-md transition-colors z-50 opacity-40 hover:opacity-100 shadow-lg backdrop-blur-xs"
+                  className="absolute top-4 right-4 p-2 bg-slate-800/60 hover:bg-slate-700/80 text-white rounded-md transition-colors z-50 opacity-40 hover:opacity-100 shadow-lg backdrop-blur-xs cursor-pointer"
                   title={
                     isFullscreen || isPseudoFullscreen
                       ? (language === 'zh' ? '退出全螢幕' : language === 'en' ? 'Exit Fullscreen' : '全画面終了')
@@ -799,30 +875,42 @@ export const App: React.FC = () => {
               )}
 
               <div ref={previewContainerRef} className="w-full h-full max-w-full flex items-center justify-center overflow-hidden relative">
-                <div 
-                  style={{
-                    width: 960,
-                    height: 540,
-                    transform: `scale(${previewScale})`,
-                    transformOrigin: 'center center',
-                    flexShrink: 0
-                  }}
-                >
-                  <ScoreboardDisplay 
-                    ref={displayRef} 
-                    state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
-                    dispatch={handleDispatch} 
-                    language={language} 
-                    isVerticalFullscreen={false} 
-                  />
-                </div>
+                {isDisplayMode && isPortrait ? (
+                  <div className="w-full h-full p-2 flex items-center justify-center">
+                    <ScoreboardDisplay 
+                      ref={displayRef} 
+                      state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
+                      dispatch={handleDispatch} 
+                      language={language} 
+                      isVerticalFullscreen={true} 
+                    />
+                  </div>
+                ) : (
+                  <div 
+                    style={{
+                      width: 960,
+                      height: 540,
+                      transform: `scale(${previewScale})`,
+                      transformOrigin: 'center center',
+                      flexShrink: 0
+                    }}
+                  >
+                    <ScoreboardDisplay 
+                      ref={displayRef} 
+                      state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
+                      dispatch={handleDispatch} 
+                      language={language} 
+                      isVerticalFullscreen={false} 
+                    />
+                  </div>
+                )}
               </div>
           </div>
           
           {/* Resize Handle */}
           {!isDisplayMode && (
             <div 
-              className={`${useBetaControls ? (isPortrait && typeof window !== 'undefined' && window.innerWidth < 768 ? 'hidden' : 'hidden md:flex') : 'flex'} w-1 bg-slate-700 hover:bg-blue-500 cursor-col-resize transition-colors z-50 items-center justify-center shrink-0`}
+              className={`${(isPortrait && typeof window !== 'undefined' && window.innerWidth < 768) ? 'hidden' : (useBetaControls ? 'hidden md:flex' : 'flex')} w-1 bg-slate-700 hover:bg-blue-500 cursor-col-resize transition-colors z-50 items-center justify-center shrink-0`}
               onMouseDown={(e) => {
                 e.preventDefault();
                 isResizingRef.current = true;
@@ -837,8 +925,8 @@ export const App: React.FC = () => {
           {!isDisplayMode && (
             <div 
               className={`flex-1 overflow-y-auto overscroll-contain shadow-inner min-h-0 relative ${
-                useBetaControls ? 'w-full md:w-auto bg-slate-900' : 'bg-gray-100'
-              }`}
+                (isPortrait && typeof window !== 'undefined' && window.innerWidth < 768) ? 'w-full' : (useBetaControls ? 'w-full md:w-auto' : '')
+              } ${useBetaControls ? 'bg-slate-900' : 'bg-gray-100'}`}
               style={{ flexBasis: (isPortrait && typeof window !== 'undefined' && window.innerWidth < 768) ? undefined : `${controlPanelWidth}%` }}
             >
                 {useBetaControls ? (
@@ -864,7 +952,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v3.2.0</span>
+          <span className="text-slate-600 ml-2">v3.3.2</span>
        </footer>
 
         <ShortcutSettingsModal
@@ -913,8 +1001,16 @@ export const App: React.FC = () => {
           language={language}
         />
 
-        {/* Pseudo Fullscreen Immersive Mode for iPhone / unsupported browsers */}
-        {isPseudoFullscreen && (
+        <ObsOverlayModal
+          isOpen={isObsModalOpen}
+          onClose={() => setIsObsModalOpen(false)}
+          language={language}
+          roomCode={roomCode}
+          currentDisplayMode={state.displayMode}
+        />
+
+        {/* Fullscreen Scoreboard Overlay (both Native and Pseudo Immersive Mode) */}
+        {(isFullscreen || isPseudoFullscreen) && (
           <div className="fixed inset-0 z-[150] bg-slate-950 flex flex-col items-center justify-center overflow-hidden p-2 select-none touch-manipulation">
             {/* Floating Top Bar with Mode Switcher & Exit Button */}
             <div className="absolute top-3 right-3 flex items-center gap-2 z-50">

@@ -180,10 +180,10 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ isOpen, onClose,
               
               <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mt-4">
                 <ol className="list-decimal list-inside space-y-3 text-slate-700">
-                  <li>{language === 'en' ? 'Click the Open Projector button in the top bar.' : language === 'zh' ? '點擊頂部工具列的 「Open Projector」 按鈕。' : '上部ツールバーのOpen Projectorボタンをクリック。'}</li>
-                  <li>{language === 'en' ? 'A clean scoreboard window will pop up (no controls).' : language === 'zh' ? '系統會彈出一個新的瀏覽器視窗，裡面只有乾淨的計分板畫面（沒有控制台）。' : 'コントロールのないクリーンなスコアボード画面が開きます。'}</li>
-                  <li>{language === 'en' ? 'Drag it to your second screen or capture it in OBS.' : language === 'zh' ? '將這個新視窗拖曳到您的第二螢幕，或是讓 OBS 擷取該視窗。' : 'セカンドスクリーンにドラッグするか、OBSでキャプチャします。'}</li>
-                  <li>{language === 'en' ? 'All control actions will be synced in real-time to the projector window!' : language === 'zh' ? '您在主視窗（控制台）的所有操作，都會即時同步到投影視窗中！' : 'コントロール画面での操作はリアルタイムに同期されます！'}</li>
+                  <li>{language === 'en' ? 'Click the Open Projector or OBS button in the top bar.' : language === 'zh' ? '點擊頂部工具列的「Project」或專屬「OBS」按鈕。' : '上部ツールバーの「Project」または「OBS」ボタンをクリック。'}</li>
+                  <li>{language === 'en' ? 'For OBS Studio: Click the "OBS" button to copy the 100% transparent browser source URL!' : language === 'zh' ? 'OBS 直播推薦：點擊「OBS」按鈕，可直接複製 100% 透明背景的瀏覽器來源網址，寬度設 1920、高度設 1080，無須去背即可完美疊加在比賽影片上！' : 'OBS配信：上部の「OBS」ボタンを押すと、完全背景透過の専用URLをコピーできます。幅1920・高さ1080で設定するだけで綺麗に重ね合わせ可能！'}</li>
+                  <li>{language === 'en' ? 'For second monitors: Drag the Project window to your physical field screen.' : language === 'zh' ? '實體球場大螢幕：點擊「Project」彈出獨立全螢幕計分板，拖曳至第二螢幕投影。' : '球場大画面：Projectウィンドウをセカンドスクリーンにドラッグして全画面表示。'}</li>
+                  <li>{language === 'en' ? 'All score actions, counts, and animations are synced in real-time!' : language === 'zh' ? '您在主控制台或手機的所有操作與全壘打動畫，都會毫秒級即時同步！' : '操作画面やスマホからのすべての操作とアニメーションがミリ秒単位で同期されます！'}</li>
                 </ol>
               </div>
               

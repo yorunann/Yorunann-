@@ -104,8 +104,8 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
     ? (state.awayTeam.baseColor || state.awayTeam.color || '#facc15')
     : (state.homeTeam.baseColor || state.homeTeam.color || '#facc15');
 
-  // Confirm Walk from Modal
-  const handleConfirmWalk = (walkType: '四球' | '觸身' | '不死三振' | 'K+WP' | 'K+PB') => {
+  // Confirm Walk / On-Base from Modal
+  const handleConfirmWalk = (walkType: '四球' | '觸身' | '不死三振' | 'K+WP' | 'K+PB' | '失誤') => {
     if (walkType === '不死三振' || walkType === 'K+WP' || walkType === 'K+PB') {
       dispatch({ type: 'WALK', walkType });
       dispatch({ type: 'TRIGGER_K' });
@@ -536,7 +536,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                   onClick={() => handleQuickOutcome('BB')}
                   className="py-2.5 px-1 bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs rounded-lg text-center transition-all active:scale-95 shadow-sm"
                 >
-                  保送/不死
+                  {language === 'zh' ? '上壘' : language === 'ja' ? '出塁' : 'On-Base'}
                 </button>
                 <button
                   onClick={() => handleQuickOutcome('OUT')}
@@ -1461,7 +1461,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-lg font-black text-white flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
-                <span>{language === 'zh' ? '選擇保送類型' : language === 'ja' ? '四死球タイプの選択' : 'Select Walk Type'}</span>
+                <span>{language === 'zh' ? '選擇上壘類型' : language === 'ja' ? '出塁タイプの選択' : 'Select On-Base Type'}</span>
               </h3>
               <button 
                 onClick={() => setIsWalkModalOpen(false)}
@@ -1500,6 +1500,21 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                   </div>
                 </div>
                 <ChevronRight size={18} className="text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all" />
+              </button>
+
+              <button
+                onClick={() => handleConfirmWalk('失誤')}
+                className="flex items-center justify-between p-3.5 bg-slate-800/80 hover:bg-amber-950/60 border border-slate-700 hover:border-amber-500/80 rounded-xl transition-all group text-left active:scale-98"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-black px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono">
+                    E
+                  </span>
+                  <div className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
+                    {language === 'zh' ? '失誤 (失誤上壘)' : language === 'ja' ? '失策 (失策出塁)' : 'Error (Reach on Error / E)'}
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-slate-500 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
               </button>
 
               <button

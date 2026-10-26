@@ -546,7 +546,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         };
       }
 
-      const isDefensiveMiscue = walkText === 'K+WP' || walkText === 'K+PB';
+      const isDefensiveMiscue = walkText === 'K+WP' || walkText === 'K+PB' || walkText === '失誤';
       const fieldingTeamKey = state.isTop ? 'homeTeam' : 'awayTeam';
       const fieldingTeam = state[fieldingTeamKey];
       const updatedFieldingTeam = isDefensiveMiscue
