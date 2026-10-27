@@ -177,7 +177,7 @@ export const App: React.FC = () => {
       dispatch({ type: 'REPLACE_STATE', state: remoteState });
       if (remoteLang) setLanguage(remoteLang);
     },
-    enabled: isRemoteMode || (isObsMode && hasRoomQuery) || !isDisplayMode,
+    enabled: isRemoteMode || isObsMode || !isDisplayMode,
   });
 
   const isResizingRef = useRef(false);

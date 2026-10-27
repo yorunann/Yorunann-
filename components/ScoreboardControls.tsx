@@ -298,7 +298,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
         newDraft[loc1.list][loc1.idx] = { ...newDraft[loc1.list][loc1.idx], position: p2Pos };
         newDraft[loc2.list][loc2.idx] = { ...newDraft[loc2.list][loc2.idx], position: p1Pos };
         
-        commitTeam(newDraft);
+        setDraft(newDraft);
       }
       setSelectedPosId(null);
     } else {
@@ -338,7 +338,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
           newDraft[loc2.list][loc2.idx] = p1;
         }
         
-        commitTeam(newDraft);
+        setDraft(newDraft);
       }
       setSelectedPlayerId(null);
     } else {
@@ -351,16 +351,21 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
     setEditingPosId(id);
   };
 
-  // Sync draft whenever globalTeam changes (e.g. initial load, remote sync, or line-up import)
+  const [isSavedRecently, setIsSavedRecently] = useState(false);
+
+  // Sync score and currentBatterIndex from global to draft so game progress doesn't get overwritten
+  React.useEffect(() => {
+    setDraft(prev => ({
+      ...prev,
+      score: globalTeam.score,
+      currentBatterIndex: globalTeam.currentBatterIndex
+    }));
+  }, [globalTeam.score, globalTeam.currentBatterIndex]);
+
+  // When global team reset occurs or team config changes externally, sync draft
   React.useEffect(() => {
     setDraft(globalTeam);
-  }, [globalTeam]);
-
-  // Helper to commit changes directly to state and broadcast in real time
-  const commitTeam = (newTeam: Team) => {
-    setDraft(newTeam);
-    dispatch({ type: 'APPLY_TEAM_CONFIG', team: teamKey, config: newTeam });
-  };
+  }, [state.meta.settingsVersion]);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -376,109 +381,109 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
   };
 
   const handleCropComplete = (croppedImage: string) => {
-    const next = { ...draft, logoUrl: croppedImage };
-    commitTeam(next);
+    setDraft(prev => ({ ...prev, logoUrl: croppedImage }));
     setCropModalOpen(false);
     setTempImageSrc('');
   };
 
   const updateDraft = (field: keyof Team, value: any) => {
-    const next = { ...draft, [field]: value };
-    commitTeam(next);
+    setDraft(prev => ({ ...prev, [field]: value }));
   };
 
   const updatePitcher = (field: keyof Player, value: any) => {
-    const newPitcher = { ...draft.pitcher, [field]: value };
-    if (field === 'stat') {
-      const num = parseInt(String(value || '').replace(/[^0-9]/g, ''), 10);
-      if (!isNaN(num)) newPitcher.pitchCount = num;
-    } else if (field === 'pitchCount') {
-      newPitcher.stat = String(value);
-    }
-    const next = { ...draft, pitcher: newPitcher };
-    commitTeam(next);
+    setDraft(prev => {
+      const newPitcher = { ...prev.pitcher, [field]: value };
+      if (field === 'stat') {
+        const num = parseInt(String(value || '').replace(/[^0-9]/g, ''), 10);
+        if (!isNaN(num)) newPitcher.pitchCount = num;
+      } else if (field === 'pitchCount') {
+        newPitcher.stat = String(value);
+      }
+      return { ...prev, pitcher: newPitcher };
+    });
   };
 
   const updateLineupPlayer = (index: number, field: keyof Player, value: string) => {
-    const newLineup = [...draft.lineup];
-    newLineup[index] = { ...newLineup[index], [field]: value };
-    const next = { ...draft, lineup: newLineup };
-    commitTeam(next);
+    setDraft(prev => {
+      const newLineup = [...prev.lineup];
+      newLineup[index] = { ...newLineup[index], [field]: value };
+      return { ...prev, lineup: newLineup };
+    });
   };
 
   const updateBenchPlayer = (index: number, field: keyof Player, value: string) => {
-    const newBench = [...draft.bench];
-    newBench[index] = { ...newBench[index], [field]: value };
-    const next = { ...draft, bench: newBench };
-    commitTeam(next);
+    setDraft(prev => {
+      const newBench = [...prev.bench];
+      newBench[index] = { ...newBench[index], [field]: value };
+      return { ...prev, bench: newBench };
+    });
   };
 
   const addLineupPlayer = () => {
-    const next = {
-      ...draft,
-      lineup: [...draft.lineup, { id: Math.random().toString(36).substr(2, 9), name: '', number: '', stat: '', position: '' }]
-    };
-    commitTeam(next);
+    setDraft(prev => ({
+      ...prev,
+      lineup: [...prev.lineup, { id: Math.random().toString(36).substr(2, 9), name: '', number: '', stat: '', position: '' }]
+    }));
   };
 
   const addBenchPlayer = () => {
-    const next = {
-      ...draft,
-      bench: [...draft.bench, { id: Math.random().toString(36).substr(2, 9), name: '', number: '', stat: '', position: '' }]
-    };
-    commitTeam(next);
+    setDraft(prev => ({
+      ...prev,
+      bench: [...prev.bench, { id: Math.random().toString(36).substr(2, 9), name: '', number: '', stat: '', position: '' }]
+    }));
   };
 
   const removeLineupPlayer = (index: number) => {
-    const next = {
-      ...draft,
-      lineup: draft.lineup.filter((_, i) => i !== index)
-    };
-    commitTeam(next);
+    setDraft(prev => ({
+      ...prev,
+      lineup: prev.lineup.filter((_, i) => i !== index)
+    }));
   };
 
   const removeBenchPlayer = (index: number) => {
-    const next = {
-      ...draft,
-      bench: draft.bench.filter((_, i) => i !== index)
-    };
-    commitTeam(next);
+    setDraft(prev => ({
+      ...prev,
+      bench: prev.bench.filter((_, i) => i !== index)
+    }));
   };
 
   const moveToBench = (index: number) => {
-    const player = draft.lineup[index];
-    const next = {
-      ...draft,
-      lineup: draft.lineup.filter((_, i) => i !== index),
-      bench: [...draft.bench, player]
-    };
-    commitTeam(next);
+    setDraft(prev => {
+      const player = prev.lineup[index];
+      return {
+        ...prev,
+        lineup: prev.lineup.filter((_, i) => i !== index),
+        bench: [...prev.bench, player]
+      };
+    });
   };
 
   const moveToLineup = (index: number) => {
-    const player = draft.bench[index];
-    const next = {
-      ...draft,
-      bench: draft.bench.filter((_, i) => i !== index),
-      lineup: [...draft.lineup, { ...player, position: 'PH' }]
-    };
-    commitTeam(next);
+    setDraft(prev => {
+      const player = prev.bench[index];
+      return {
+        ...prev,
+        bench: prev.bench.filter((_, i) => i !== index),
+        lineup: [...prev.lineup, { ...player, position: 'PH' }]
+      };
+    });
   };
 
   const setAsPitcher = (player: Player) => {
-    const next = {
-      ...draft,
+    setDraft(prev => ({
+      ...prev,
       pitcher: { 
-        ...draft.pitcher, 
+        ...prev.pitcher, 
         name: player.name, 
         number: player.number 
       }
-    };
-    commitTeam(next);
+    }));
   };
 
   const handleSubmit = () => {
     dispatch({ type: 'APPLY_TEAM_CONFIG', team: teamKey, config: draft });
+    setIsSavedRecently(true);
+    setTimeout(() => setIsSavedRecently(false), 2000);
   };
 
   const sensors = useSensors(
@@ -509,17 +514,15 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
     const overInBenchIdx = draft.bench.findIndex(p => p.id === overId);
 
     if (activeInLineupIdx !== -1 && overInLineupIdx !== -1) {
-      const next = {
-        ...draft,
-        lineup: arrayMove(draft.lineup, activeInLineupIdx, overInLineupIdx)
-      };
-      commitTeam(next);
+      setDraft(prev => ({
+        ...prev,
+        lineup: arrayMove(prev.lineup, activeInLineupIdx, overInLineupIdx)
+      }));
     } else if (activeInBenchIdx !== -1 && overInBenchIdx !== -1) {
-      const next = {
-        ...draft,
-        bench: arrayMove(draft.bench, activeInBenchIdx, overInBenchIdx)
-      };
-      commitTeam(next);
+      setDraft(prev => ({
+        ...prev,
+        bench: arrayMove(prev.bench, activeInBenchIdx, overInBenchIdx)
+      }));
     }
   };
 
@@ -564,8 +567,11 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
                  >
                    <RotateCcw size={12} />
                  </button>
-                 <button onClick={handleSubmit} className="bg-green-600 hover:bg-green-700 text-white text-[11px] font-bold py-1 px-1 rounded shadow flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-center min-w-0">
-                   {language === 'en' ? 'Update Info' : language === 'zh' ? '更新資訊' : '情報更新'}
+                 <button 
+                   onClick={handleSubmit} 
+                   className={`${isSavedRecently ? 'bg-emerald-500' : 'bg-green-600 hover:bg-green-700'} text-white text-[11px] font-bold py-1 px-1 rounded shadow flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-center min-w-0 transition-colors active:scale-95`}
+                 >
+                   {isSavedRecently ? '已更新 ✓' : (language === 'en' ? 'Update Info' : language === 'zh' ? '更新資訊' : '情報更新')}
                  </button>
                </div>
            </div>

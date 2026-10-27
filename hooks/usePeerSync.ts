@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Peer, DataConnection } from 'peerjs';
+import mqtt, { MqttClient } from 'mqtt';
 import { GameState, ActionType } from '../types';
 
 export interface PeerMessage {
@@ -42,6 +43,9 @@ export function usePeerSync({
   const peerRef = useRef<Peer | null>(null);
   const connectionsRef = useRef<Map<string, DataConnection>>(new Map());
   const clientConnRef = useRef<DataConnection | null>(null);
+  const mqttClientRef = useRef<MqttClient | null>(null);
+  const roomCodeRef = useRef(roomCode);
+  roomCodeRef.current = roomCode;
 
   const currentStateRef = useRef(currentState);
   currentStateRef.current = currentState;
@@ -55,7 +59,7 @@ export function usePeerSync({
   const onRemoteStateUpdateRef = useRef(onRemoteStateUpdate);
   onRemoteStateUpdateRef.current = onRemoteStateUpdate;
 
-  // Broadcast state changes to all connected peers (Host only)
+  // Broadcast state changes to all connected peers and cloud MQTT subscribers (Host only)
   const broadcastState = useCallback((stateToBroadcast?: GameState, langToBroadcast?: 'en' | 'zh' | 'ja') => {
     if (!isHost) return;
     const msg: PeerMessage = {
@@ -65,6 +69,7 @@ export function usePeerSync({
       timestamp: Date.now(),
     };
 
+    // 1. WebRTC DataConnection
     connectionsRef.current.forEach((conn) => {
       if (conn.open) {
         try {
@@ -74,18 +79,28 @@ export function usePeerSync({
         }
       }
     });
+
+    // 2. Cloud MQTT WebSocket: retained message for instant sync when OBS opens
+    if (mqttClientRef.current && mqttClientRef.current.connected) {
+      const cleanRoom = roomCodeRef.current.trim().toLowerCase();
+      if (cleanRoom) {
+        try {
+          mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/state`, JSON.stringify(msg), { retain: true, qos: 0 });
+        } catch (e) {}
+      }
+    }
   }, [isHost]);
 
   // Send action to host (Client only)
   const sendAction = useCallback((action: ActionType) => {
     if (isHost) {
-      // Local host can dispatch directly
       if (onRemoteDispatchRef.current) {
         onRemoteDispatchRef.current(action);
       }
       return;
     }
 
+    // 1. WebRTC
     const conn = clientConnRef.current;
     if (conn && conn.open) {
       try {
@@ -96,18 +111,43 @@ export function usePeerSync({
         };
         conn.send(msg);
       } catch (e) {
-        console.error('[PeerSync] Error sending action to host', e);
+        console.error('[PeerSync] Error sending action to host via WebRTC', e);
       }
-    } else {
-      console.warn('[PeerSync] Client not connected to host, action cannot be sent');
+    }
+
+    // 2. Cloud MQTT
+    if (mqttClientRef.current && mqttClientRef.current.connected) {
+      const cleanRoom = roomCodeRef.current.trim().toLowerCase();
+      if (cleanRoom) {
+        try {
+          mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/client_to_host`, JSON.stringify({
+            type: 'DISPATCH',
+            action,
+            timestamp: Date.now(),
+          }));
+        } catch (e) {}
+      }
     }
   }, [isHost]);
 
   // Request state from host (Client only)
   const requestState = useCallback(() => {
+    // 1. WebRTC
     const conn = clientConnRef.current;
     if (conn && conn.open) {
       conn.send({ type: 'REQUEST_STATE', timestamp: Date.now() });
+    }
+    // 2. Cloud MQTT
+    if (mqttClientRef.current && mqttClientRef.current.connected) {
+      const cleanRoom = roomCodeRef.current.trim().toLowerCase();
+      if (cleanRoom) {
+        try {
+          mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/client_to_host`, JSON.stringify({
+            type: 'REQUEST_STATE',
+            timestamp: Date.now(),
+          }));
+        } catch (e) {}
+      }
     }
   }, []);
 
@@ -137,6 +177,82 @@ export function usePeerSync({
     let clientConnectTimer: any = null;
     let heartbeatTimer: any = null;
     let reconnectAttempts = 0;
+
+    // Cloud MQTT WebSocket pub/sub (Works 100% on any deployed website / OBS Studio without WebRTC NAT/STUN issues)
+    const stateTopic = `bsb3/room/${cleanRoom}/state`;
+    const actionTopic = `bsb3/room/${cleanRoom}/client_to_host`;
+    const clientId = `bsb_${isHost ? 'host' : 'obs'}_${Math.random().toString(16).substring(2, 8)}`;
+
+    let mqttClient: MqttClient | null = null;
+    try {
+      mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+        clientId,
+        clean: true,
+        connectTimeout: 5000,
+        reconnectPeriod: 2500,
+      });
+      mqttClientRef.current = mqttClient;
+
+      mqttClient.on('connect', () => {
+        if (isDestroyed) return;
+        console.log(`[Cloud Sync] Connected to broker as ${isHost ? 'Host' : 'Client'}`);
+        setStatus('connected');
+        setErrorMessage(null);
+
+        if (isHost) {
+          mqttClient?.subscribe(actionTopic);
+          // Broadcast current state with retain: true so OBS receives it instantly
+          const payload = JSON.stringify({
+            type: 'SYNC_STATE',
+            state: currentStateRef.current,
+            language: currentLanguageRef.current,
+            timestamp: Date.now(),
+          });
+          mqttClient?.publish(stateTopic, payload, { retain: true, qos: 0 });
+        } else {
+          // Client (OBS / Remote) subscribes to state
+          mqttClient?.subscribe(stateTopic, { qos: 0 }, (err) => {
+            if (!err) {
+              mqttClient?.publish(actionTopic, JSON.stringify({ type: 'REQUEST_STATE', timestamp: Date.now() }));
+            }
+          });
+        }
+      });
+
+      mqttClient.on('message', (topic, payload) => {
+        if (isDestroyed) return;
+        try {
+          const msg = JSON.parse(payload.toString()) as PeerMessage;
+          if (topic === stateTopic && msg.type === 'SYNC_STATE' && msg.state) {
+            if (!isHost && onRemoteStateUpdateRef.current) {
+              setStatus('connected');
+              setErrorMessage(null);
+              onRemoteStateUpdateRef.current(msg.state, msg.language);
+            }
+          } else if (topic === actionTopic && isHost) {
+            if (msg.type === 'DISPATCH' && msg.action && onRemoteDispatchRef.current) {
+              onRemoteDispatchRef.current(msg.action);
+            } else if (msg.type === 'REQUEST_STATE') {
+              const resp = JSON.stringify({
+                type: 'SYNC_STATE',
+                state: currentStateRef.current,
+                language: currentLanguageRef.current,
+                timestamp: Date.now(),
+              });
+              mqttClient?.publish(stateTopic, resp, { retain: true, qos: 0 });
+            }
+          }
+        } catch (e) {
+          console.warn('[Cloud Sync] Failed to parse message', e);
+        }
+      });
+
+      mqttClient.on('error', (err) => {
+        console.warn('[Cloud Sync] Notice:', err);
+      });
+    } catch (e) {
+      console.warn('[Cloud Sync] Init error:', e);
+    }
 
     const connectClientToHost = () => {
       if (isDestroyed || !peerRef.current || peerRef.current.destroyed || isHost) return;
@@ -418,6 +534,12 @@ export function usePeerSync({
         peerRef.current.destroy();
         peerRef.current = null;
       }
+      if (mqttClient) {
+        try {
+          mqttClient.end(true);
+        } catch (e) {}
+      }
+      mqttClientRef.current = null;
       setStatus('disconnected');
       setConnectedClientsCount(0);
       setLatency(null);

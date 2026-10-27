@@ -26,6 +26,7 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
   if (!isOpen) return null;
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
   
   // Construct OBS URL
   const params = new URLSearchParams();
@@ -34,10 +35,10 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
     params.set('layout', selectedLayout);
   }
   if (useRemoteRoom && roomCode) {
-    params.set('room', roomCode);
+    params.set('room', roomCode.toUpperCase());
   }
   
-  const obsUrl = `${origin}/?${params.toString()}`;
+  const obsUrl = `${origin}${pathname}?${params.toString()}`;
 
   const handleCopy = async () => {
     try {
