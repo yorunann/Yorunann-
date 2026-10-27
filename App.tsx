@@ -207,6 +207,59 @@ export const App: React.FC = () => {
     };
   }, [useBetaControls, isPortrait, isDisplayMode, controlPanelWidth]);
 
+  const fullscreenContainerRef = useRef<HTMLDivElement>(null);
+  const [fullscreenScale, setFullscreenScale] = useState(() => {
+    if (typeof window === 'undefined') return 1;
+    const s = Math.min((window.innerWidth - 12) / 960, (window.innerHeight - 12) / 540);
+    return Math.max(0.2, s);
+  });
+
+  useEffect(() => {
+    const updateFsScale = () => {
+      let w = window.innerWidth;
+      let h = window.innerHeight;
+      if (fullscreenContainerRef.current) {
+        const cw = fullscreenContainerRef.current.clientWidth;
+        const ch = fullscreenContainerRef.current.clientHeight;
+        if (cw > 0 && ch > 0) {
+          w = cw;
+          h = ch;
+        }
+      }
+      if (w <= 0 || h <= 0) return;
+      const refW = 960;
+      const refH = 540;
+      // Scale 960x540 proportionally to fill fullscreen display with crisp layout
+      const s = Math.min((w - 12) / refW, (h - 12) / refH);
+      setFullscreenScale(Math.max(0.2, s));
+    };
+
+    updateFsScale();
+    const ro = fullscreenContainerRef.current ? new ResizeObserver(updateFsScale) : null;
+    if (fullscreenContainerRef.current) {
+      ro?.observe(fullscreenContainerRef.current);
+    }
+
+    window.addEventListener('resize', updateFsScale);
+    window.addEventListener('orientationchange', updateFsScale);
+
+    const handleFsChange = () => {
+      setTimeout(updateFsScale, 50);
+      setTimeout(updateFsScale, 200);
+      setTimeout(updateFsScale, 500);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', updateFsScale);
+      window.removeEventListener('orientationchange', updateFsScale);
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, [isFullscreen, isPseudoFullscreen, isPortrait]);
+
   const channelRef = useRef<BroadcastChannel | null>(null);
   const isLocalAction = useRef(false);
   const stateRef = useRef(state);
@@ -642,13 +695,33 @@ export const App: React.FC = () => {
 
           {/* Fullscreen Scoreboard Display */}
           <div className="w-full h-full p-2 sm:p-4 flex items-center justify-center overflow-hidden">
-            <ScoreboardDisplay 
-              ref={displayRef} 
-              state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
-              dispatch={handleDispatch} 
-              language={language} 
-              isVerticalFullscreen={isPortrait} 
-            />
+            {isPortrait ? (
+              <ScoreboardDisplay 
+                ref={displayRef} 
+                state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
+                dispatch={handleDispatch} 
+                language={language} 
+                isVerticalFullscreen={true} 
+              />
+            ) : (
+              <div 
+                style={{
+                  width: 960,
+                  height: 540,
+                  transform: `scale(${fullscreenScale})`,
+                  transformOrigin: 'center center',
+                  flexShrink: 0
+                }}
+              >
+                <ScoreboardDisplay 
+                  ref={displayRef} 
+                  state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
+                  dispatch={handleDispatch} 
+                  language={language} 
+                  isVerticalFullscreen={false} 
+                />
+              </div>
+            )}
           </div>
         </div>
       );
@@ -960,7 +1033,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v3.3.3</span>
+          <span className="text-slate-600 ml-2">v3.3.5</span>
        </footer>
 
         <ShortcutSettingsModal
@@ -1019,37 +1092,54 @@ export const App: React.FC = () => {
 
         {/* Fullscreen Scoreboard Overlay (both Native and Pseudo Immersive Mode) */}
         {(isFullscreen || isPseudoFullscreen) && (
-          <div className="fixed inset-0 z-[150] bg-slate-950 flex flex-col items-center justify-center overflow-hidden p-2 select-none touch-manipulation">
+          <div 
+            onDoubleClick={toggleFullscreen}
+            className="fixed inset-0 z-[150] bg-slate-950 flex flex-col items-center justify-center overflow-hidden p-2 select-none touch-manipulation"
+          >
             {/* Floating Top Bar with Mode Switcher & Exit Button */}
-            <div className="absolute top-3 right-3 flex items-center gap-2 z-50">
-              <div className="bg-slate-800/85 backdrop-blur-md rounded-lg p-1 flex border border-slate-700 shadow-xl">
-                {(['default', 'lineup', 'rhe', 'broadcast'] as const).map(mode => {
-                  const isActive = (localDisplayMode || state.displayMode) === mode;
-                  return (
-                    <button
-                      key={mode}
-                      onClick={() => setLocalDisplayMode(mode)}
-                      className={`px-2.5 py-1 text-xs font-semibold rounded capitalize transition-colors ${
-                        isActive 
-                          ? 'bg-blue-600 text-white' 
-                          : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
-                      }`}
-                    >
-                      {mode}
-                    </button>
-                  );
-                })}
-              </div>
+            {!isDisplayMode ? (
+              <div className="absolute top-3 right-3 flex items-center gap-2 z-50">
+                <div className="bg-slate-800/85 backdrop-blur-md rounded-lg p-1 flex border border-slate-700 shadow-xl">
+                  {(['default', 'lineup', 'rhe', 'broadcast'] as const).map(mode => {
+                    const isActive = (localDisplayMode || state.displayMode) === mode;
+                    return (
+                      <button
+                        key={mode}
+                        onClick={() => setLocalDisplayMode(mode)}
+                        className={`px-2.5 py-1 text-xs font-semibold rounded capitalize transition-colors ${
+                          isActive 
+                            ? 'bg-blue-600 text-white' 
+                            : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
+                        }`}
+                      >
+                        {mode}
+                      </button>
+                    );
+                  })}
+                </div>
 
-              <button
-                onClick={toggleFullscreen}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700 text-white rounded-lg shadow-xl backdrop-blur-md border border-slate-600 transition-all text-xs font-bold"
-                title={language === 'zh' ? '退出全螢幕' : language === 'en' ? 'Exit Fullscreen' : '全画面終了'}
-              >
-                <Minimize size={16} className="text-yellow-400" />
-                <span>{language === 'zh' ? '退出全螢幕' : language === 'en' ? 'Exit' : '終了'}</span>
-              </button>
-            </div>
+                <button
+                  onClick={toggleFullscreen}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700 text-white rounded-lg shadow-xl backdrop-blur-md border border-slate-600 transition-all text-xs font-bold"
+                  title={language === 'zh' ? '退出全螢幕' : language === 'en' ? 'Exit Fullscreen' : '全画面終了'}
+                >
+                  <Minimize size={16} className="text-yellow-400" />
+                  <span>{language === 'zh' ? '退出全螢幕' : language === 'en' ? 'Exit' : '終了'}</span>
+                </button>
+              </div>
+            ) : (
+              /* Project Mode: Hide the menu completely. Hovering top-right reveals a discreet exit button, and double-click or ESC also exits cleanly. */
+              <div className="absolute top-3 right-3 z-50 opacity-0 hover:opacity-100 transition-opacity duration-300">
+                <button
+                  onClick={toggleFullscreen}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/80 hover:bg-slate-800 text-white/80 hover:text-white rounded-lg shadow-lg backdrop-blur-md border border-slate-700/60 text-xs font-medium cursor-pointer"
+                  title={language === 'zh' ? '退出全螢幕 (或按 ESC / 雙擊畫面)' : language === 'en' ? 'Exit Fullscreen (ESC or Double-click)' : '全画面終了'}
+                >
+                  <Minimize size={14} className="text-yellow-400" />
+                  <span>{language === 'zh' ? '退出全螢幕' : language === 'en' ? 'Exit' : '終了'}</span>
+                </button>
+              </div>
+            )}
 
             {/* iOS Tip Banner */}
             {showIosTip && (
@@ -1082,15 +1172,37 @@ export const App: React.FC = () => {
             )}
 
             {/* Scoreboard display */}
-            <div className={`w-full h-full max-w-full flex items-center justify-center ${isPortrait ? 'py-10 px-2' : 'aspect-video'}`}>
-              <div className="w-full transform scale-95 md:scale-100 origin-center h-full">
-                <ScoreboardDisplay 
-                  state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
-                  dispatch={handleDispatch} 
-                  language={language} 
-                  isVerticalFullscreen={isPortrait}
-                />
-              </div>
+            <div 
+              ref={fullscreenContainerRef}
+              className="w-full h-full max-w-full flex items-center justify-center overflow-hidden relative"
+            >
+              {isPortrait ? (
+                <div className="w-full h-full py-10 px-2 flex items-center justify-center">
+                  <ScoreboardDisplay 
+                    state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
+                    dispatch={handleDispatch} 
+                    language={language} 
+                    isVerticalFullscreen={true} 
+                  />
+                </div>
+              ) : (
+                <div 
+                  style={{
+                    width: 960,
+                    height: 540,
+                    transform: `scale(${fullscreenScale})`,
+                    transformOrigin: 'center center',
+                    flexShrink: 0
+                  }}
+                >
+                  <ScoreboardDisplay 
+                    state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
+                    dispatch={handleDispatch} 
+                    language={language} 
+                    isVerticalFullscreen={false} 
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
