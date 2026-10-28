@@ -5,7 +5,9 @@ import { GameState, ActionType } from '../types';
 
 export interface PeerMessage {
   type: 'SYNC_STATE' | 'REQUEST_STATE' | 'DISPATCH' | 'PING' | 'PONG' | 'DEVICE_INFO';
+  actionId?: string;
   state?: GameState;
+  stateVersion?: number;
   language?: 'en' | 'zh' | 'ja';
   action?: ActionType;
   timestamp?: number;
@@ -59,12 +61,53 @@ export function usePeerSync({
   const onRemoteStateUpdateRef = useRef(onRemoteStateUpdate);
   onRemoteStateUpdateRef.current = onRemoteStateUpdate;
 
+  // Deduplication & versioning refs to guarantee zero duplicate actions and zero state jitter
+  const stateVersionRef = useRef<number>(1);
+  const lastProcessedStateVersionRef = useRef<number>(0);
+  const processedActionIdsRef = useRef<Map<string, number>>(new Map());
+  const lastSentActionRef = useRef<{ key: string; time: number }>({ key: '', time: 0 });
+
+  // Host action deduplication handler: prevents executing actions twice across WebRTC & MQTT
+  const handleHostIncomingAction = useCallback((action: ActionType, actionId?: string) => {
+    if (!onRemoteDispatchRef.current) return;
+    if (actionId) {
+      const now = Date.now();
+      // Purge entries older than 15s
+      processedActionIdsRef.current.forEach((t, id) => {
+        if (now - t > 15000) processedActionIdsRef.current.delete(id);
+      });
+      if (processedActionIdsRef.current.has(actionId)) {
+        console.log('[PeerSync Host] Dropped duplicate incoming actionId:', actionId);
+        return;
+      }
+      processedActionIdsRef.current.set(actionId, now);
+    }
+    onRemoteDispatchRef.current(action);
+  }, []);
+
+  // Client state update deduplication handler: drops outdated or duplicate state broadcasts
+  const handleClientIncomingState = useCallback((newState: GameState, newLang?: 'en' | 'zh' | 'ja', version?: number) => {
+    if (!onRemoteStateUpdateRef.current) return;
+    if (typeof version === 'number') {
+      if (version <= lastProcessedStateVersionRef.current) {
+        // Discard older or already processed state packet
+        return;
+      }
+      lastProcessedStateVersionRef.current = version;
+    }
+    setStatus('connected');
+    setErrorMessage(null);
+    onRemoteStateUpdateRef.current(newState, newLang);
+  }, []);
+
   // Broadcast state changes to all connected peers and cloud MQTT subscribers (Host only)
   const broadcastState = useCallback((stateToBroadcast?: GameState, langToBroadcast?: 'en' | 'zh' | 'ja') => {
     if (!isHost) return;
+    stateVersionRef.current += 1;
     const msg: PeerMessage = {
       type: 'SYNC_STATE',
       state: stateToBroadcast || currentStateRef.current,
+      stateVersion: stateVersionRef.current,
       language: langToBroadcast || currentLanguageRef.current,
       timestamp: Date.now(),
     };
@@ -100,31 +143,41 @@ export function usePeerSync({
       return;
     }
 
-    // 1. WebRTC
+    const now = Date.now();
+    // Debounce rapid tap bounce (< 100ms for exact same action)
+    const actionKey = JSON.stringify(action);
+    if (actionKey === lastSentActionRef.current.key && now - lastSentActionRef.current.time < 100) {
+      return;
+    }
+    lastSentActionRef.current = { key: actionKey, time: now };
+
+    // Unique action ID for deduplication on host
+    const actionId = `act_${now}_${Math.random().toString(36).substring(2, 9)}`;
+    const msg: PeerMessage = {
+      type: 'DISPATCH',
+      actionId,
+      action,
+      timestamp: now,
+    };
+
+    // Prefer fast direct WebRTC DataConnection if available
+    let sentViaWebRtc = false;
     const conn = clientConnRef.current;
     if (conn && conn.open) {
       try {
-        const msg: PeerMessage = {
-          type: 'DISPATCH',
-          action,
-          timestamp: Date.now(),
-        };
         conn.send(msg);
+        sentViaWebRtc = true;
       } catch (e) {
         console.error('[PeerSync] Error sending action to host via WebRTC', e);
       }
     }
 
-    // 2. Cloud MQTT
-    if (mqttClientRef.current && mqttClientRef.current.connected) {
+    // Only fallback to Cloud MQTT if WebRTC is not open
+    if (!sentViaWebRtc && mqttClientRef.current && mqttClientRef.current.connected) {
       const cleanRoom = roomCodeRef.current.trim().toLowerCase();
       if (cleanRoom) {
         try {
-          mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/client_to_host`, JSON.stringify({
-            type: 'DISPATCH',
-            action,
-            timestamp: Date.now(),
-          }));
+          mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/client_to_host`, JSON.stringify(msg));
         } catch (e) {}
       }
     }
@@ -224,18 +277,17 @@ export function usePeerSync({
         try {
           const msg = JSON.parse(payload.toString()) as PeerMessage;
           if (topic === stateTopic && msg.type === 'SYNC_STATE' && msg.state) {
-            if (!isHost && onRemoteStateUpdateRef.current) {
-              setStatus('connected');
-              setErrorMessage(null);
-              onRemoteStateUpdateRef.current(msg.state, msg.language);
+            if (!isHost) {
+              handleClientIncomingState(msg.state, msg.language, msg.stateVersion);
             }
           } else if (topic === actionTopic && isHost) {
-            if (msg.type === 'DISPATCH' && msg.action && onRemoteDispatchRef.current) {
-              onRemoteDispatchRef.current(msg.action);
+            if (msg.type === 'DISPATCH' && msg.action) {
+              handleHostIncomingAction(msg.action, msg.actionId);
             } else if (msg.type === 'REQUEST_STATE') {
               const resp = JSON.stringify({
                 type: 'SYNC_STATE',
                 state: currentStateRef.current,
+                stateVersion: stateVersionRef.current,
                 language: currentLanguageRef.current,
                 timestamp: Date.now(),
               });
@@ -288,9 +340,7 @@ export function usePeerSync({
           if (isDestroyed) return;
           const msg = data as PeerMessage;
           if (msg.type === 'SYNC_STATE' && msg.state) {
-            if (onRemoteStateUpdateRef.current) {
-              onRemoteStateUpdateRef.current(msg.state, msg.language);
-            }
+            handleClientIncomingState(msg.state, msg.language, msg.stateVersion);
           } else if (msg.type === 'PONG' && msg.timestamp) {
             const rtt = Date.now() - msg.timestamp;
             setLatency(rtt);
@@ -396,13 +446,12 @@ export function usePeerSync({
               if (isDestroyed) return;
               const msg = data as PeerMessage;
               if (msg.type === 'DISPATCH' && msg.action) {
-                if (onRemoteDispatchRef.current) {
-                  onRemoteDispatchRef.current(msg.action);
-                }
+                handleHostIncomingAction(msg.action, msg.actionId);
               } else if (msg.type === 'REQUEST_STATE') {
                 conn.send({
                   type: 'SYNC_STATE',
                   state: currentStateRef.current,
+                  stateVersion: stateVersionRef.current,
                   language: currentLanguageRef.current,
                   timestamp: Date.now(),
                 });
@@ -480,6 +529,7 @@ export function usePeerSync({
           const msg: PeerMessage = {
             type: 'SYNC_STATE',
             state: currentStateRef.current,
+            stateVersion: stateVersionRef.current,
             language: currentLanguageRef.current,
             timestamp: Date.now(),
           };
