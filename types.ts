@@ -86,6 +86,7 @@ export interface GameMeta {
   broadcastLogoSize?: number;
   broadcastCountGap?: number;
   broadcastPlayerNumberStyle?: 'normal' | 'gray' | 'hidden';
+  broadcastVisible?: boolean;
   swapSides?: boolean;
   settingsVersion?: number;
 }

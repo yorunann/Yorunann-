@@ -1866,18 +1866,25 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
           </div>
         )}
 
-        <div 
-          className={`absolute bg-gradient-to-br from-cyan-950/30 via-slate-900/50 to-teal-950/30 backdrop-blur-xl border border-white/20 text-white font-display shadow-2xl shadow-black/50 pointer-events-auto overflow-hidden flex flex-col origin-top-left select-none ${state.isAdjustmentMode && !isObsMode ? 'cursor-move ring-4 ring-blue-500 ring-offset-4 ring-offset-transparent' : ''}`} 
-          style={{ 
-            width: `${state.meta.broadcastWidth ?? 450}px`,
-            left: `${state.meta.broadcastMarginX ?? 20}px`,
-            bottom: `${state.meta.broadcastMarginY ?? 20}px`,
-            transform: `scale(${state.meta.broadcastScale ?? 1})`
-          }}
-          onMouseDown={handleDrag}
-          onTouchStart={handleDrag}
-          onWheel={handleScale}
-        >
+        {/* Main broadcast overlay card with entrance/exit animation */}
+        <AnimatePresence>
+          {state.meta.broadcastVisible !== false && (
+            <motion.div 
+              key="broadcast-scorebug"
+              initial={{ opacity: 0, x: -160, scale: (state.meta.broadcastScale ?? 1) * 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: state.meta.broadcastScale ?? 1 }}
+              exit={{ opacity: 0, x: -160, scale: (state.meta.broadcastScale ?? 1) * 0.95 }}
+              transition={{ type: 'spring', stiffness: 240, damping: 22, mass: 0.8 }}
+              className={`absolute bg-gradient-to-br from-cyan-950/30 via-slate-900/50 to-teal-950/30 backdrop-blur-xl border border-white/20 text-white font-display shadow-2xl shadow-black/50 pointer-events-auto overflow-hidden flex flex-col origin-top-left select-none ${state.isAdjustmentMode && !isObsMode ? 'cursor-move ring-4 ring-blue-500 ring-offset-4 ring-offset-transparent' : ''}`} 
+              style={{ 
+                width: `${state.meta.broadcastWidth ?? 450}px`,
+                left: `${state.meta.broadcastMarginX ?? 20}px`,
+                bottom: `${state.meta.broadcastMarginY ?? 20}px`,
+              }}
+              onMouseDown={handleDrag}
+              onTouchStart={handleDrag}
+              onWheel={handleScale}
+            >
           {/* Width Resizer */}
           {state.isAdjustmentMode && (
             <div 
@@ -2706,7 +2713,9 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
           </div>
 
 
-        </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   };

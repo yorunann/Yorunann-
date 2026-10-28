@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, ExternalLink, Tv, Radio, Layers, Sparkles, CheckCircle2, Sliders, Info } from 'lucide-react';
-import { GameState } from '../types';
+import { X, Copy, Check, ExternalLink, Tv, Radio, Layers, Sparkles, Sliders, Info, Eye, EyeOff, Play } from 'lucide-react';
+import { GameState, ActionType } from '../types';
 
 interface ObsOverlayModalProps {
   isOpen: boolean;
@@ -8,6 +8,8 @@ interface ObsOverlayModalProps {
   language: 'en' | 'zh' | 'ja';
   roomCode: string;
   currentDisplayMode: GameState['displayMode'];
+  state?: GameState;
+  dispatch?: (action: ActionType) => void;
 }
 
 type OverlayLayout = 'broadcast' | 'follow' | 'default' | 'lineup' | 'rhe';
@@ -18,9 +20,10 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
   language,
   roomCode,
   currentDisplayMode,
+  state,
+  dispatch,
 }) => {
   const [selectedLayout, setSelectedLayout] = useState<OverlayLayout>('follow');
-  const [useRemoteRoom, setUseRemoteRoom] = useState<boolean>(true);
   const [isCopied, setIsCopied] = useState(false);
 
   if (!isOpen) return null;
@@ -28,17 +31,38 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
   
-  // Construct OBS URL
+  // Construct OBS URL - roomCode is always included by default
   const params = new URLSearchParams();
   params.set('mode', 'obs');
   if (selectedLayout !== 'follow') {
     params.set('layout', selectedLayout);
   }
-  if (useRemoteRoom && roomCode) {
+  if (roomCode) {
     params.set('room', roomCode.toUpperCase());
   }
   
   const obsUrl = `${origin}${pathname}?${params.toString()}`;
+
+  const isBroadcastVisible = state ? (state.meta.broadcastVisible !== false) : true;
+
+  const handleToggleBroadcastVisible = () => {
+    if (dispatch) {
+      dispatch({
+        type: 'UPDATE_META',
+        field: 'broadcastVisible',
+        value: !isBroadcastVisible,
+      });
+    }
+  };
+
+  const handleSetDisplayMode = (mode: GameState['displayMode']) => {
+    if (dispatch) {
+      dispatch({
+        type: 'SET_DISPLAY_MODE',
+        mode,
+      });
+    }
+  };
 
   const handleCopy = async () => {
     try {
@@ -69,8 +93,24 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
       : language === 'ja' 
       ? 'OBS Studio / Streamlabs 専用の透過ブラウザソース。配信映像に重ねて即座にスコアを表示！'
       : 'Transparent Browser Source designed for OBS Studio / Streamlabs to overlay real-time scoreboards onto live video streams!',
-    layoutLabel: language === 'zh' ? '1. 選擇圖層樣式' : language === 'ja' ? '1. オーバーレイスタイル選択' : '1. Select Overlay Style',
-    syncLabel: language === 'zh' ? '2. 同步模式' : language === 'ja' ? '2. 同期モード' : '2. Sync Mode',
+    consoleTitle: language === 'zh' ? 'OBS 轉播即時控制台' : language === 'ja' ? 'OBS 実況リアルタイム操作盤' : 'OBS Live Broadcast Console',
+    consoleDesc: language === 'zh'
+      ? '遠端即時遙控 OBS 畫面！可於局間切換隱藏／顯示（開啟時自動播放開局滑入動畫），或切換版面樣式。'
+      : language === 'ja'
+      ? 'OBS画面を遠隔操作！イニング開始時にスコアバーを表示すると入場アニメーションが流れます。'
+      : 'Live control over OBS display! Hide between innings or show to trigger half-inning start entrance animation.',
+    visibilityOn: language === 'zh' ? '轉播計分板：顯示中 (ON)' : language === 'ja' ? 'スコアバー：表示中 (ON)' : 'Scorebug: Visible (ON)',
+    visibilityOff: language === 'zh' ? '轉播計分板：已隱藏 (OFF)' : language === 'ja' ? 'スコアバー：非表示 (OFF)' : 'Scorebug: Hidden (OFF)',
+    visibilityOnHint: language === 'zh' ? '點擊隱藏計分條（局間休息或畫面重播時使用）' : language === 'ja' ? 'クリックで非表示（イニング間休憩やリプレイ時）' : 'Click to hide scorebug during breaks',
+    visibilityOffHint: language === 'zh' ? '點擊開啟顯示（將立即播放開局滑入進場動畫！）' : language === 'ja' ? 'クリックで表示（開始アニメーションが自動再生されます！）' : 'Click to show (triggers broadcast entrance animation!)',
+    layoutLabel: language === 'zh' ? '1. 選擇圖層網址樣式' : language === 'ja' ? '1. オーバーレイスタイル選択' : '1. Select Overlay Style',
+    syncLabel: language === 'zh' ? '2. 跨裝置雲端同步' : language === 'ja' ? '2. クラウド同期' : '2. Cloud Live Sync',
+    syncStatus: language === 'zh' ? `已默認永久開啟 (#${roomCode})` : language === 'ja' ? `常時同期中 (#${roomCode})` : `Always Active (#${roomCode})`,
+    syncDesc: language === 'zh'
+      ? 'OBS 實況圖層與主控台／手機遙控器完全自動連動，比分、好壞球數、全壘打與三振特效即時無線同步呈現。'
+      : language === 'ja'
+      ? 'OBSとコントローラー／スマホ操作盤は完全リアルタイム同期。スコアや演出も遅延なく反映されます。'
+      : 'OBS overlay wirelessly syncs score, counts, and animations from your controller or mobile device in real time.',
     urlLabel: language === 'zh' ? '3. 專屬透明圖層網址 (OBS 瀏覽器來源專用)' : language === 'ja' ? '3. 専用透過URL (OBSブラウザソース用)' : '3. OBS Browser Source URL',
     copyBtn: language === 'zh' ? '複製網址' : language === 'ja' ? 'URLをコピー' : 'Copy URL',
     copiedBtn: language === 'zh' ? '已複製！' : language === 'ja' ? 'コピー完了！' : 'Copied!',
@@ -153,7 +193,99 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1 text-sm">
-          {/* Step 1: Layout Selection */}
+          
+          {/* OBS Control Console Section */}
+          <div className="bg-gradient-to-br from-indigo-950/60 via-slate-800/80 to-purple-950/40 border-2 border-indigo-500/40 rounded-2xl p-4 shadow-xl space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center text-indigo-300">
+                  <Sliders size={15} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-indigo-200 tracking-wide">{t.consoleTitle}</h3>
+                  <p className="text-[11px] text-slate-300">{t.consoleDesc}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Visibility Toggle Button */}
+            <div className="pt-1">
+              <button
+                onClick={handleToggleBroadcastVisible}
+                className={`w-full py-3.5 px-4 rounded-xl font-bold text-sm flex items-center justify-between transition-all duration-200 cursor-pointer shadow-lg border active:scale-[0.99] ${
+                  isBroadcastVisible
+                    ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-600 text-white border-emerald-400/50 shadow-emerald-950/50'
+                    : 'bg-gradient-to-r from-slate-800 via-rose-950/40 to-slate-800 hover:from-slate-700 hover:to-slate-700 text-slate-300 border-slate-600/70 shadow-black/50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    isBroadcastVisible ? 'bg-white/20 text-white' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                  }`}>
+                    {isBroadcastVisible ? <Eye size={18} /> : <EyeOff size={18} />}
+                  </div>
+                  <div className="text-left">
+                    <div className="text-sm font-extrabold flex items-center gap-2">
+                      <span>{isBroadcastVisible ? t.visibilityOn : t.visibilityOff}</span>
+                    </div>
+                    <div className="text-[11px] font-normal opacity-90">
+                      {isBroadcastVisible ? t.visibilityOnHint : t.visibilityOffHint}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="shrink-0 flex items-center gap-1.5 pl-2">
+                  <span className={`text-[11px] font-mono font-bold px-2.5 py-1 rounded-full border ${
+                    isBroadcastVisible
+                      ? 'bg-emerald-900/60 text-emerald-200 border-emerald-400/40 animate-pulse'
+                      : 'bg-rose-900/50 text-rose-200 border-rose-500/40'
+                  }`}>
+                    {isBroadcastVisible 
+                      ? (language === 'zh' ? '點擊隱藏' : 'Hide') 
+                      : (language === 'zh' ? '點擊開打進場' : 'Show with Intro')}
+                  </span>
+                </div>
+              </button>
+            </div>
+
+            {/* Quick Live Layout Switcher */}
+            {dispatch && state && (
+              <div className="pt-1.5 border-t border-indigo-500/20">
+                <div className="text-[11px] font-bold text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span>{language === 'zh' ? '快速切換當前賽事顯示版面：' : 'Quick Layout Switch:'}</span>
+                  <span className="text-[10px] text-indigo-300 font-mono">
+                    {language === 'zh' ? `當前: ${state.displayMode}` : `Current: ${state.displayMode}`}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  {(['broadcast', 'lineup', 'rhe', 'default'] as const).map((mode) => {
+                    const isCurrent = state.displayMode === mode;
+                    const labels: Record<string, string> = {
+                      broadcast: language === 'zh' ? '轉播比分條' : 'Broadcast',
+                      lineup: language === 'zh' ? '先發打線卡' : 'Lineup',
+                      rhe: language === 'zh' ? '局間 RHE' : 'Box (RHE)',
+                      default: language === 'zh' ? '經典全景板' : 'Classic',
+                    };
+                    return (
+                      <button
+                        key={mode}
+                        onClick={() => handleSetDisplayMode(mode)}
+                        className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                          isCurrent
+                            ? 'bg-indigo-600 text-white border-indigo-400 shadow-md ring-1 ring-indigo-300'
+                            : 'bg-slate-900/60 hover:bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+                        }`}
+                      >
+                        {labels[mode]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Step 1: Layout Selection for URL */}
           <div className="space-y-2.5">
             <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
               <Layers size={14} className="text-indigo-400" />
@@ -186,31 +318,31 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
             </div>
           </div>
 
-          {/* Step 2: Sync Mode Selection */}
+          {/* Step 2: Sync Mode (Always Active by Default, No Checkbox) */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
               <Radio size={14} className="text-indigo-400" />
               <span>{t.syncLabel}</span>
             </label>
-            <div className="bg-slate-800/60 border border-slate-700/60 p-3 rounded-xl space-y-2.5">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input 
-                  type="checkbox"
-                  checked={useRemoteRoom}
-                  onChange={(e) => setUseRemoteRoom(e.target.checked)}
-                  className="w-4 h-4 rounded text-indigo-600 bg-slate-900 border-slate-600 focus:ring-indigo-500 cursor-pointer"
-                />
-                <div className="text-xs">
-                  <span className="font-bold text-slate-200">
-                    {language === 'zh' ? `附帶跨裝置雲端同步房間代碼 (#${roomCode})` : language === 'ja' ? `遠隔ルームコード付加 (#${roomCode})` : `Include Remote Room Code (#${roomCode})`}
-                  </span>
-                  <p className="text-[11px] text-slate-400">
-                    {language === 'zh' 
-                      ? '勾選後，即使 OBS 與記分板在不同電腦/手機上，也能透過 WebRTC 無線即時更新！若在同一台電腦執行 OBS，勾不勾選皆能極速同步。'
-                      : 'Allows OBS to receive live score updates wirelessly from other PCs or mobile controllers via WebRTC.'}
+            <div className="bg-slate-800/60 border border-slate-700/60 p-3 rounded-xl flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Radio size={16} className="animate-pulse" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-200 text-xs">
+                      {t.syncStatus}
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      {language === 'zh' ? '默認開啟' : 'Always Active'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {t.syncDesc}
                   </p>
                 </div>
-              </label>
+              </div>
             </div>
           </div>
 
@@ -220,10 +352,6 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
               <span className="flex items-center gap-1.5">
                 <Tv size={14} className="text-indigo-400" />
                 <span>{t.urlLabel}</span>
-              </span>
-              <span className="text-[11px] text-emerald-400 font-mono flex items-center gap-1">
-                <CheckCircle2 size={12} />
-                <span>100% Alpha Transparent</span>
               </span>
             </label>
 

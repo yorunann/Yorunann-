@@ -782,6 +782,7 @@ export const App: React.FC = () => {
           }}
           onOpenRecordModal={() => setIsGameRecordModalOpen(true)}
           onToggleProjectMode={() => setIsDisplayMode(true)}
+          onOpenObsModal={() => setIsObsModalOpen(true)}
         />
         <GameRecordModal
           isOpen={isGameRecordModalOpen}
@@ -789,6 +790,15 @@ export const App: React.FC = () => {
           state={state}
           dispatch={handleDispatch}
           language={language}
+        />
+        <ObsOverlayModal
+          isOpen={isObsModalOpen}
+          onClose={() => setIsObsModalOpen(false)}
+          language={language}
+          roomCode={roomCode}
+          currentDisplayMode={state.displayMode}
+          state={state}
+          dispatch={handleDispatch}
         />
       </div>
     );
@@ -1113,6 +1123,8 @@ export const App: React.FC = () => {
           language={language}
           roomCode={roomCode}
           currentDisplayMode={state.displayMode}
+          state={state}
+          dispatch={handleDispatch}
         />
 
         {/* Fullscreen Scoreboard Overlay (both Native and Pseudo Immersive Mode) */}

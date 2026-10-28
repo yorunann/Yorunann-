@@ -7,7 +7,8 @@ import {
   Wifi,
   WifiOff,
   Tv,
-  AlertCircle
+  AlertCircle,
+  Radio,
 } from 'lucide-react';
 import { ScoreboardControls } from './ScoreboardControls';
 import { ScoreboardControlsV2 } from './ScoreboardControlsV2';
@@ -26,6 +27,7 @@ interface MobileRemoteViewProps {
   onExitRemoteMode: () => void;
   onOpenRecordModal: () => void;
   onToggleProjectMode: () => void;
+  onOpenObsModal?: () => void;
 }
 
 export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
@@ -42,6 +44,7 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
   onExitRemoteMode,
   onOpenRecordModal,
   onToggleProjectMode,
+  onOpenObsModal,
 }) => {
   const [manualCodeInput, setManualCodeInput] = useState(roomCode);
   const [showCodeInput, setShowCodeInput] = useState(false);
@@ -115,6 +118,18 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5">
+          {/* OBS Overlay & Live Console Button */}
+          {onOpenObsModal && (
+            <button
+              onClick={onOpenObsModal}
+              className="px-2.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold rounded-lg shadow-md flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer border border-purple-400/30"
+              title={language === 'zh' ? '開啟 OBS 實況圖層與控制台 (可切換隱藏/開局動畫)' : 'Open OBS Overlay & Console'}
+            >
+              <Radio size={14} />
+              <span>OBS</span>
+            </button>
+          )}
+
           {/* Project Mode Button */}
           <button
             onClick={onToggleProjectMode}
