@@ -395,7 +395,23 @@ const AnimatedIndicator: React.FC<AnimatedIndicatorProps> = ({ active, colorClas
     );
 };
 
-const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: boolean, state: GameState, dispatch: React.Dispatch<ActionType> }) => {
+const LineupColumn = ({ 
+    team, 
+    isAway, 
+    state, 
+    dispatch,
+    borderClass = "border-r-2 border-slate-800",
+    isObs = false,
+    language = 'zh'
+}: { 
+    team: Team, 
+    isAway: boolean, 
+    state: GameState, 
+    dispatch: React.Dispatch<ActionType>,
+    borderClass?: string,
+    isObs?: boolean,
+    language?: 'en' | 'zh' | 'ja'
+}) => {
     const isTeamPitching = isAway ? !state.isTop : state.isTop;
     const isTeamBatting = isAway ? state.isTop : !state.isTop;
     const activeBatterId = isTeamBatting ? team.lineup[team.currentBatterIndex]?.id : undefined;
@@ -480,12 +496,17 @@ const LineupColumn = ({ team, isAway, state, dispatch }: { team: Team, isAway: b
         totalItems <= 13 ? 'medium' : 'compact';
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-slate-950 border-r-2 border-slate-800 relative min-h-0">
+        <div className={`flex-1 flex flex-col h-full bg-slate-950 ${borderClass} relative min-h-0`}>
             {/* Header (Aligned perfectly with center score strip: h-[72px] sm:h-[88px] lg:h-[100px] border-b-2 border-slate-600) */}
             <div className="h-[72px] sm:h-[88px] lg:h-[100px] p-2.5 sm:p-3 border-b-2 border-slate-600 flex items-center gap-2.5 relative overflow-hidden shrink-0">
                  <div className="absolute inset-0 opacity-20" style={{ backgroundColor: team.color }}></div>
                  <TeamLogo team={team} />
                  <div className="flex flex-col relative z-10 min-w-0 flex-1 overflow-hidden">
+                     {isObs && (
+                         <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">
+                             {isAway ? (language === 'zh' ? '客隊先發打線' : 'AWAY LINEUP') : (language === 'zh' ? '主隊先發打線' : 'HOME LINEUP')}
+                         </span>
+                     )}
                      <AutoScalingText text={team.name} className="text-2xl sm:text-3xl lg:text-4xl font-black leading-none" align="left" />
                  </div>
             </div>
@@ -1119,7 +1140,62 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
       )
   };
 
+  const renderObsLineupView = () => {
+    if (state.meta.broadcastVisible === false) {
+      return null;
+    }
+
+    return (
+      <div 
+        key={state.meta.broadcastAnimKey || 'obs-lineup'}
+        className="w-full h-full flex flex-row justify-between items-center px-4 sm:px-8 lg:px-14 py-6 sm:py-8 lg:py-10 bg-transparent overflow-hidden select-none pointer-events-auto"
+      >
+        {/* Left: Away Starting Lineup Card */}
+        <motion.div 
+          initial={{ x: -140, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          className="w-[32%] sm:w-[28%] lg:w-[25%] min-w-[260px] max-w-[420px] h-full flex flex-col rounded-2xl border-2 border-slate-700/80 bg-slate-950/92 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] overflow-hidden shrink-0"
+        >
+          <LineupColumn 
+            team={state.awayTeam} 
+            isAway={true} 
+            state={state} 
+            dispatch={dispatch} 
+            borderClass="border-none" 
+            isObs={true}
+            language={language}
+          />
+        </motion.div>
+
+        {/* Center: Transparent Gap / Interval between Left and Right Lineups */}
+        <div className="flex-1 min-w-[12%] h-full pointer-events-none" />
+
+        {/* Right: Home Starting Lineup Card */}
+        <motion.div 
+          initial={{ x: 140, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          className="w-[32%] sm:w-[28%] lg:w-[25%] min-w-[260px] max-w-[420px] h-full flex flex-col rounded-2xl border-2 border-slate-700/80 bg-slate-950/92 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] overflow-hidden shrink-0"
+        >
+          <LineupColumn 
+            team={state.homeTeam} 
+            isAway={false} 
+            state={state} 
+            dispatch={dispatch} 
+            borderClass="border-none" 
+            isObs={true}
+            language={language}
+          />
+        </motion.div>
+      </div>
+    );
+  };
+
   const renderLineupView = () => {
+    if (isObsMode) {
+      return renderObsLineupView();
+    }
     const awayBatter: Partial<Player> = state.awayTeam.lineup[state.awayTeam.currentBatterIndex] || { name: '---', number: '', stat: '---', position: 'DH' };
     const homeBatter: Partial<Player> = state.homeTeam.lineup[state.homeTeam.currentBatterIndex] || { name: '---', number: '', stat: '---', position: 'DH' };
     const awayPitcher: Partial<Player> = state.awayTeam.pitcher || { name: '---', number: '', stat: '---', position: 'P' };
