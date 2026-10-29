@@ -174,30 +174,40 @@ export const App: React.FC = () => {
     },
     onRemoteStateUpdate: (remoteState, remoteLang) => {
       if (!remoteState) return;
-      // Prevent redundant re-renders and flashing when local optimistic state already matches
-      const curr = stateRef.current;
-      if (curr &&
-          curr.balls === remoteState.balls &&
-          curr.strikes === remoteState.strikes &&
-          curr.outs === remoteState.outs &&
-          curr.inning === remoteState.inning &&
-          curr.isTop === remoteState.isTop &&
-          curr.awayTeam.score === remoteState.awayTeam.score &&
-          curr.homeTeam.score === remoteState.homeTeam.score &&
-          curr.awayTeam.hits === remoteState.awayTeam.hits &&
-          curr.homeTeam.hits === remoteState.homeTeam.hits &&
-          curr.awayTeam.errors === remoteState.awayTeam.errors &&
-          curr.homeTeam.errors === remoteState.homeTeam.errors &&
-          curr.bases[0] === remoteState.bases[0] &&
-          curr.bases[1] === remoteState.bases[1] &&
-          curr.bases[2] === remoteState.bases[2] &&
-          curr.awayTeam.currentBatterIndex === remoteState.awayTeam.currentBatterIndex &&
-          curr.homeTeam.currentBatterIndex === remoteState.homeTeam.currentBatterIndex &&
-          curr.displayMode === remoteState.displayMode &&
-          curr.meta?.settingsVersion === remoteState.meta?.settingsVersion
-      ) {
-        if (remoteLang && remoteLang !== language) setLanguage(remoteLang);
-        return;
+      // In OBS overlay mode or display projection mode, always apply incoming state immediately
+      if (!isObsMode && !isDisplayMode) {
+        // On remote controller, prevent redundant re-renders only when local optimistic state already matches
+        const curr = stateRef.current;
+        if (curr &&
+            curr.balls === remoteState.balls &&
+            curr.strikes === remoteState.strikes &&
+            curr.outs === remoteState.outs &&
+            curr.inning === remoteState.inning &&
+            curr.isTop === remoteState.isTop &&
+            curr.awayTeam.score === remoteState.awayTeam.score &&
+            curr.homeTeam.score === remoteState.homeTeam.score &&
+            curr.awayTeam.hits === remoteState.awayTeam.hits &&
+            curr.homeTeam.hits === remoteState.homeTeam.hits &&
+            curr.awayTeam.errors === remoteState.awayTeam.errors &&
+            curr.homeTeam.errors === remoteState.homeTeam.errors &&
+            curr.bases[0] === remoteState.bases[0] &&
+            curr.bases[1] === remoteState.bases[1] &&
+            curr.bases[2] === remoteState.bases[2] &&
+            curr.awayTeam.currentBatterIndex === remoteState.awayTeam.currentBatterIndex &&
+            curr.homeTeam.currentBatterIndex === remoteState.homeTeam.currentBatterIndex &&
+            curr.displayMode === remoteState.displayMode &&
+            curr.meta?.settingsVersion === remoteState.meta?.settingsVersion &&
+            curr.meta?.broadcastVisible === remoteState.meta?.broadcastVisible &&
+            curr.meta?.broadcastAnimKey === remoteState.meta?.broadcastAnimKey &&
+            curr.meta?.broadcastScale === remoteState.meta?.broadcastScale &&
+            curr.meta?.broadcastWidth === remoteState.meta?.broadcastWidth &&
+            curr.meta?.broadcastMarginX === remoteState.meta?.broadcastMarginX &&
+            curr.meta?.broadcastMarginY === remoteState.meta?.broadcastMarginY &&
+            curr.isAdjustmentMode === remoteState.isAdjustmentMode
+        ) {
+          if (remoteLang && remoteLang !== language) setLanguage(remoteLang);
+          return;
+        }
       }
       dispatch({ type: 'REPLACE_STATE', state: remoteState });
       if (remoteLang) setLanguage(remoteLang);
@@ -1068,7 +1078,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v3.3.6</span>
+          <span className="text-slate-600 ml-2">v3.3.9</span>
        </footer>
 
         <ShortcutSettingsModal

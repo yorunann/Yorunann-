@@ -380,8 +380,12 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
     e.target.value = ''; // Reset input
   };
 
-  const handleCropComplete = (croppedImage: string) => {
-    setDraft(prev => ({ ...prev, logoUrl: croppedImage }));
+  const handleCropComplete = (croppedImage: string, noBorder?: boolean) => {
+    setDraft(prev => ({ 
+      ...prev, 
+      logoUrl: croppedImage,
+      logoNoBorder: Boolean(noBorder)
+    }));
     setCropModalOpen(false);
     setTempImageSrc('');
   };
@@ -544,7 +548,11 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
                </div>
              </div>
              <label className="cursor-pointer bg-white border rounded p-1 hover:bg-gray-50 h-full flex items-center justify-center shrink-0" title="Upload Logo">
-               <ImageIcon size={16} className="text-gray-500" />
+               {draft.logoUrl ? (
+                 <img src={draft.logoUrl} alt="Logo" className={`w-4 h-4 ${draft.logoNoBorder ? 'object-contain' : 'object-cover rounded-full'}`} />
+               ) : (
+                 <ImageIcon size={16} className="text-gray-500" />
+               )}
                <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
              </label>
            </div>
@@ -584,7 +592,17 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
               onChange={(e) => updateDraft('name', e.target.value)}
               placeholder="Team (Abbr)"
             />
-
+            {draft.logoUrl && (
+              <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-700 select-none py-0.5">
+                <input 
+                  type="checkbox"
+                  checked={Boolean(draft.logoNoBorder)}
+                  onChange={(e) => updateDraft('logoNoBorder', e.target.checked)}
+                  className="w-3.5 h-3.5 text-blue-600 rounded cursor-pointer"
+                />
+                <span>{language === 'zh' ? '無邊框與底色模式 (透明PNG)' : language === 'ja' ? '枠線・背景なし (透明PNG)' : 'No border mode (transparent PNG)'}</span>
+              </label>
+            )}
         </div>
       </div>
       
@@ -787,6 +805,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
       <ImageCropperModal
         isOpen={cropModalOpen}
         imageSrc={tempImageSrc}
+        initialNoBorder={draft.logoNoBorder}
         onClose={() => {
           setCropModalOpen(false);
           setTempImageSrc('');

@@ -200,8 +200,9 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
     }
   };
 
-  const handleCropComplete = (croppedDataUrl: string) => {
+  const handleCropComplete = (croppedDataUrl: string, noBorder?: boolean) => {
     dispatch({ type: 'UPDATE_TEAM', team: editingTeamKey, field: 'logoUrl', value: croppedDataUrl });
+    dispatch({ type: 'UPDATE_TEAM', team: editingTeamKey, field: 'logoNoBorder', value: Boolean(noBorder) });
     setCropModalOpen(false);
   };
 
@@ -1013,23 +1014,42 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                     </div>
 
                     {/* Logo Upload */}
-                    <div className="col-span-2 flex items-center justify-between bg-slate-900/80 p-2.5 rounded-xl border border-slate-700">
-                      <div className="flex items-center gap-2">
-                        {currentTeam.logoUrl ? (
-                          <img src={currentTeam.logoUrl} alt="Logo" className="w-8 h-8 rounded-full object-cover border border-slate-600" />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-white">
-                            {currentTeam.name.substring(0, 1)}
-                          </div>
-                        )}
-                        <span className="text-xs text-slate-300 font-bold">
-                          {language === 'zh' ? '隊徽 Logo' : 'Team Logo'}
-                        </span>
+                    <div className="col-span-2 flex flex-col gap-2 bg-slate-900/80 p-2.5 rounded-xl border border-slate-700">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {currentTeam.logoUrl ? (
+                            <img 
+                              src={currentTeam.logoUrl} 
+                              alt="Logo" 
+                              className={`w-8 h-8 ${currentTeam.logoNoBorder ? 'object-contain' : 'rounded-full object-cover border border-slate-600'}`} 
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-white">
+                              {currentTeam.name.substring(0, 1)}
+                            </div>
+                          )}
+                          <span className="text-xs text-slate-300 font-bold">
+                            {language === 'zh' ? '隊徽 Logo' : 'Team Logo'}
+                          </span>
+                        </div>
+                        <label className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-xs">
+                          {language === 'zh' ? '上傳更換' : 'Upload'}
+                          <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                        </label>
                       </div>
-                      <label className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-xs">
-                        {language === 'zh' ? '上傳更換' : 'Upload'}
-                        <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-                      </label>
+                      {currentTeam.logoUrl && (
+                        <label className="flex items-center gap-2 cursor-pointer pt-1 border-t border-slate-800 text-slate-300 select-none">
+                          <input 
+                            type="checkbox"
+                            checked={Boolean(currentTeam.logoNoBorder)}
+                            onChange={(e) => dispatch({ type: 'UPDATE_TEAM', team: editingTeamKey, field: 'logoNoBorder', value: e.target.checked })}
+                            className="w-3.5 h-3.5 rounded text-blue-600 bg-slate-800 border-slate-600 cursor-pointer"
+                          />
+                          <span className="text-[11px] text-slate-300">
+                            {language === 'zh' ? '無邊框與底色模式 (直接顯示透明隊徽)' : language === 'ja' ? '枠線・背景なし (透明PNG)' : 'No border mode (transparent PNG)'}
+                          </span>
+                        </label>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1446,6 +1466,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
       <ImageCropperModal
         isOpen={cropModalOpen}
         imageSrc={tempImageSrc}
+        initialNoBorder={editingTeamKey === 'away' ? state.awayTeam.logoNoBorder : state.homeTeam.logoNoBorder}
         onClose={() => {
           setCropModalOpen(false);
           setTempImageSrc('');

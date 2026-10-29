@@ -248,12 +248,24 @@ interface AnimatedIndicatorProps {
 
 
 const TeamLogo = ({ team, isActive }: { team: Team, isActive?: boolean }) => {
+    const hasNoBorder = Boolean(team.logoNoBorder && team.logoUrl);
     return (
         <div className="relative shrink-0 w-10 h-10 sm:w-16 sm:h-16 lg:w-20 lg:h-20">
-            {isActive && <div className="absolute inset-[-2px] rounded-full border-2 border-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.6)] animate-[pulse_2s_ease-in-out_infinite] z-20 pointer-events-none"></div>}
-            <div className={`w-full h-full rounded-full bg-slate-800 flex items-center justify-center overflow-hidden border-2 z-10 shadow-lg ${isActive ? 'border-blue-400' : 'border-slate-700 shadow-black/20'}`} style={{ backgroundColor: team.color }}>
+            {isActive && <div className={`absolute inset-[-2px] ${hasNoBorder ? 'rounded-lg' : 'rounded-full'} border-2 border-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.6)] animate-[pulse_2s_ease-in-out_infinite] z-20 pointer-events-none`}></div>}
+            <div 
+                className={`w-full h-full flex items-center justify-center overflow-hidden z-10 ${
+                    hasNoBorder
+                        ? 'bg-transparent'
+                        : `rounded-full bg-slate-800 border-2 shadow-lg ${isActive ? 'border-blue-400' : 'border-slate-700 shadow-black/20'}`
+                }`} 
+                style={hasNoBorder ? undefined : { backgroundColor: team.color }}
+            >
                 {team.logoUrl ? (
-                    <img src={team.logoUrl} alt={team.name} className="w-full h-full object-cover" />
+                    <img 
+                        src={team.logoUrl} 
+                        alt={team.name} 
+                        className={`w-full h-full ${hasNoBorder ? 'object-contain drop-shadow-md' : 'object-cover'}`} 
+                    />
                 ) : (
                     <span className="text-white font-bold text-xl sm:text-3xl drop-shadow-md">{team.name.charAt(0)}</span>
                 )}
@@ -1575,20 +1587,31 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
       }
     }
 
-    const renderTeamRow = (team: Team, runs: number, isBottomBorder: boolean) => (
-      <tr key={team.name} className={isBottomBorder ? "border-b border-slate-800/50" : ""}>
-        <td className="text-left py-6 pl-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-800 flex items-center justify-center shrink-0" style={{ backgroundColor: team.color }}>
-            {team.logoUrl ? (
-              <img src={team.logoUrl} alt={`${team.name} Logo`} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-xl text-white">{team.name.substring(0, 1)}</span>
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <AutoScalingText text={team.name} className="text-3xl font-bold" align="left" />
-          </div>
-        </td>
+    const renderTeamRow = (team: Team, runs: number, isBottomBorder: boolean) => {
+      const hasNoBorder = Boolean(team.logoNoBorder && team.logoUrl);
+      return (
+        <tr key={team.name} className={isBottomBorder ? "border-b border-slate-800/50" : ""}>
+          <td className="text-left py-6 pl-4 flex items-center gap-4">
+            <div 
+              className={`w-12 h-12 flex items-center justify-center shrink-0 overflow-hidden ${
+                hasNoBorder ? 'bg-transparent' : 'rounded-full bg-slate-800 shadow-md'
+              }`} 
+              style={hasNoBorder ? undefined : { backgroundColor: team.color }}
+            >
+              {team.logoUrl ? (
+                <img 
+                  src={team.logoUrl} 
+                  alt={`${team.name} Logo`} 
+                  className={`w-full h-full ${hasNoBorder ? 'object-contain drop-shadow-md' : 'object-cover'}`} 
+                />
+              ) : (
+                <span className="text-xl text-white font-bold">{team.name.substring(0, 1)}</span>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <AutoScalingText text={team.name} className="text-3xl font-bold" align="left" />
+            </div>
+          </td>
         {inningsArray.map(i => {
           const score = team.inningScores[i - 1];
           const isHighlightedInning = i === highlightInning && ((team.name === state.awayTeam.name && highlightIsAway) || (team.name === state.homeTeam.name && !highlightIsAway));
@@ -1603,6 +1626,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
         <td className="py-6 text-white">{team.errors}</td>
       </tr>
     );
+  };
 
     return (
       <div className="w-full h-full bg-slate-900 border-2 border-slate-700 rounded-xl overflow-hidden shadow-2xl flex flex-col font-display text-white p-4 lg:p-8">
@@ -1866,20 +1890,21 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
           </div>
         )}
 
-        {/* Main broadcast overlay card with entrance/exit animation */}
-        <AnimatePresence>
+        {/* Main broadcast overlay card with choreographed entrance animation */}
+        <AnimatePresence mode="wait">
           {state.meta.broadcastVisible !== false && (
             <motion.div 
-              key="broadcast-scorebug"
-              initial={{ opacity: 0, x: -160, scale: (state.meta.broadcastScale ?? 1) * 0.95 }}
-              animate={{ opacity: 1, x: 0, scale: state.meta.broadcastScale ?? 1 }}
-              exit={{ opacity: 0, x: -160, scale: (state.meta.broadcastScale ?? 1) * 0.95 }}
-              transition={{ type: 'spring', stiffness: 240, damping: 22, mass: 0.8 }}
+              key={`broadcast-scorebug-${state.meta.broadcastAnimKey ?? 0}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, x: -140 }}
+              transition={{ duration: 0.2 }}
               className={`absolute bg-gradient-to-br from-cyan-950/30 via-slate-900/50 to-teal-950/30 backdrop-blur-xl border border-white/20 text-white font-display shadow-2xl shadow-black/50 pointer-events-auto overflow-hidden flex flex-col origin-top-left select-none ${state.isAdjustmentMode && !isObsMode ? 'cursor-move ring-4 ring-blue-500 ring-offset-4 ring-offset-transparent' : ''}`} 
               style={{ 
                 width: `${state.meta.broadcastWidth ?? 450}px`,
                 left: `${state.meta.broadcastMarginX ?? 20}px`,
                 bottom: `${state.meta.broadcastMarginY ?? 20}px`,
+                transform: `scale(${state.meta.broadcastScale ?? 1})`
               }}
               onMouseDown={handleDrag}
               onTouchStart={handleDrag}
@@ -2134,15 +2159,18 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
           )}
 
           {/* Top Section (Left Column + Right Column) */}
-          <div className={`flex w-full`}>
+          <div className="flex w-full relative overflow-hidden">
             
-            {/* Left Column */}
-            <div className={`flex flex-col flex-1 min-w-0`}>
+            {/* Left Column (Teams + Players) - Solid layer z-20 so Right column emerges from underneath */}
+            <div className="flex flex-col flex-1 min-w-0 relative z-20 bg-slate-900 shadow-2xl">
               
-              {/* Away Player Row (Top) */}
+              {/* Away Player Row (Top) - Slides UP from team row */}
               {showAwayPlayer && (
-                <div 
-                  className="bg-slate-800/50 px-2 flex items-center gap-2 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative"
+                <motion.div 
+                  initial={{ y: 35, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.42, delay: 0.33, ease: [0.16, 1, 0.3, 1] }}
+                  className="bg-slate-800/80 px-2 flex items-center gap-2 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative z-10"
                   style={{ height: `${awayPlayerHeight}px` }}
                 >
                   {/* Top Resizer */}
@@ -2230,11 +2258,16 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
+                </motion.div>
               )}
 
-              {/* Teams & Inning Row */}
-              <div className={`flex shrink-0`}>
+              {/* Teams & Inning Row - Slides in first from left */}
+              <motion.div 
+                initial={{ x: -140, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
+                className="flex shrink-0 relative z-20 shadow-md"
+              >
                 {/* Teams */}
                 <div className={`flex flex-col flex-1 min-w-0`}>
                   {/* Away */}
@@ -2247,11 +2280,19 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     <div className="absolute inset-0 bg-gradient-to-b from-white/8 via-transparent to-black/25 pointer-events-none"></div>
                     <div className="flex-1 px-2 flex items-center gap-3 min-w-0 relative z-10 h-full">
                       <div 
-                        className="rounded-full border border-white/20 overflow-hidden flex items-center justify-center bg-slate-800 shrink-0 transition-all"
+                        className={`overflow-hidden flex items-center justify-center shrink-0 transition-all ${
+                          state.awayTeam.logoNoBorder && state.awayTeam.logoUrl
+                            ? 'bg-transparent'
+                            : 'rounded-full border border-white/20 bg-slate-800'
+                        }`}
                         style={{ width: `${state.meta.broadcastLogoSize ?? 40}px`, height: `${state.meta.broadcastLogoSize ?? 40}px` }}
                       >
                         {state.awayTeam.logoUrl ? (
-                          <img src={state.awayTeam.logoUrl} alt="Away Logo" className="w-full h-full object-cover" />
+                          <img 
+                            src={state.awayTeam.logoUrl} 
+                            alt="Away Logo" 
+                            className={`w-full h-full ${state.awayTeam.logoNoBorder ? 'object-contain drop-shadow-md' : 'object-cover'}`} 
+                          />
                         ) : (
                           <div 
                             className="w-full h-full rounded-full flex items-center justify-center font-bold text-white uppercase" 
@@ -2394,11 +2435,19 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     
                     <div className="flex-1 p-2 flex items-center gap-3 min-w-0 relative z-10">
                       <div 
-                        className="rounded-full border border-white/20 overflow-hidden flex items-center justify-center bg-slate-800 shrink-0 transition-all"
+                        className={`overflow-hidden flex items-center justify-center shrink-0 transition-all ${
+                          state.homeTeam.logoNoBorder && state.homeTeam.logoUrl
+                            ? 'bg-transparent'
+                            : 'rounded-full border border-white/20 bg-slate-800'
+                        }`}
                         style={{ width: `${state.meta.broadcastLogoSize ?? 40}px`, height: `${state.meta.broadcastLogoSize ?? 40}px` }}
                       >
                         {state.homeTeam.logoUrl ? (
-                          <img src={state.homeTeam.logoUrl} alt="Home Logo" className="w-full h-full object-cover" />
+                          <img 
+                            src={state.homeTeam.logoUrl} 
+                            alt="Home Logo" 
+                            className={`w-full h-full ${state.homeTeam.logoNoBorder ? 'object-contain drop-shadow-md' : 'object-cover'}`} 
+                          />
                         ) : (
                           <div 
                             className="w-full h-full rounded-full flex items-center justify-center font-bold text-white uppercase" 
@@ -2475,12 +2524,15 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                   <div className="font-black font-display" style={{ fontSize: `${state.meta.broadcastInningSize ?? 24}px` }}>{state.inning}</div>
                   <div className={`w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[12px] ${!state.isTop ? 'border-t-yellow-400' : 'border-t-slate-600'}`} />
                 </div>
-              </div>
+              </motion.div>
 
-              {/* Home Player Row (Bottom) */}
+              {/* Home Player Row (Bottom) - Slides DOWN from team row */}
               {showHomePlayer && (
-                <div 
-                  className="bg-slate-800/40 px-2 flex items-center gap-2 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative"
+                <motion.div 
+                  initial={{ y: -35, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.42, delay: 0.39, ease: [0.16, 1, 0.3, 1] }}
+                  className="bg-slate-800/80 px-2 flex items-center gap-2 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative z-10"
                   style={{ height: `${homePlayerHeight}px` }}
                 >
                   {/* Bottom Resizer */}
@@ -2571,15 +2623,17 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                     </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
+                </motion.div>
               )}
-              
               
             </div>
 
-            {/* Right Column (Count & Diamond) */}
-            <div 
-              className="px-2 flex flex-col items-center shrink-0 relative h-full bg-blue-950/50 backdrop-blur-md border-l border-white/10 shadow-[-1px_0_0_rgba(0,0,0,0.5)]"
+            {/* Right Column (Count & Diamond) - Slides out from lowest layer (z-0) with constant opacity */}
+            <motion.div 
+              initial={{ x: -150 }}
+              animate={{ x: 0 }}
+              transition={{ duration: 0.54, delay: 0.63, ease: [0.16, 1, 0.3, 1] }}
+              className="px-2 flex flex-col items-center shrink-0 relative h-full bg-blue-950/50 backdrop-blur-md border-l border-white/10 shadow-[-1px_0_0_rgba(0,0,0,0.5)] z-0"
               style={{ width: `${state.meta.broadcastRightColumnWidth ?? 150}px` }}
             >
                             <AnimatePresence>
@@ -2708,7 +2762,7 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
                       </div>
                   </div>
               </div>
-            </div>
+            </motion.div>
 
           </div>
 

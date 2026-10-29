@@ -47,6 +47,7 @@ export interface Team {
   color: string;
   baseColor?: string;
   logoUrl?: string;
+  logoNoBorder?: boolean;
   lineup: Player[];
   bench: Player[];
   currentBatterIndex: number;
@@ -87,6 +88,7 @@ export interface GameMeta {
   broadcastCountGap?: number;
   broadcastPlayerNumberStyle?: 'normal' | 'gray' | 'hidden';
   broadcastVisible?: boolean;
+  broadcastAnimKey?: number;
   swapSides?: boolean;
   settingsVersion?: number;
 }

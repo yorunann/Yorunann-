@@ -47,10 +47,36 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
 
   const handleToggleBroadcastVisible = () => {
     if (dispatch) {
+      const nextVisible = !isBroadcastVisible;
       dispatch({
         type: 'UPDATE_META',
         field: 'broadcastVisible',
-        value: !isBroadcastVisible,
+        value: nextVisible,
+      });
+      if (nextVisible && state && state.displayMode !== 'broadcast') {
+        dispatch({
+          type: 'SET_DISPLAY_MODE',
+          mode: 'broadcast',
+        });
+      }
+    }
+  };
+
+  const handleReplayEntrance = () => {
+    if (dispatch) {
+      if (!isBroadcastVisible) {
+        dispatch({ type: 'UPDATE_META', field: 'broadcastVisible', value: true });
+      }
+      if (state && state.displayMode !== 'broadcast') {
+        dispatch({
+          type: 'SET_DISPLAY_MODE',
+          mode: 'broadcast',
+        });
+      }
+      dispatch({
+        type: 'UPDATE_META',
+        field: 'broadcastAnimKey',
+        value: Date.now(),
       });
     }
   };
@@ -246,6 +272,18 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
                   </span>
                 </div>
               </button>
+
+              {/* Replay Entrance Animation Button */}
+              {isBroadcastVisible && (
+                <button
+                  onClick={handleReplayEntrance}
+                  className="mt-2 w-full py-2 px-3 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-400/30 transition-all cursor-pointer active:scale-98"
+                  title="重新播放隊伍滑入、球員滑出、壘包球數展開的開局動畫"
+                >
+                  <Play size={13} className="fill-current" />
+                  <span>{language === 'zh' ? '重播開局進場動畫 (隊伍→球員→壘包球數)' : 'Replay Entrance Animation (1s)'}</span>
+                </button>
+              )}
             </div>
 
             {/* Quick Live Layout Switcher */}

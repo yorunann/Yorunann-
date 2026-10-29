@@ -1156,8 +1156,13 @@ function baseReducer(state: GameState, action: ActionType): GameState {
 
     case 'UPDATE_TEAM': {
       const teamKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
+      const newSettingsVer = (state.meta.settingsVersion || 0) + 1;
       if ('data' in action && (action as any).data) {
-        return { ...state, [teamKey]: { ...state[teamKey], ...(action as any).data } };
+        return { 
+          ...state, 
+          [teamKey]: { ...state[teamKey], ...(action as any).data },
+          meta: { ...state.meta, settingsVersion: newSettingsVer }
+        };
       }
       if (action.field) {
         if (action.field === 'pitcher' && action.value) {
@@ -1171,10 +1176,15 @@ function baseReducer(state: GameState, action: ActionType): GameState {
               ...state[teamKey],
               pitcher: action.value,
               pitcherHistory: newHistory
-            }
+            },
+            meta: { ...state.meta, settingsVersion: newSettingsVer }
           };
         }
-        return { ...state, [teamKey]: { ...state[teamKey], [action.field]: action.value } };
+        return { 
+          ...state, 
+          [teamKey]: { ...state[teamKey], [action.field]: action.value },
+          meta: { ...state.meta, settingsVersion: newSettingsVer }
+        };
       }
       return state;
     }
@@ -1193,14 +1203,25 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       if (newConfig.lineup.length > 0 && newConfig.currentBatterIndex >= newConfig.lineup.length) {
         newConfig.currentBatterIndex = newConfig.lineup.length - 1;
       }
-      return { ...state, [teamKey]: { ...state[teamKey], ...newConfig } };
+      return { 
+        ...state, 
+        [teamKey]: { ...state[teamKey], ...newConfig },
+        meta: { ...state.meta, settingsVersion: (state.meta.settingsVersion || 0) + 1 }
+      };
     }
 
     case 'UPDATE_PITCH':
       return { ...state, currentPitch: { ...state.currentPitch, [action.field]: action.value } };
     
     case 'UPDATE_META':
-      return { ...state, meta: { ...state.meta, [action.field]: action.value } };
+      return { 
+        ...state, 
+        meta: { 
+          ...state.meta, 
+          [action.field]: action.value,
+          settingsVersion: (state.meta.settingsVersion || 0) + 1
+        } 
+      };
 
     case 'SET_TIMER':
       return { ...state, timer: action.value, initialTimer: action.value };
