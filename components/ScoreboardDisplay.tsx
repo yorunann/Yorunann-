@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, forwardRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, type Variants } from 'motion/react';
 import { GameState, ActionType, Team, Player } from '../types';
 import { getPitcherCount } from '../reducer';
 import { Diamond } from './Diamond';
@@ -1629,7 +1629,170 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
         </div>
     )
   };
+  const renderObsRHEView = () => {
+    if (state.meta.broadcastVisible === false) {
+      return null;
+    }
+
+    const maxInnings = Math.max(9, state.awayTeam.inningScores.length, state.homeTeam.inningScores.length);
+    const inningsArray = Array.from({ length: maxInnings }, (_, i) => i + 1);
+
+    const awayRuns = state.awayTeam.inningScores.reduce((sum, score) => sum + (score || 0), 0);
+    const homeRuns = state.homeTeam.inningScores.reduce((sum, score) => sum + (score || 0), 0);
+
+    let highlightInning = state.inning;
+    let highlightIsAway = state.isTop;
+    if (state.outs === 0) {
+      if (!state.isTop) {
+        highlightInning = state.inning;
+        highlightIsAway = true;
+      } else if (state.inning > 1) {
+        highlightInning = state.inning - 1;
+        highlightIsAway = false;
+      } else {
+        highlightInning = 1;
+        highlightIsAway = true;
+      }
+    }
+
+    const dueUpTeam = state.isTop ? state.awayTeam : state.homeTeam;
+
+    const renderObsTeamRow = (team: Team, runs: number, isBottomBorder: boolean) => {
+      const hasNoBorder = Boolean(team.logoNoBorder && team.logoUrl);
+      return (
+        <tr key={team.name} className={isBottomBorder ? "border-b border-slate-800/80" : ""}>
+          <td className="text-left py-2.5 pl-3 flex items-center gap-2.5">
+            <div 
+              className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center shrink-0 overflow-hidden ${
+                hasNoBorder ? 'bg-transparent' : 'rounded-full bg-slate-800 shadow-md'
+              }`} 
+              style={hasNoBorder ? undefined : { backgroundColor: team.color }}
+            >
+              {team.logoUrl ? (
+                <img 
+                  src={team.logoUrl} 
+                  alt={`${team.name} Logo`} 
+                  className={`w-full h-full ${hasNoBorder ? 'object-contain drop-shadow-md' : 'object-cover'}`} 
+                />
+              ) : (
+                <span className="text-sm sm:text-base text-white font-bold">{team.name.substring(0, 1)}</span>
+              )}
+            </div>
+            <div className="flex-1 min-w-0 max-w-[95px] sm:max-w-[125px]">
+              <AutoCondenseText text={team.name} className="text-base sm:text-lg font-black tracking-wide" align="left" />
+            </div>
+          </td>
+          {inningsArray.map(i => {
+            const score = team.inningScores[i - 1];
+            const isHighlightedInning = i === highlightInning && ((team.name === state.awayTeam.name && highlightIsAway) || (team.name === state.homeTeam.name && !highlightIsAway));
+            return (
+              <td key={i} className={`py-2 font-mono text-sm sm:text-base ${isHighlightedInning ? 'text-yellow-400 font-black animate-pulse drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]' : 'text-slate-300'}`}>
+                {score !== null && score !== undefined ? score : '-'}
+              </td>
+            );
+          })}
+          <td className="py-2 pl-3 font-mono font-black text-yellow-400 text-lg sm:text-xl">{runs}</td>
+          <td className="py-2 font-mono font-bold text-white text-base sm:text-lg">{team.hits}</td>
+          <td className="py-2 font-mono font-bold text-slate-300 text-base sm:text-lg">{team.errors}</td>
+        </tr>
+      );
+    };
+
+    return (
+      <div 
+        key={state.meta.broadcastAnimKey || 'obs-rhe'}
+        className="w-full h-full flex flex-col justify-end items-center pb-8 sm:pb-12 px-4 sm:px-8 bg-transparent overflow-hidden select-none pointer-events-auto"
+      >
+        <motion.div 
+          initial={{ y: 80, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 80, opacity: 0 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full max-w-[1180px] flex flex-row items-stretch bg-slate-950/92 backdrop-blur-xl border-2 border-slate-700/80 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] overflow-hidden font-display text-white"
+        >
+          {/* Left/Middle: 1-9 & RHE Table */}
+          <div className="flex-1 min-w-0 flex flex-col justify-center py-2 px-3 sm:px-5">
+            <table className="w-full text-center border-collapse">
+              <thead>
+                <tr className="border-b border-slate-700 text-slate-400 text-xs sm:text-sm">
+                  <th className="text-left font-semibold pb-1.5 pl-3 w-28 sm:w-36">TEAM</th>
+                  {inningsArray.map(i => (
+                    <th key={i} className="font-mono font-medium pb-1.5 w-7 sm:w-8.5">{i}</th>
+                  ))}
+                  <th className="font-bold text-yellow-400 pb-1.5 pl-3 w-8 sm:w-10">R</th>
+                  <th className="font-bold text-white pb-1.5 w-8 sm:w-10">H</th>
+                  <th className="font-bold text-white pb-1.5 w-8 sm:w-10">E</th>
+                </tr>
+              </thead>
+              <tbody className="text-base sm:text-lg font-bold">
+                {renderObsTeamRow(state.awayTeam, awayRuns, true)}
+                {renderObsTeamRow(state.homeTeam, homeRuns, false)}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Right: Due Up (3 batters stacked vertically beside RHE) */}
+          <div className="w-[260px] sm:w-[310px] flex flex-col justify-between py-2 px-3.5 bg-slate-900/60 border-l-2 border-slate-700/80 shrink-0">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-700/60 pb-1 mb-1">
+              <div className="flex items-center gap-1.5 text-xs font-black tracking-wider text-yellow-400">
+                <span>DUE UP</span>
+                <span className="text-yellow-400/60 text-[10px]">▶▶</span>
+              </div>
+              <span 
+                className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white uppercase tracking-wider"
+                style={{ backgroundColor: dueUpTeam.color }}
+              >
+                {dueUpTeam.name}
+              </span>
+            </div>
+
+            {/* 3 Batters stacked vertically */}
+            <div className="flex-1 flex flex-col justify-around gap-0.5 min-h-0">
+              {[0, 1, 2].map((offset) => {
+                const bIdx = (dueUpTeam.currentBatterIndex + offset) % (dueUpTeam.lineup.length || 1);
+                const batter = dueUpTeam.lineup[bIdx];
+                if (!batter) return (
+                  <div key={offset} className="text-xs text-slate-500 font-mono py-0.5">---</div>
+                );
+                return (
+                  <div key={offset} className="flex items-center justify-between gap-2 text-xs py-0.5 min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
+                      <span className="font-mono text-slate-400 font-bold text-[11px] w-4 shrink-0">
+                        {bIdx + 1}.
+                      </span>
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <AutoCondenseText 
+                          text={batter.name} 
+                          className="font-bold text-white text-xs sm:text-sm tracking-wide" 
+                          align="left" 
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 font-mono">
+                      {batter.number && (
+                        <span className="text-[11px] font-bold text-slate-300">
+                          #{batter.number}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-slate-400 px-1 py-0.2 rounded bg-slate-800 border border-slate-700 font-semibold">
+                        {batter.position || 'DH'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
+
   const renderRHEView = () => {
+    if (isObsMode) {
+      return renderObsRHEView();
+    }
     const maxInnings = Math.max(9, state.awayTeam.inningScores.length, state.homeTeam.inningScores.length);
     const inningsArray = Array.from({ length: maxInnings }, (_, i) => i + 1);
 
@@ -1917,6 +2080,57 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
     const effectiveA = showAwayPlayer ? awayPlayerHeight : 0;
     const effectiveH = showHomePlayer ? homePlayerHeight : 0;
 
+    const scorebugCardVariants: Variants = {
+      initial: { opacity: 0 },
+      animate: { opacity: 1, transition: { duration: 0.2 } },
+      exit: { 
+        x: -500, 
+        opacity: 0, 
+        transition: { duration: 0.35, delay: 0.52, ease: [0.32, 0, 0.67, 0] as const } 
+      }
+    };
+
+    const rightColVariants: Variants = {
+      initial: { x: -150 },
+      animate: { 
+        x: 0, 
+        transition: { duration: 0.54, delay: 0.63, ease: [0.16, 1, 0.3, 1] as const } 
+      },
+      exit: { 
+        x: -160, 
+        opacity: 0,
+        transition: { duration: 0.30, delay: 0, ease: [0.32, 0, 0.67, 0] as const } 
+      }
+    };
+
+    const awayPlayerRowVariants: Variants = {
+      initial: { y: 35, opacity: 0 },
+      animate: { 
+        y: 0, 
+        opacity: 1, 
+        transition: { duration: 0.42, delay: 0.33, ease: [0.16, 1, 0.3, 1] as const } 
+      },
+      exit: { 
+        y: 35, 
+        opacity: 0, 
+        transition: { duration: 0.26, delay: 0.26, ease: [0.32, 0, 0.67, 0] as const } 
+      }
+    };
+
+    const homePlayerRowVariants: Variants = {
+      initial: { y: -35, opacity: 0 },
+      animate: { 
+        y: 0, 
+        opacity: 1, 
+        transition: { duration: 0.42, delay: 0.39, ease: [0.16, 1, 0.3, 1] as const } 
+      },
+      exit: { 
+        y: -35, 
+        opacity: 0, 
+        transition: { duration: 0.26, delay: 0.26, ease: [0.32, 0, 0.67, 0] as const } 
+      }
+    };
+
     return (
       <div 
         className="w-full h-full relative pointer-events-none animate-in slide-in-from-left duration-500 overflow-hidden select-none"
@@ -1971,10 +2185,10 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
           {state.meta.broadcastVisible !== false && (
             <motion.div 
               key={`broadcast-scorebug-${state.meta.broadcastAnimKey ?? 0}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0, x: -140 }}
-              transition={{ duration: 0.2 }}
+              variants={scorebugCardVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
               className={`absolute bg-gradient-to-br from-cyan-950/30 via-slate-900/50 to-teal-950/30 backdrop-blur-xl border border-white/20 text-white font-display shadow-2xl shadow-black/50 pointer-events-auto overflow-hidden flex flex-col origin-top-left select-none ${state.isAdjustmentMode && !isObsMode ? 'cursor-move ring-4 ring-blue-500 ring-offset-4 ring-offset-transparent' : ''}`} 
               style={{ 
                 width: `${state.meta.broadcastWidth ?? 450}px`,
@@ -2243,9 +2457,10 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
               {/* Away Player Row (Top) - Slides UP from team row */}
               {showAwayPlayer && (
                 <motion.div 
-                  initial={{ y: 35, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.42, delay: 0.33, ease: [0.16, 1, 0.3, 1] }}
+                  variants={awayPlayerRowVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
                   className="bg-slate-800/80 px-2 flex items-center gap-2 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative z-10"
                   style={{ height: `${awayPlayerHeight}px` }}
                 >
@@ -2605,9 +2820,10 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
               {/* Home Player Row (Bottom) - Slides DOWN from team row */}
               {showHomePlayer && (
                 <motion.div 
-                  initial={{ y: -35, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.42, delay: 0.39, ease: [0.16, 1, 0.3, 1] }}
+                  variants={homePlayerRowVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
                   className="bg-slate-800/80 px-2 flex items-center gap-2 text-xl font-bold uppercase overflow-hidden shrink-0 min-h-0 relative z-10"
                   style={{ height: `${homePlayerHeight}px` }}
                 >
@@ -2706,9 +2922,10 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
 
             {/* Right Column (Count & Diamond) - Slides out from lowest layer (z-0) with constant opacity */}
             <motion.div 
-              initial={{ x: -150 }}
-              animate={{ x: 0 }}
-              transition={{ duration: 0.54, delay: 0.63, ease: [0.16, 1, 0.3, 1] }}
+              variants={rightColVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
               className="px-2 flex flex-col items-center shrink-0 relative h-full bg-blue-950/50 backdrop-blur-md border-l border-white/10 shadow-[-1px_0_0_rgba(0,0,0,0.5)] z-0"
               style={{ width: `${state.meta.broadcastRightColumnWidth ?? 150}px` }}
             >
