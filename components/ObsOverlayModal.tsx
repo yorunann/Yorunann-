@@ -53,10 +53,11 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
         field: 'broadcastVisible',
         value: nextVisible,
       });
-      if (nextVisible && state && state.displayMode !== 'broadcast') {
+      if (nextVisible) {
         dispatch({
-          type: 'SET_DISPLAY_MODE',
-          mode: 'broadcast',
+          type: 'UPDATE_META',
+          field: 'broadcastAnimKey',
+          value: Date.now(),
         });
       }
     }
@@ -66,12 +67,6 @@ export const ObsOverlayModal: React.FC<ObsOverlayModalProps> = ({
     if (dispatch) {
       if (!isBroadcastVisible) {
         dispatch({ type: 'UPDATE_META', field: 'broadcastVisible', value: true });
-      }
-      if (state && state.displayMode !== 'broadcast') {
-        dispatch({
-          type: 'SET_DISPLAY_MODE',
-          mode: 'broadcast',
-        });
       }
       dispatch({
         type: 'UPDATE_META',
