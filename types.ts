@@ -1,4 +1,5 @@
 
+import type { ScoresheetSnapshot } from './utils/scoresheetSync.ts';
 
 export interface Player {
   id: string;
@@ -259,6 +260,7 @@ export type ActionType =
   | { type: 'FULL_RESET' }
   | { type: 'UNDO' }
   | { type: 'REPLACE_STATE'; state: GameState }
+  | { type: 'APPLY_SCORESHEET_SNAPSHOT'; snapshot: ScoresheetSnapshot }
   | { type: 'TRIGGER_HR_BUBBLE' }
   | { type: 'LOCK_HR_ANIMATION' }
   | { type: 'EXIT_HR_ANIMATION' }

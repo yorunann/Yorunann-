@@ -1,5 +1,6 @@
 import { GameState, ActionType, Player, Team, PlateAppearanceRecord } from './types';
 import { INITIAL_STATE } from './constants';
+import { applyScoresheetSnapshot } from './utils/scoresheetSync';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -2050,6 +2051,9 @@ function baseReducer(state: GameState, action: ActionType): GameState {
     case 'FULL_RESET':
       return JSON.parse(JSON.stringify(INITIAL_STATE));
       
+    case 'APPLY_SCORESHEET_SNAPSHOT':
+      return applyScoresheetSnapshot(state, action.snapshot);
+
     case 'REPLACE_STATE':
       if (action.state) {
         return {

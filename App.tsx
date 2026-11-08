@@ -6,7 +6,7 @@ import { INITIAL_STATE } from './constants';
 import { ScoreboardDisplay } from './components/ScoreboardDisplay';
 import { ScoreboardControls } from './components/ScoreboardControls';
 import { ScoreboardControlsV2 } from './components/ScoreboardControlsV2';
-import { MonitorPlay, Maximize, Minimize, Keyboard, Settings, ExternalLink, RotateCcw, BookOpen, Plus, Minus, Menu, X, Smartphone, Sliders, Tv } from 'lucide-react';
+import { MonitorPlay, Maximize, Minimize, Keyboard, Settings, ExternalLink, RotateCcw, BookOpen, Plus, Minus, Menu, X, Smartphone, Sliders, Tv, Link2 } from 'lucide-react';
 import { useShortcuts, DEFAULT_SHORTCUTS, ShortcutMap } from './hooks/useShortcuts';
 import { ShortcutSettingsModal } from './components/ShortcutSettingsModal';
 import { UserGuideModal } from './components/UserGuideModal';
@@ -16,6 +16,9 @@ import { RemoteSyncModal } from './components/RemoteSyncModal';
 import { ObsOverlayModal } from './components/ObsOverlayModal';
 import { MobileRemoteView } from './components/MobileRemoteView';
 import { usePeerSync } from './hooks/usePeerSync';
+import { useScoresheetSync } from './hooks/useScoresheetSync';
+import { ScoresheetSyncModal } from './components/ScoresheetSyncModal';
+import { extractScoresheetGameId } from './utils/scoresheetSync';
 import { decodeMatchData } from './utils/matchCodec';
 
 import { reducer } from './reducer';
@@ -652,6 +655,23 @@ export const App: React.FC = () => {
   };
   handleDispatchRef.current = handleDispatch;
 
+  // scoresheet sync (read-only). Only the host console polls; displays receive it through the existing sync.
+  // Uses dispatch directly instead of handleDispatch so imports are not pushed onto the undo history
+  const [isScoresheetModalOpen, setIsScoresheetModalOpen] = useState(false);
+  const getLatestState = React.useCallback(() => stateRef.current, []);
+  const { syncState: scoresheetSync, start: startScoresheetSync, stop: stopScoresheetSync } = useScoresheetSync({
+    enabled: !isDisplayMode && !isObsMode && !isRemoteMode,
+    dispatch,
+    getState: getLatestState,
+  });
+
+  // Start syncing when opened with ?scoresheet=<game ID>
+  useEffect(() => {
+    const param = new URLSearchParams(window.location.search).get('scoresheet');
+    const gameId = param ? extractScoresheetGameId(param) : null;
+    if (gameId) startScoresheetSync(gameId);
+  }, [startScoresheetSync]);
+
   // Broadcast state to all connected peers whenever host state changes
   useEffect(() => {
     if (!isRemoteMode && !isObsMode && !isDisplayMode) {
@@ -1061,6 +1081,25 @@ export const App: React.FC = () => {
             </button>
             <div className="w-px h-6 bg-slate-700 mx-1"></div>
             <button
+              onClick={() => setIsScoresheetModalOpen(true)}
+              className={`p-1.5 rounded-md transition-all flex items-center space-x-1 ${
+                scoresheetSync.gameId
+                  ? 'bg-sky-600/30 text-sky-300 border border-sky-500/50 hover:bg-sky-600/40 shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700'
+              }`}
+              title="scoresheet"
+            >
+              <Link2 size={18} />
+              {scoresheetSync.status === 'live' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
+              )}
+              {scoresheetSync.status === 'error' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+              )}
+              {isToolbarExpanded && <span className="text-xs font-medium ml-1">scoresheet</span>}
+            </button>
+            <div className="w-px h-6 bg-slate-700 mx-1"></div>
+            <button
               onClick={() => setIsUserGuideModalOpen(true)}
               className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center space-x-1"
               title="User Guide"
@@ -1284,6 +1323,15 @@ export const App: React.FC = () => {
           state={state}
           dispatch={handleDispatch}
           language={consoleLanguage}
+        />
+
+        <ScoresheetSyncModal
+          isOpen={isScoresheetModalOpen}
+          onClose={() => setIsScoresheetModalOpen(false)}
+          language={consoleLanguage}
+          syncState={scoresheetSync}
+          onStart={startScoresheetSync}
+          onStop={stopScoresheetSync}
         />
 
         <RemoteSyncModal
