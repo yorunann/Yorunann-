@@ -24,6 +24,8 @@ export type ShortcutAction =
   | 'SINGLE'
   | 'DOUBLE'
   | 'TRIPLE'
+  | 'WILD_PITCH_WP'
+  | 'WILD_PITCH_PB'
   | 'RESET_SCORE'
   | 'TOGGLE_DISPLAY_MODE'
   | 'TOGGLE_LINEUP_MODE'
@@ -54,6 +56,8 @@ export const DEFAULT_SHORTCUTS: ShortcutMap = {
   SINGLE: 'q',
   DOUBLE: 'w',
   TRIPLE: 'e',
+  WILD_PITCH_WP: 'i',
+  WILD_PITCH_PB: 'o',
   RESET_SCORE: 'Backspace',
   TOGGLE_DISPLAY_MODE: 'l',
   TOGGLE_LINEUP_MODE: 'n',
@@ -88,10 +92,22 @@ export const useShortcuts = (
 
       if (e.repeat) return; // Ignore continuous input
 
-      // Hardcoded Ctrl+Z or Cmd+Z for Undo
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      // Hardcoded Ctrl+Z or Cmd+Z (without Shift) for Undo
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         dispatch({ type: 'UNDO' });
+        return;
+      }
+
+      // Hardcoded Ctrl+Y or Cmd+Y or Ctrl+Shift+Z / Cmd+Shift+Z for Redo
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
+        e.preventDefault();
+        dispatch({ type: 'REDO' });
+        return;
+      }
+
+      // Avoid triggering single-key shortcuts when modifier keys are held
+      if (e.ctrlKey || e.metaKey || e.altKey) {
         return;
       }
 
@@ -184,6 +200,18 @@ export const useShortcuts = (
           case 'ADD_HOME_SCORE':
             dispatch({ type: 'ADD_SCORE', team: 'home', amount: -1 });
             break;
+          case 'WILD_PITCH_WP':
+            if (stateRef.current.strikes >= 2) {
+              dispatch({ type: 'WALK', walkType: 'K+WP' });
+              dispatch({ type: 'TRIGGER_K' });
+            }
+            break;
+          case 'WILD_PITCH_PB':
+            if (stateRef.current.strikes >= 2) {
+              dispatch({ type: 'WALK', walkType: 'K+PB' });
+              dispatch({ type: 'TRIGGER_K' });
+            }
+            break;
           case 'RESET_SCORE':
             dispatch({ type: 'RESET_SCORE' });
             break;
@@ -239,6 +267,8 @@ export const useShortcuts = (
               case 'SINGLE': dispatch({ type: 'SINGLE' }); break;
               case 'DOUBLE': dispatch({ type: 'DOUBLE' }); break;
               case 'TRIPLE': dispatch({ type: 'TRIPLE' }); break;
+              case 'WILD_PITCH_WP': dispatch({ type: 'WILD_PITCH', subType: 'WP' }); break;
+              case 'WILD_PITCH_PB': dispatch({ type: 'WILD_PITCH', subType: 'PB' }); break;
               case 'TOGGLE_DISPLAY_MODE': dispatch({ type: 'TOGGLE_DISPLAY_MODE' }); break;
               case 'TOGGLE_LINEUP_MODE': dispatch({ type: 'TOGGLE_LINEUP_MODE' }); break;
               case 'TOGGLE_RHE_MODE': dispatch({ type: 'TOGGLE_RHE_MODE' }); break;
@@ -255,6 +285,8 @@ export const useShortcuts = (
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      Object.values(activeKeysRef.current).forEach((entry) => clearTimeout(entry.timer));
+      activeKeysRef.current = {};
     };
   }, [enabled, shortcuts, dispatch]);
 };

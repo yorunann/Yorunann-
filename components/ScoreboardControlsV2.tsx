@@ -6,6 +6,7 @@ import {
   Plus, 
   Minus, 
   RotateCcw, 
+  RotateCw,
   Users, 
   Table2, 
   Tv, 
@@ -469,12 +470,21 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
 
               {/* Pitch Count & Reset B/S & Visibility Toggles */}
               <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t border-slate-700/60 text-xs">
-                <button
-                  onClick={() => dispatch({ type: 'RESET_COUNT' })}
-                  className="px-2.5 py-1.5 bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-bold transition-colors active:scale-95"
-                >
-                  {language === 'en' ? 'Reset B/S' : language === 'zh' ? '清空好壞球' : 'BSリセット'}
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => dispatch({ type: 'RESET_COUNT' })}
+                    className="px-2 py-1.5 bg-slate-700/80 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-bold transition-colors active:scale-95"
+                  >
+                    {language === 'en' ? 'Reset B/S' : language === 'zh' ? '清空好壞球' : 'BSリセット'}
+                  </button>
+                  <button
+                    onClick={() => dispatch({ type: 'FOUL_BALL' })}
+                    className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold transition-colors active:scale-95 shadow-sm"
+                    title={language === 'en' ? 'Foul Ball (+1 Pitch, +1 Strike if < 2)' : language === 'zh' ? '界外球 (用球數+1，兩好球後不加好球)' : 'ファウル (球数+1)'}
+                  >
+                    {language === 'en' ? 'Foul' : language === 'zh' ? '界外球' : 'ファウル'}
+                  </button>
+                </div>
 
                 {/* Compact Inline Pitch Count */}
                 <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700 px-2 py-1 rounded-xl">
@@ -554,13 +564,24 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
                 <span className="text-xs font-bold text-slate-300">
                   {language === 'en' ? 'Quick Outcome' : language === 'zh' ? '打席快速結算' : 'クイック判定'}
                 </span>
-                <button
-                  onClick={() => dispatch({ type: 'UNDO' })}
-                  className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white bg-slate-700/60 hover:bg-slate-700 px-2.5 py-1 rounded-lg transition-colors active:scale-95"
-                >
-                  <RotateCcw size={13} />
-                  <span>{language === 'zh' ? '復原' : 'Undo'}</span>
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => dispatch({ type: 'UNDO' })}
+                    className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white bg-slate-700/60 hover:bg-slate-700 px-2.5 py-1 rounded-lg transition-colors active:scale-95"
+                    title={language === 'zh' ? '復原 (Ctrl+Z)' : 'Undo (Ctrl+Z)'}
+                  >
+                    <RotateCcw size={13} />
+                    <span>{language === 'zh' ? '復原' : 'Undo'}</span>
+                  </button>
+                  <button
+                    onClick={() => dispatch({ type: 'REDO' })}
+                    className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white bg-slate-700/60 hover:bg-slate-700 px-2.5 py-1 rounded-lg transition-colors active:scale-95"
+                    title={language === 'zh' ? '重做 (Ctrl+Y)' : 'Redo (Ctrl+Y)'}
+                  >
+                    <RotateCw size={13} />
+                    <span>{language === 'zh' ? '重做' : 'Redo'}</span>
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">

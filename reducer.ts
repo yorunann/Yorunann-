@@ -1,4 +1,4 @@
-import { GameState, ActionType, Player, Team, PlateAppearanceRecord } from './types';
+import { GameState, ActionType, Player, Team, PlateAppearanceRecord, SubstitutionDetail } from './types';
 import { INITIAL_STATE } from './constants';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -27,7 +27,7 @@ export const createPlateAppearanceRecord = (
   const batter = battingTeam.lineup[batterIdx] || { id: 'unknown', name: '打者', number: '--' };
   const pitcher = pitchingTeam.pitcher || state.pitcher || { id: 'unknown', name: '投手', number: '--' };
   
-  const currentPbp = state.playByPlay || [];
+  const currentPbp = (state.playByPlay || []).filter(p => p.recordType !== 'sub');
   const paNumber = currentPbp.length + 1;
   const inningPbpCount = currentPbp.filter(p => p.inning === state.inning && p.isTop === state.isTop).length + 1;
 
@@ -44,6 +44,7 @@ export const createPlateAppearanceRecord = (
 
   return {
     id: `pa-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+    recordType: 'pa',
     inning: state.inning,
     isTop: state.isTop,
     paNumber,
@@ -71,6 +72,71 @@ export const createPlateAppearanceRecord = (
     homeScore: state.homeTeam.score,
     timestamp: Date.now()
   };
+};
+
+export const createSubstitutionRecord = (
+  state: GameState,
+  detail: SubstitutionDetail
+): PlateAppearanceRecord => {
+  const battingTeamKey = state.isTop ? 'awayTeam' : 'homeTeam';
+  const pitchingTeamKey = state.isTop ? 'homeTeam' : 'awayTeam';
+  const battingTeam = state[battingTeamKey];
+  const pitchingTeam = state[pitchingTeamKey];
+  const batter = battingTeam.lineup[battingTeam.currentBatterIndex] || { id: 'unknown', name: '打者', number: '--' };
+  const pitcher = pitchingTeam.pitcher || state.pitcher || { id: 'unknown', name: '投手', number: '--' };
+  const currentPaCount = (state.playByPlay || []).filter(p => p.recordType !== 'sub').length;
+
+  const subLabel = detail.subType === 'pitcher_change'
+    ? '換投'
+    : detail.subType === 'pinch_hit'
+      ? '代打/替換'
+      : '球員調度';
+
+  const outLabel = detail.outgoingName ? `#${detail.outgoingNumber || '--'} ${detail.outgoingName}` : '板凳';
+  const inLabel = `#${detail.incomingNumber || '--'} ${detail.incomingName || '球員'}`;
+
+  return {
+    id: `sub-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+    recordType: 'sub',
+    subDetail: detail,
+    inning: state.inning,
+    isTop: state.isTop,
+    paNumber: currentPaCount,
+    battingTeam: state.isTop ? 'away' : 'home',
+    battingTeamName: battingTeam.name || (state.isTop ? '客隊' : '主隊'),
+    pitchingTeam: !state.isTop ? 'away' : 'home',
+    pitchingTeamName: pitchingTeam.name || (!state.isTop ? '客隊' : '主隊'),
+    batterId: batter.id,
+    batterName: batter.name,
+    batterNumber: batter.number,
+    batterOrder: battingTeam.currentBatterIndex + 1,
+    pitcherId: pitcher.id,
+    pitcherName: pitcher.name,
+    pitcherNumber: pitcher.number,
+    outs: state.outs,
+    bases: [...state.bases] as [boolean, boolean, boolean],
+    balls: state.balls,
+    strikes: state.strikes,
+    result: `${subLabel}: ${outLabel} → ${inLabel}`,
+    rbi: 0,
+    runs: 0,
+    awayScore: state.awayTeam.score,
+    homeScore: state.homeTeam.score,
+    timestamp: Date.now()
+  };
+};
+
+const hasGameActivity = (state: GameState): boolean => {
+  return Boolean(
+    (state.playByPlay && state.playByPlay.length > 0) ||
+    state.inning > 1 ||
+    !state.isTop ||
+    state.outs > 0 ||
+    state.balls > 0 ||
+    state.strikes > 0 ||
+    state.awayTeam.score > 0 ||
+    state.homeTeam.score > 0
+  );
 };
 
 const incrementPitchStat = (stat?: string): string => {
@@ -307,6 +373,7 @@ export function reducer(state: GameState, action: ActionType): GameState {
   const pitchIncrementActions: ActionType['type'][] = [
     'INCREMENT_BALL',
     'INCREMENT_STRIKE',
+    'FOUL_BALL',
     'BATTER_OUT',
     'SINGLE',
     'DOUBLE',
@@ -533,6 +600,12 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       return {
         ...state,
         strikes: Math.max(0, state.strikes - 1),
+      };
+
+    case 'FOUL_BALL':
+      return {
+        ...state,
+        strikes: state.strikes < 2 ? state.strikes + 1 : state.strikes,
       };
 
     case 'TRIGGER_K': {
@@ -828,7 +901,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         };
       }
 
-      const isDefensiveMiscue = walkText === 'K+WP' || walkText === 'K+PB' || walkText === '失誤';
+      const isDefensiveMiscue = walkText === '失誤';
       const fieldingTeamKey = state.isTop ? 'homeTeam' : 'awayTeam';
       const fieldingTeam = state[fieldingTeamKey];
       const updatedFieldingTeam = isDefensiveMiscue
@@ -1623,8 +1696,21 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         };
       }
 
+      const subRecord = createSubstitutionRecord(state, {
+        subType: 'pitcher_change',
+        team: action.team === 'home' ? 'home' : 'away',
+        teamName: teamObj.name || (action.team === 'home' ? '主隊' : '客隊'),
+        outgoingName: teamObj.pitcher?.name || '---',
+        outgoingNumber: teamObj.pitcher?.number || '--',
+        incomingName: incomingPitcher.name || '---',
+        incomingNumber: incomingPitcher.number || '--',
+        orderIndex: typeof action.lineupIndex === 'number' && action.lineupIndex >= 0 ? action.lineupIndex + 1 : undefined,
+        position: 'P'
+      });
+
       return {
         ...state,
+        playByPlay: [...(state.playByPlay || []), subRecord],
         [teamKey]: {
           ...teamObj,
           pitcher: newPitcher,
@@ -1648,11 +1734,28 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       if (action.field) {
         if (action.field === 'pitcher' && action.value) {
           const cur = state[teamKey].pitcher;
-          const newHistory = (cur && cur.name && cur.name !== action.value.name)
+          const isPitcherChanged = cur && cur.name && cur.name !== action.value.name;
+          const newHistory = isPitcherChanged
             ? [...(state[teamKey].pitcherHistory || []), { ...cur, isStarter: !(state[teamKey].pitcherHistory && state[teamKey].pitcherHistory.length > 0) }]
             : (state[teamKey].pitcherHistory || []);
+          const nextPlayByPlay = isPitcherChanged && hasGameActivity(state)
+            ? [
+                ...(state.playByPlay || []),
+                createSubstitutionRecord(state, {
+                  subType: 'pitcher_change',
+                  team: action.team === 'home' ? 'home' : 'away',
+                  teamName: state[teamKey].name || (action.team === 'home' ? '主隊' : '客隊'),
+                  outgoingName: cur.name || '---',
+                  outgoingNumber: cur.number || '--',
+                  incomingName: action.value.name || '---',
+                  incomingNumber: action.value.number || '--',
+                  position: 'P'
+                })
+              ]
+            : state.playByPlay;
           return {
             ...state,
+            playByPlay: nextPlayByPlay,
             [teamKey]: {
               ...state[teamKey],
               pitcher: action.value,
@@ -1672,6 +1775,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
 
     case 'APPLY_TEAM_CONFIG': {
       const teamKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
+      const prevTeam = state[teamKey];
       const newConfig = { ...action.config };
       if (newConfig.pitcher) {
         const count = getPitcherCount(newConfig.pitcher);
@@ -1681,12 +1785,63 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           stat: String(count)
         };
       }
-      if (newConfig.lineup.length > 0 && newConfig.currentBatterIndex >= newConfig.lineup.length) {
+      if (newConfig.lineup && newConfig.lineup.length > 0 && newConfig.currentBatterIndex !== undefined && newConfig.currentBatterIndex >= newConfig.lineup.length) {
         newConfig.currentBatterIndex = newConfig.lineup.length - 1;
       }
+
+      let addedSubRecords: PlateAppearanceRecord[] = [];
+      if (hasGameActivity(state)) {
+        // Detect pitcher change made via TeamEditor
+        if (
+          newConfig.pitcher &&
+          prevTeam.pitcher &&
+          newConfig.pitcher.name &&
+          prevTeam.pitcher.name &&
+          (newConfig.pitcher.name !== prevTeam.pitcher.name || newConfig.pitcher.number !== prevTeam.pitcher.number)
+        ) {
+          addedSubRecords.push(
+            createSubstitutionRecord(state, {
+              subType: 'pitcher_change',
+              team: action.team === 'home' ? 'home' : 'away',
+              teamName: newConfig.name || prevTeam.name || (action.team === 'home' ? '主隊' : '客隊'),
+              outgoingName: prevTeam.pitcher.name || '---',
+              outgoingNumber: prevTeam.pitcher.number || '--',
+              incomingName: newConfig.pitcher.name || '---',
+              incomingNumber: newConfig.pitcher.number || '--',
+              position: 'P'
+            })
+          );
+        }
+
+        // Detect bench -> lineup substitutions made via TeamEditor
+        if (newConfig.lineup) {
+          const prevBenchIds = new Set(prevTeam.bench.map(bp => bp.id));
+          const newLineupIds = new Set(newConfig.lineup.map(lp => lp.id));
+          newConfig.lineup.forEach((newPlayer, idx) => {
+            const oldPlayer = prevTeam.lineup[idx];
+            if (oldPlayer && oldPlayer.id !== newPlayer.id && prevBenchIds.has(newPlayer.id) && !newLineupIds.has(oldPlayer.id)) {
+              addedSubRecords.push(
+                createSubstitutionRecord(state, {
+                  subType: 'pinch_hit',
+                  team: action.team === 'home' ? 'home' : 'away',
+                  teamName: newConfig.name || prevTeam.name || (action.team === 'home' ? '主隊' : '客隊'),
+                  outgoingName: oldPlayer.name || '---',
+                  outgoingNumber: oldPlayer.number || '--',
+                  incomingName: newPlayer.name || '---',
+                  incomingNumber: newPlayer.number || '--',
+                  orderIndex: idx + 1,
+                  position: newPlayer.position || 'PH'
+                })
+              );
+            }
+          });
+        }
+      }
+
       return { 
         ...state, 
-        [teamKey]: { ...state[teamKey], ...newConfig },
+        playByPlay: addedSubRecords.length > 0 ? [...(state.playByPlay || []), ...addedSubRecords] : state.playByPlay,
+        [teamKey]: { ...prevTeam, ...newConfig },
         meta: { ...state.meta, settingsVersion: (state.meta.settingsVersion || 0) + 1 }
       };
     }
@@ -1814,8 +1969,25 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       if (!player) return state;
       const newBench = state[tKey].bench.filter((_, i) => i !== action.index);
       const newLineup = [...state[tKey].lineup, { ...player, position: 'PH' }];
+      const nextPbp = hasGameActivity(state)
+        ? [
+            ...(state.playByPlay || []),
+            createSubstitutionRecord(state, {
+              subType: 'lineup_sub',
+              team: action.team === 'home' ? 'home' : 'away',
+              teamName: state[tKey].name || (action.team === 'home' ? '主隊' : '客隊'),
+              outgoingName: '',
+              outgoingNumber: '',
+              incomingName: player.name || '---',
+              incomingNumber: player.number || '--',
+              orderIndex: newLineup.length,
+              position: 'PH'
+            })
+          ]
+        : state.playByPlay;
       return {
         ...state,
+        playByPlay: nextPbp,
         [tKey]: { ...state[tKey], lineup: newLineup, bench: newBench }
       };
     }
@@ -1906,8 +2078,21 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       newLineup[action.lineupIndex] = substitutedPlayer;
       newBench[action.benchIndex] = { ...lineupPlayer, position: 'BN', previousPlayers: undefined };
 
+      const subRecord = createSubstitutionRecord(state, {
+        subType: 'pinch_hit',
+        team: action.team === 'home' ? 'home' : 'away',
+        teamName: state[tKey].name || (action.team === 'home' ? '主隊' : '客隊'),
+        outgoingName: lineupPlayer.name || '---',
+        outgoingNumber: lineupPlayer.number || '--',
+        incomingName: benchPlayer.name || '---',
+        incomingNumber: benchPlayer.number || '--',
+        orderIndex: action.lineupIndex + 1,
+        position: 'PH'
+      });
+
       return {
         ...state,
+        playByPlay: [...(state.playByPlay || []), subRecord],
         [tKey]: { ...state[tKey], lineup: newLineup, bench: newBench }
       };
     }

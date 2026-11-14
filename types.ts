@@ -106,8 +106,22 @@ export interface AnimationData {
   isExiting?: boolean;
 }
 
+export interface SubstitutionDetail {
+  subType: 'pinch_hit' | 'pitcher_change' | 'lineup_sub';
+  team: 'away' | 'home';
+  teamName: string;
+  outgoingName: string;
+  outgoingNumber: string;
+  incomingName: string;
+  incomingNumber: string;
+  orderIndex?: number;
+  position?: string;
+}
+
 export interface PlateAppearanceRecord {
   id: string;
+  recordType?: 'pa' | 'sub';
+  subDetail?: SubstitutionDetail;
   inning: number;
   isTop: boolean;
   paNumber: number; // Overall PA sequence number
@@ -189,6 +203,7 @@ export type ActionType =
   | { type: 'DECREMENT_BALL' }
   | { type: 'INCREMENT_STRIKE' }
   | { type: 'DECREMENT_STRIKE' }
+  | { type: 'FOUL_BALL' }
   | { type: 'TRIGGER_K' }
   | { type: 'INCREMENT_OUT' }
   | { type: 'DECREMENT_OUT' }
@@ -258,6 +273,7 @@ export type ActionType =
   | { type: 'TOGGLE_ADJUSTMENT_MODE' }
   | { type: 'FULL_RESET' }
   | { type: 'UNDO' }
+  | { type: 'REDO' }
   | { type: 'REPLACE_STATE'; state: GameState }
   | { type: 'TRIGGER_HR_BUBBLE' }
   | { type: 'LOCK_HR_ANIMATION' }

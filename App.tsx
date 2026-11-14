@@ -31,7 +31,7 @@ const generateRoomCode = () => {
 
 const getInitialState = (init: GameState): GameState => {
   try {
-    // 1. Check if URL contains embedded match / roster data (e.g. exported OBS card URLs)
+    // 1. Check URL parameters first
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const dataParam = urlParams.get('d') || urlParams.get('data');
@@ -42,9 +42,23 @@ const getInitialState = (init: GameState): GameState => {
           animation: null,
         };
       }
+
+      // Remote / OBS clients sync exclusively from Host via usePeerSync (never load stale local game from localStorage)
+      const mode = urlParams.get('mode');
+      const isRemoteOrObs =
+        mode === 'remote' ||
+        mode === 'controller' ||
+        mode === 'obs' ||
+        mode === 'overlay' ||
+        urlParams.get('transparent') === '1' ||
+        urlParams.get('transparent') === 'true' ||
+        Boolean(urlParams.get('room'));
+      if (isRemoteOrObs) {
+        return init;
+      }
     }
 
-    // 2. Check localStorage
+    // 2. Check localStorage (Host and local Display window only)
     const savedState = localStorage.getItem('scoreboard_state');
     if (savedState) {
       const parsed = JSON.parse(savedState);
@@ -121,6 +135,7 @@ export const App: React.FC = () => {
     peerBroadcastState(stateRef.current, newLang);
   };
   const [history, setHistory] = useState<GameState[]>([]);
+  const [redoHistory, setRedoHistory] = useState<GameState[]>([]);
   const [controlPanelWidth, setControlPanelWidth] = useState(33.33); // percentage
   const [localDisplayMode, setLocalDisplayMode] = useState<GameState['displayMode'] | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -248,41 +263,7 @@ export const App: React.FC = () => {
     },
     onRemoteStateUpdate: (remoteState, remoteLang) => {
       if (!remoteState) return;
-      // In OBS overlay mode or display projection mode, always apply incoming state immediately
-      if (!isObsMode && !isDisplayMode) {
-        // On remote controller, prevent redundant re-renders only when local optimistic state already matches
-        const curr = stateRef.current;
-        if (curr &&
-            curr.balls === remoteState.balls &&
-            curr.strikes === remoteState.strikes &&
-            curr.outs === remoteState.outs &&
-            curr.inning === remoteState.inning &&
-            curr.isTop === remoteState.isTop &&
-            curr.awayTeam.score === remoteState.awayTeam.score &&
-            curr.homeTeam.score === remoteState.homeTeam.score &&
-            curr.awayTeam.hits === remoteState.awayTeam.hits &&
-            curr.homeTeam.hits === remoteState.homeTeam.hits &&
-            curr.awayTeam.errors === remoteState.awayTeam.errors &&
-            curr.homeTeam.errors === remoteState.homeTeam.errors &&
-            curr.bases[0] === remoteState.bases[0] &&
-            curr.bases[1] === remoteState.bases[1] &&
-            curr.bases[2] === remoteState.bases[2] &&
-            curr.awayTeam.currentBatterIndex === remoteState.awayTeam.currentBatterIndex &&
-            curr.homeTeam.currentBatterIndex === remoteState.homeTeam.currentBatterIndex &&
-            curr.displayMode === remoteState.displayMode &&
-            curr.meta?.settingsVersion === remoteState.meta?.settingsVersion &&
-            curr.meta?.broadcastVisible === remoteState.meta?.broadcastVisible &&
-            curr.meta?.broadcastAnimKey === remoteState.meta?.broadcastAnimKey &&
-            curr.meta?.broadcastScale === remoteState.meta?.broadcastScale &&
-            curr.meta?.broadcastWidth === remoteState.meta?.broadcastWidth &&
-            curr.meta?.broadcastMarginX === remoteState.meta?.broadcastMarginX &&
-            curr.meta?.broadcastMarginY === remoteState.meta?.broadcastMarginY &&
-            curr.isAdjustmentMode === remoteState.isAdjustmentMode
-        ) {
-          if (remoteLang && remoteLang !== scoreboardLanguage) setScoreboardLanguage(remoteLang);
-          return;
-        }
-      }
+      // Always apply authoritative state from Host (never skip on partial field matches, which drops pitchCount/lineup/playByPlay/timer updates)
       dispatch({ type: 'REPLACE_STATE', state: remoteState });
       if (remoteLang) setScoreboardLanguage(remoteLang);
     },
@@ -389,8 +370,13 @@ export const App: React.FC = () => {
     stateRef.current = state;
   }, [state]);
 
-  // Initialize sync mechanisms
+  // Initialize local same-machine sync mechanisms (Host & local Display window only; Remote/OBS rely on room-scoped usePeerSync)
   useEffect(() => {
+    if (isRemoteMode || isObsMode) {
+      channelRef.current = null;
+      return;
+    }
+
     const channel = new BroadcastChannel('scoreboard_sync');
     channelRef.current = channel;
 
@@ -441,8 +427,10 @@ export const App: React.FC = () => {
           consoleLanguage, 
           language: scoreboardLanguage 
         });
-        localStorage.setItem('scoreboard_state', JSON.stringify(currentState));
-        localStorage.setItem('scoreboard_sync_time', Date.now().toString());
+        try {
+          localStorage.setItem('scoreboard_state', JSON.stringify(currentState));
+          localStorage.setItem('scoreboard_sync_time', Date.now().toString());
+        } catch (e) {}
       }
     };
 
@@ -484,7 +472,7 @@ export const App: React.FC = () => {
     };
     window.addEventListener('message', handleMessage);
 
-    // 3. LocalStorage
+    // 3. LocalStorage (local Display mode fallback only)
     const handleStorage = (event: StorageEvent) => {
       if (event.key === 'scoreboard_state' && event.newValue) {
         try {
@@ -494,20 +482,32 @@ export const App: React.FC = () => {
           console.error("Failed to parse state from localStorage", e);
         }
       } else if (event.key === 'scoreboard_request_state' && !isDisplayMode && !isObsMode) {
-        localStorage.setItem('scoreboard_state', JSON.stringify(stateRef.current));
+        try {
+          localStorage.setItem('scoreboard_state', JSON.stringify(stateRef.current));
+        } catch (e) {}
       }
     };
     window.addEventListener('storage', handleStorage);
 
     // Request initial state or broadcast current state
-    if (isDisplayMode || isRemoteMode || isObsMode) {
+    if (isDisplayMode) {
       channel.postMessage({ type: 'REQUEST_STATE' });
       if (window.opener) {
         window.opener.postMessage({ type: 'REQUEST_STATE' }, '*');
       }
-      localStorage.setItem('scoreboard_request_state', Date.now().toString());
+      try {
+        localStorage.setItem('scoreboard_request_state', Date.now().toString());
+      } catch (e) {}
+      const savedState = localStorage.getItem('scoreboard_state');
+      if (savedState) {
+        try {
+          const parsed = JSON.parse(savedState);
+          parsed.animation = null;
+          handleSyncState(parsed);
+        } catch (e) {}
+      }
     } else {
-      // Controller broadcasts its state on mount to sync any existing display windows or OBS
+      // Controller broadcasts its state on mount to sync any existing local display windows
       channel.postMessage({ 
         type: 'SYNC_STATE', 
         state: stateRef.current, 
@@ -520,22 +520,12 @@ export const App: React.FC = () => {
       } catch (e) {}
     }
 
-    // Fallback: read from localStorage immediately
-    const savedState = localStorage.getItem('scoreboard_state');
-    if (savedState) {
-      try {
-        const parsed = JSON.parse(savedState);
-        parsed.animation = null;
-        handleSyncState(parsed);
-      } catch (e) {}
-    }
-
     return () => {
       channel.close();
       window.removeEventListener('message', handleMessage);
       window.removeEventListener('storage', handleStorage);
     };
-  }, [isDisplayMode]);
+  }, [isDisplayMode, isRemoteMode, isObsMode]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -635,8 +625,20 @@ export const App: React.FC = () => {
       if (history.length > 0) {
         const previousState = history[history.length - 1];
         setHistory(prev => prev.slice(0, -1));
+        setRedoHistory(prev => [...prev.slice(-49), state]);
         isLocalAction.current = true;
         dispatch({ type: 'REPLACE_STATE', state: previousState });
+      }
+      return;
+    }
+
+    if (action.type === 'REDO') {
+      if (redoHistory.length > 0) {
+        const nextState = redoHistory[redoHistory.length - 1];
+        setRedoHistory(prev => prev.slice(0, -1));
+        setHistory(prev => [...prev.slice(-49), state]);
+        isLocalAction.current = true;
+        dispatch({ type: 'REPLACE_STATE', state: nextState });
       }
       return;
     }
@@ -645,6 +647,7 @@ export const App: React.FC = () => {
     const ignoredActions = ['DECREMENT_TIMER', 'SET_TIMER', 'TOGGLE_TIMER', 'SET_ANIMATION', 'REPLACE_STATE'];
     if (!ignoredActions.includes(action.type)) {
       setHistory(prev => [...prev.slice(-49), state]);
+      setRedoHistory([]);
     }
 
     isLocalAction.current = true;
@@ -1249,7 +1252,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v3.5.0</span>
+          <span className="text-slate-600 ml-2">v3.5.1</span>
        </footer>
 
         <ShortcutSettingsModal

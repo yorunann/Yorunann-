@@ -19,8 +19,16 @@ export async function getCroppedImg(
     return '';
   }
 
-  canvas.width = pixelCrop.width;
-  canvas.height = pixelCrop.height;
+  const MAX_DIM = 256;
+  const scale = Math.min(1, MAX_DIM / Math.max(pixelCrop.width || 1, pixelCrop.height || 1));
+  const targetWidth = Math.max(1, Math.round(pixelCrop.width * scale));
+  const targetHeight = Math.max(1, Math.round(pixelCrop.height * scale));
+
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
 
   ctx.drawImage(
     image,
@@ -30,9 +38,18 @@ export async function getCroppedImg(
     pixelCrop.height,
     0,
     0,
-    pixelCrop.width,
-    pixelCrop.height
+    targetWidth,
+    targetHeight
   );
+
+  try {
+    const webp = canvas.toDataURL('image/webp', 0.85);
+    if (webp.startsWith('data:image/webp')) {
+      return webp;
+    }
+  } catch {
+    // Fallback to PNG below
+  }
 
   return canvas.toDataURL('image/png');
 }

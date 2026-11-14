@@ -33,6 +33,8 @@ const ACTION_LABELS: Record<ShortcutAction, { en: string, zh: string, ja: string
   SINGLE: { en: 'Single', zh: '一壘安打', ja: '単打' },
   DOUBLE: { en: 'Double', zh: '二壘安打', ja: '二塁打' },
   TRIPLE: { en: 'Triple', zh: '三壘安打', ja: '三塁打' },
+  WILD_PITCH_WP: { en: 'Wild Pitch (Long w/ 2S: K+WP)', zh: '暴投 (兩好球長按: 不死三振)', ja: '暴投 (2S長押し: 振り逃げ)' },
+  WILD_PITCH_PB: { en: 'Passed Ball (Long w/ 2S: K+PB)', zh: '捕逸 (兩好球長按: 不死三振)', ja: '捕逸 (2S長押し: 振り逃げ)' },
   RESET_SCORE: { en: 'Reset Score (Long Press)', zh: '重置雙方分數 (長按)', ja: 'スコアリセット (長押し)' },
   TOGGLE_DISPLAY_MODE: { en: 'Cycle Display Mode', zh: '循環切換顯示模式', ja: '表示モード切替' },
   TOGGLE_LINEUP_MODE: { en: 'Toggle Lineup Mode', zh: '切換打線模式', ja: 'スタメンモード切替' },

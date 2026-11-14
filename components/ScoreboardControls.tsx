@@ -5,7 +5,7 @@ import { PitcherLineupSubModal, PitcherCandidate } from './PitcherLineupSubModal
 import React, { useRef, useEffect, useState } from 'react';
 import { GameState, ActionType, Player, Team, PitchInfo, GameMeta } from '../types';
 import { getPitcherCount } from '../reducer';
-import { Play, Pause, RotateCcw, Eye, EyeOff, User, Trash2, Plus, PenTool, Tv, LayoutTemplate, Square, Image as ImageIcon, RefreshCw, ArrowDown, ArrowUp, GripVertical, Settings, Check, CircleDot, ChevronDown, ChevronUp, ChevronRight, X, Flame, FileSpreadsheet, Smartphone } from 'lucide-react';
+import { Play, Pause, RotateCcw, RotateCw, Eye, EyeOff, User, Trash2, Plus, PenTool, Tv, LayoutTemplate, Square, Image as ImageIcon, RefreshCw, ArrowDown, ArrowUp, GripVertical, Settings, Check, CircleDot, ChevronDown, ChevronUp, ChevronRight, X, Flame, FileSpreadsheet, Smartphone } from 'lucide-react';
 import { ImageCropperModal } from './ImageCropperModal';
 import { 
   DndContext, 
@@ -1176,12 +1176,21 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                   -
                 </button>
               </div>
-              <button 
-                className="w-full flex-1 min-h-[44px] bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 rounded shadow transition-transform active:scale-95 text-lg"
-                onClick={() => dispatch({ type: 'RESET_COUNT' })}
-              >
-                {language === 'en' ? 'Reset Count' : language === 'zh' ? '重置好壞球' : 'カウントリセット'}
-              </button>
+              <div className="flex gap-2 w-full flex-1 min-h-[44px]">
+                <button 
+                  className="flex-[3] bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-2 rounded shadow transition-transform active:scale-95 text-sm sm:text-base whitespace-nowrap"
+                  onClick={() => dispatch({ type: 'RESET_COUNT' })}
+                >
+                  {language === 'en' ? 'Reset Count' : language === 'zh' ? '重置好壞球' : 'カウントリセット'}
+                </button>
+                <button 
+                  className="flex-[2] bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-2 rounded shadow transition-transform active:scale-95 text-sm sm:text-base whitespace-nowrap"
+                  onClick={() => dispatch({ type: 'FOUL_BALL' })}
+                  title={language === 'en' ? 'Foul Ball (+1 Pitch, +1 Strike if < 2)' : language === 'zh' ? '界外球 (用球數+1，兩好球後不加好球)' : 'ファウル (球数+1)'}
+                >
+                  {language === 'en' ? 'Foul' : language === 'zh' ? '界外球' : 'ファウル'}
+                </button>
+              </div>
               
               <div className="flex gap-2 w-full flex-1 min-h-[44px]">
                 <button
@@ -1225,13 +1234,20 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                     </button>
                   </div>
                 </div>
-                <div className="flex-1 flex">
+                <div className="flex-1 flex gap-1.5">
                   <button 
-                    className="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded text-xs shadow-md flex items-center justify-center gap-1 transition-transform active:scale-95"
+                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-2 rounded text-xs shadow-md flex items-center justify-center gap-1 transition-transform active:scale-95"
                     onClick={() => dispatch({ type: 'UNDO' })}
                     title={language === 'en' ? 'Undo (Ctrl+Z)' : language === 'zh' ? '復原 (Ctrl+Z)' : '元に戻す (Ctrl+Z)'}
                   >
-                    <RotateCcw size={14} /> {language === 'en' ? 'Undo' : language === 'zh' ? '復原' : '元に戻す'}
+                    <RotateCcw size={14} /> {language === 'en' ? 'Undo' : language === 'zh' ? '復原' : '戻す'}
+                  </button>
+                  <button 
+                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-2 rounded text-xs shadow-md flex items-center justify-center gap-1 transition-transform active:scale-95"
+                    onClick={() => dispatch({ type: 'REDO' })}
+                    title={language === 'en' ? 'Redo (Ctrl+Y)' : language === 'zh' ? '重做 (Ctrl+Y)' : 'やり直し (Ctrl+Y)'}
+                  >
+                    <RotateCw size={14} /> {language === 'en' ? 'Redo' : language === 'zh' ? '重做' : 'やり直す'}
                   </button>
                 </div>
               </div>

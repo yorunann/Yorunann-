@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Peer, DataConnection } from 'peerjs';
 import mqtt, { MqttClient } from 'mqtt';
 import { GameState, ActionType } from '../types';
 
@@ -12,14 +11,16 @@ export interface ConnectedClientInfo {
   role: RemoteRole;
   connectedAt: number;
   lastSeen: number;
-  transport: 'webrtc' | 'mqtt' | 'broadcast_channel';
-  peerId?: string;
+  transport: 'cloud_mqtt' | 'broadcast_channel';
 }
 
 export interface PeerMessage {
   type:
     | 'SYNC_STATE'
+    | 'SYNC_LOGOS'
+    | 'STATE_CHUNK'
     | 'REQUEST_STATE'
+    | 'REQUEST_LOGOS'
     | 'DISPATCH'
     | 'PING'
     | 'PONG'
@@ -30,6 +31,7 @@ export interface PeerMessage {
     | 'KICK_CLIENT'
     | 'KICKED';
   actionId?: string;
+  hostSessionId?: string;
   state?: GameState;
   stateVersion?: number;
   language?: 'en' | 'zh' | 'ja';
@@ -41,6 +43,12 @@ export interface PeerMessage {
   clientType?: 'remote' | 'obs';
   role?: RemoteRole;
   targetClientId?: string;
+  logos?: Record<string, string>;
+  missingHashes?: string[];
+  chunkGroupId?: string;
+  chunkIndex?: number;
+  totalChunks?: number;
+  data?: string;
 }
 
 export interface PeerSyncOptions {
@@ -55,8 +63,146 @@ export interface PeerSyncOptions {
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
-const PEER_PREFIX = 'bsb-p2p-v3-';
-const SHARED_MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
+const PRIMARY_BROKER = 'wss://broker.hivemq.com:8884/mqtt';
+const FALLBACK_BROKER = 'wss://broker.emqx.io:8084/mqtt';
+
+const LOGO_HASH_PREFIX = '__LOGO_HASH__:';
+const CHUNK_THRESHOLD = 36000;
+const CHUNK_SIZE = 28000;
+const RETAIN_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
+const RETAIN_THROTTLE_MS = 2500;
+const RETAIN_MAX_BYTES = 64000;
+
+function hashLogoString(str: string): string {
+  let h1 = 0x811c9dc5;
+  const len = str.length;
+  // Sample deterministically across long data URLs for O(1) hashing speed
+  const step = Math.max(1, Math.floor(len / 2048));
+  for (let i = 0; i < len; i += step) {
+    h1 ^= str.charCodeAt(i);
+    h1 = Math.imul(h1, 0x01000193);
+  }
+  return `lg_${len}_${(h1 >>> 0).toString(36)}`;
+}
+
+function stripStateLogos(state: GameState): {
+  wireState: GameState;
+  extractedLogos: Record<string, string>;
+} {
+  const extractedLogos: Record<string, string> = {};
+  const awayLogo = state.awayTeam?.logoUrl || '';
+  const homeLogo = state.homeTeam?.logoUrl || '';
+
+  const stripAway = awayLogo.length > 512 && !awayLogo.startsWith(LOGO_HASH_PREFIX);
+  const stripHome = homeLogo.length > 512 && !homeLogo.startsWith(LOGO_HASH_PREFIX);
+
+  if (!stripAway && !stripHome) {
+    return { wireState: state, extractedLogos };
+  }
+
+  let nextAway = state.awayTeam;
+  let nextHome = state.homeTeam;
+
+  if (stripAway) {
+    const hash = hashLogoString(awayLogo);
+    extractedLogos[hash] = awayLogo;
+    nextAway = { ...state.awayTeam, logoUrl: `${LOGO_HASH_PREFIX}${hash}` };
+  }
+
+  if (stripHome) {
+    const hash = hashLogoString(homeLogo);
+    extractedLogos[hash] = homeLogo;
+    nextHome = { ...state.homeTeam, logoUrl: `${LOGO_HASH_PREFIX}${hash}` };
+  }
+
+  return {
+    wireState: {
+      ...state,
+      awayTeam: nextAway,
+      homeTeam: nextHome,
+    },
+    extractedLogos,
+  };
+}
+
+function rehydrateStateLogos(
+  wireState: GameState,
+  cache: Map<string, string>
+): {
+  hydratedState: GameState;
+  missingHashes: string[];
+} {
+  const missingHashes: string[] = [];
+  const awayLogo = wireState.awayTeam?.logoUrl || '';
+  const homeLogo = wireState.homeTeam?.logoUrl || '';
+
+  const isAwayHash = awayLogo.startsWith(LOGO_HASH_PREFIX);
+  const isHomeHash = homeLogo.startsWith(LOGO_HASH_PREFIX);
+
+  if (!isAwayHash && !isHomeHash) {
+    return { hydratedState: wireState, missingHashes };
+  }
+
+  let nextAway = wireState.awayTeam;
+  let nextHome = wireState.homeTeam;
+
+  if (isAwayHash) {
+    const hash = awayLogo.slice(LOGO_HASH_PREFIX.length);
+    const cached = cache.get(hash);
+    if (cached !== undefined) {
+      nextAway = { ...wireState.awayTeam, logoUrl: cached };
+    } else {
+      missingHashes.push(hash);
+      nextAway = { ...wireState.awayTeam, logoUrl: '' };
+    }
+  }
+
+  if (isHomeHash) {
+    const hash = homeLogo.slice(LOGO_HASH_PREFIX.length);
+    const cached = cache.get(hash);
+    if (cached !== undefined) {
+      nextHome = { ...wireState.homeTeam, logoUrl: cached };
+    } else {
+      if (!missingHashes.includes(hash)) {
+        missingHashes.push(hash);
+      }
+      nextHome = { ...wireState.homeTeam, logoUrl: '' };
+    }
+  }
+
+  return {
+    hydratedState: {
+      ...wireState,
+      awayTeam: nextAway,
+      homeTeam: nextHome,
+    },
+    missingHashes,
+  };
+}
+
+function publishLiveMqttPayload(client: MqttClient, topic: string, msg: PeerMessage): void {
+  if (!client.connected) return;
+  const serialized = JSON.stringify(msg);
+  if (serialized.length <= CHUNK_THRESHOLD) {
+    client.publish(topic, serialized, { retain: false, qos: 0 });
+    return;
+  }
+
+  const chunkGroupId = `cg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+  const totalChunks = Math.ceil(serialized.length / CHUNK_SIZE);
+  for (let i = 0; i < totalChunks; i++) {
+    const slice = serialized.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+    const chunkMsg: PeerMessage = {
+      type: 'STATE_CHUNK',
+      chunkGroupId,
+      chunkIndex: i,
+      totalChunks,
+      data: slice,
+      timestamp: Date.now(),
+    };
+    client.publish(topic, JSON.stringify(chunkMsg), { retain: false, qos: 0 });
+  }
+}
 
 export function getDeviceSummary(): string {
   if (typeof navigator === 'undefined') return '遠端裝置';
@@ -92,7 +238,7 @@ export function usePeerSync({
   const [latency, setLatency] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Client unique identity (preserved across re-renders in session)
+  // Client unique identity preserved in sessionStorage
   const myClientIdRef = useRef<string>('');
   if (!myClientIdRef.current) {
     if (typeof window !== 'undefined') {
@@ -112,21 +258,21 @@ export function usePeerSync({
   }
   const myClientId = myClientIdRef.current;
 
-  // Remote role state (for client): 'editor' or 'viewer'
+  // Remote role state for client
   const [myRole, setMyRole] = useState<RemoteRole>('editor');
   const myRoleRef = useRef<RemoteRole>('editor');
   myRoleRef.current = myRole;
 
-  // Kicked state (for client)
+  // Kicked state
   const [isKicked, setIsKicked] = useState(false);
   const isKickedRef = useRef(false);
   isKickedRef.current = isKicked;
 
-  // Connected clients management (for Host)
+  // Connected clients management (Host only)
   const [connectedClients, setConnectedClients] = useState<ConnectedClientInfo[]>([]);
   const connectedClientsRef = useRef<Map<string, ConnectedClientInfo>>(new Map());
 
-  // Default role for newly connected devices (for Host)
+  // Default role for new remotes (Host only)
   const [defaultRole, setDefaultRoleState] = useState<RemoteRole>(() => {
     try {
       const saved = localStorage.getItem('scoreboard_remote_default_role');
@@ -142,23 +288,44 @@ export function usePeerSync({
     setDefaultRoleState(role);
     try {
       localStorage.setItem('scoreboard_remote_default_role', role);
-    } catch (e) {}
+    } catch {}
   }, []);
 
-  // Kicked client IDs blacklist (for Host)
+  // Kicked client IDs blacklist (Host only)
   const kickedClientIdsRef = useRef<Set<string>>(new Set());
 
-  // Network transports refs
-  const peerRef = useRef<Peer | null>(null);
-  const connectionsRef = useRef<Map<string, DataConnection>>(new Map());
-  const clientConnRef = useRef<DataConnection | null>(null);
+  // Network transports & session refs
   const mqttClientRef = useRef<MqttClient | null>(null);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
-
-  const webrtcConnectedRef = useRef(false);
-  const mqttConnectedRef = useRef(false);
   const lastHostSeenRef = useRef<number>(0);
+  const isMqttSubscribedRef = useRef(false);
 
+  // Host session & versioning refs
+  const hostSessionIdRef = useRef<string>('');
+  const stateVersionRef = useRef<number>(1);
+  const sentLogoHashesRef = useRef<Set<string>>(new Set());
+
+  // Client sync tracking refs
+  const syncedHostSessionRef = useRef<string>('');
+  const syncedStateVersionRef = useRef<number>(-1);
+  const hasAppliedLiveStateRef = useRef<boolean>(false);
+  const lastAutoRequestRef = useRef<number>(0);
+  const logoCacheRef = useRef<Map<string, string>>(new Map());
+  const lastWireStateRef = useRef<GameState | null>(null);
+  const lastWireLangRef = useRef<'en' | 'zh' | 'ja' | undefined>(undefined);
+  const chunkBufferRef = useRef<Map<string, { chunks: string[]; received: number; total: number; createdAt: number }>>(
+    new Map()
+  );
+
+  // Retained snapshot throttling refs (Host only)
+  const lastRetainPublishAtRef = useRef<number>(0);
+  const retainFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingRetainRef = useRef<{ topic: string; payload: string } | null>(null);
+
+  // Outbox action queue for client (guarantees zero dropped clicks)
+  const pendingActionsRef = useRef<ActionType[]>([]);
+
+  // Synchronized prop refs to avoid unnecessary re-subscriptions
   const roomCodeRef = useRef(roomCode);
   roomCodeRef.current = roomCode;
 
@@ -174,11 +341,86 @@ export function usePeerSync({
   const onRemoteStateUpdateRef = useRef(onRemoteStateUpdate);
   onRemoteStateUpdateRef.current = onRemoteStateUpdate;
 
-  // Deduplication & versioning refs
-  const stateVersionRef = useRef<number>(1);
-  const lastProcessedStateVersionRef = useRef<number>(0);
+  // Deduplication refs
   const processedActionIdsRef = useRef<Map<string, number>>(new Map());
   const lastSentActionRef = useRef<{ key: string; time: number }>({ key: '', time: 0 });
+
+  // Helper: publish retained snapshot throttled (fallback only, never blocks live)
+  const scheduleRetainedPublish = useCallback((topic: string, wireMsg: PeerMessage) => {
+    const serialized = JSON.stringify(wireMsg);
+    if (serialized.length > RETAIN_MAX_BYTES) return;
+
+    const now = Date.now();
+    const elapsed = now - lastRetainPublishAtRef.current;
+
+    if (elapsed >= RETAIN_THROTTLE_MS) {
+      if (retainFlushTimerRef.current) {
+        clearTimeout(retainFlushTimerRef.current);
+        retainFlushTimerRef.current = null;
+      }
+      pendingRetainRef.current = null;
+      if (mqttClientRef.current?.connected) {
+        try {
+          mqttClientRef.current.publish(topic, serialized, { retain: true, qos: 0 });
+          lastRetainPublishAtRef.current = now;
+        } catch {}
+      }
+      return;
+    }
+
+    pendingRetainRef.current = { topic, payload: serialized };
+    if (!retainFlushTimerRef.current) {
+      retainFlushTimerRef.current = setTimeout(() => {
+        retainFlushTimerRef.current = null;
+        const pending = pendingRetainRef.current;
+        pendingRetainRef.current = null;
+        if (pending && mqttClientRef.current?.connected) {
+          try {
+            mqttClientRef.current.publish(pending.topic, pending.payload, { retain: true, qos: 0 });
+            lastRetainPublishAtRef.current = Date.now();
+          } catch {}
+        }
+      }, RETAIN_THROTTLE_MS - elapsed);
+    }
+  }, []);
+
+  // Host: publish extracted logos on host/logos if not yet sent (or forced)
+  const publishExtractedLogos = useCallback(
+    (
+      client: MqttClient | null,
+      cleanRoom: string,
+      extractedLogos: Record<string, string>,
+      forceHashes?: string[]
+    ) => {
+      if (!client?.connected || !cleanRoom) return;
+      const toSend: Record<string, string> = {};
+
+      Object.entries(extractedLogos).forEach(([hash, dataUrl]) => {
+        const shouldForce = forceHashes ? forceHashes.includes(hash) : false;
+        if (shouldForce || !sentLogoHashesRef.current.has(hash)) {
+          toSend[hash] = dataUrl;
+        }
+      });
+
+      const keys = Object.keys(toSend);
+      if (keys.length === 0) return;
+
+      if (sentLogoHashesRef.current.size > 20) {
+        sentLogoHashesRef.current.clear();
+      }
+      keys.forEach((k) => sentLogoHashesRef.current.add(k));
+
+      try {
+        publishLiveMqttPayload(client, `bsb3/room/${cleanRoom}/host/logos`, {
+          type: 'SYNC_LOGOS',
+          hostSessionId: hostSessionIdRef.current,
+          logos: toSend,
+          timestamp: Date.now(),
+        });
+      } catch {}
+    },
+    []
+  );
 
   // Host action deduplication handler
   const handleHostIncomingAction = useCallback((action: ActionType, actionId?: string) => {
@@ -196,171 +438,216 @@ export function usePeerSync({
     onRemoteDispatchRef.current(action);
   }, []);
 
-  // Client state update handler (authoritative from host)
-  const handleClientIncomingState = useCallback((newState: GameState, newLang?: 'en' | 'zh' | 'ja', version?: number) => {
-    if (!onRemoteStateUpdateRef.current) return;
-    lastHostSeenRef.current = Date.now();
-    if (typeof version === 'number') {
-      lastProcessedStateVersionRef.current = version;
-    }
-    setStatus('connected');
-    setErrorMessage(null);
-    onRemoteStateUpdateRef.current(newState, newLang);
-  }, []);
+  // Client: apply wire state with logo rehydration
+  const applyWireState = useCallback(
+    (
+      wireState: GameState,
+      options: {
+        isLive: boolean;
+        language?: 'en' | 'zh' | 'ja';
+        hostSessionId?: string;
+        stateVersion?: number;
+      }
+    ) => {
+      if (!onRemoteStateUpdateRef.current) return;
+
+      if (options.isLive) {
+        // Out-of-order guard within the same host session
+        if (
+          options.hostSessionId &&
+          options.hostSessionId === syncedHostSessionRef.current &&
+          typeof options.stateVersion === 'number' &&
+          options.stateVersion < syncedStateVersionRef.current
+        ) {
+          return;
+        }
+
+        if (options.hostSessionId) {
+          syncedHostSessionRef.current = options.hostSessionId;
+        }
+        if (typeof options.stateVersion === 'number') {
+          syncedStateVersionRef.current = options.stateVersion;
+        }
+        hasAppliedLiveStateRef.current = true;
+        lastHostSeenRef.current = Date.now();
+        setStatus('connected');
+        setErrorMessage(null);
+      }
+
+      lastWireStateRef.current = wireState;
+      if (options.language) {
+        lastWireLangRef.current = options.language;
+      }
+
+      const { hydratedState, missingHashes } = rehydrateStateLogos(wireState, logoCacheRef.current);
+
+      if (missingHashes.length > 0 && mqttClientRef.current?.connected) {
+        const cleanRoom = roomCodeRef.current.trim().toLowerCase();
+        if (cleanRoom) {
+          try {
+            mqttClientRef.current.publish(
+              `bsb3/room/${cleanRoom}/client/action`,
+              JSON.stringify({
+                type: 'REQUEST_LOGOS',
+                clientId: myClientId,
+                missingHashes,
+                timestamp: Date.now(),
+              })
+            );
+          } catch {}
+        }
+      }
+
+      onRemoteStateUpdateRef.current(hydratedState, options.language);
+    },
+    [myClientId]
+  );
 
   // Host: Register or refresh a connected client info
-  const registerOrUpdateClient = useCallback((
-    msg: PeerMessage,
-    transport: 'webrtc' | 'mqtt' | 'broadcast_channel',
-    conn?: DataConnection
-  ) => {
-    if (!isHost) return;
-    const clientId = msg.clientId || conn?.peer || 'unknown_client';
+  const registerOrUpdateClient = useCallback(
+    (msg: PeerMessage, transport: 'cloud_mqtt' | 'broadcast_channel') => {
+      if (!isHost) return;
+      const clientId = msg.clientId || 'unknown_client';
 
-    // If blacklisted/kicked, immediately send KICK_CLIENT and drop
-    if (kickedClientIdsRef.current.has(clientId)) {
+      // If blacklisted/kicked, immediately send KICK_CLIENT and drop
+      if (kickedClientIdsRef.current.has(clientId)) {
+        const kickMsg: PeerMessage = {
+          type: 'KICK_CLIENT',
+          targetClientId: clientId,
+          timestamp: Date.now(),
+        };
+        if (mqttClientRef.current && mqttClientRef.current.connected) {
+          const cleanRoom = roomCodeRef.current.trim().toLowerCase();
+          try {
+            mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/host/ctrl`, JSON.stringify(kickMsg));
+          } catch {}
+        }
+        if (broadcastChannelRef.current) {
+          try {
+            broadcastChannelRef.current.postMessage(kickMsg);
+          } catch {}
+        }
+        return;
+      }
+
+      const existing = connectedClientsRef.current.get(clientId);
+      const clientType = msg.clientType || (msg.device?.includes('OBS') ? 'obs' : 'remote');
+      const assignedRole: RemoteRole = existing
+        ? existing.role
+        : clientType === 'obs'
+        ? 'viewer'
+        : defaultRoleRef.current;
+
+      const clientInfo: ConnectedClientInfo = {
+        id: clientId,
+        name:
+          msg.clientName ||
+          existing?.name ||
+          (clientType === 'obs' ? 'OBS 實況圖層' : '遠端遙控裝置'),
+        clientType,
+        role: assignedRole,
+        connectedAt: existing?.connectedAt || Date.now(),
+        lastSeen: Date.now(),
+        transport,
+      };
+
+      connectedClientsRef.current.set(clientId, clientInfo);
+      setConnectedClients(Array.from(connectedClientsRef.current.values()));
+      setConnectedClientsCount(connectedClientsRef.current.size);
+
+      // Send role confirmation back to client
+      const roleMsg: PeerMessage = {
+        type: 'ROLE_UPDATE',
+        hostSessionId: hostSessionIdRef.current,
+        targetClientId: clientId,
+        role: assignedRole,
+        timestamp: Date.now(),
+      };
+      if (mqttClientRef.current && mqttClientRef.current.connected) {
+        const cleanRoom = roomCodeRef.current.trim().toLowerCase();
+        try {
+          mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/host/ctrl`, JSON.stringify(roleMsg));
+        } catch {}
+      }
+      if (broadcastChannelRef.current) {
+        try {
+          broadcastChannelRef.current.postMessage(roleMsg);
+        } catch {}
+      }
+    },
+    [isHost]
+  );
+
+  // Host: Kick a client
+  const kickClient = useCallback(
+    (clientId: string) => {
+      if (!isHost) return;
+      kickedClientIdsRef.current.add(clientId);
+      connectedClientsRef.current.delete(clientId);
+      setConnectedClients(Array.from(connectedClientsRef.current.values()));
+      setConnectedClientsCount(connectedClientsRef.current.size);
+
       const kickMsg: PeerMessage = {
         type: 'KICK_CLIENT',
         targetClientId: clientId,
         timestamp: Date.now(),
       };
-      if (conn && conn.open) {
-        try { conn.send(kickMsg); } catch (e) {}
-        try { conn.close(); } catch (e) {}
-      }
+
       if (mqttClientRef.current && mqttClientRef.current.connected) {
         const cleanRoom = roomCodeRef.current.trim().toLowerCase();
         try {
-          mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/host_to_client`, JSON.stringify(kickMsg));
-        } catch (e) {}
+          mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/host/ctrl`, JSON.stringify(kickMsg));
+        } catch {}
       }
       if (broadcastChannelRef.current) {
-        try { broadcastChannelRef.current.postMessage(kickMsg); } catch (e) {}
+        try {
+          broadcastChannelRef.current.postMessage(kickMsg);
+        } catch {}
       }
-      return;
-    }
-
-    const existing = connectedClientsRef.current.get(clientId);
-    const clientType = msg.clientType || (msg.device?.includes('OBS') ? 'obs' : 'remote');
-    const assignedRole: RemoteRole = existing ? existing.role : (clientType === 'obs' ? 'viewer' : defaultRoleRef.current);
-
-    const clientInfo: ConnectedClientInfo = {
-      id: clientId,
-      name: msg.clientName || existing?.name || (clientType === 'obs' ? 'OBS 實況圖層' : '遠端遙控裝置'),
-      clientType,
-      role: assignedRole,
-      connectedAt: existing?.connectedAt || Date.now(),
-      lastSeen: Date.now(),
-      transport,
-      peerId: conn?.peer,
-    };
-
-    connectedClientsRef.current.set(clientId, clientInfo);
-    setConnectedClients(Array.from(connectedClientsRef.current.values()));
-    setConnectedClientsCount(connectedClientsRef.current.size);
-
-    // Send role confirmation back to client
-    const roleMsg: PeerMessage = {
-      type: 'ROLE_UPDATE',
-      targetClientId: clientId,
-      role: assignedRole,
-      timestamp: Date.now(),
-    };
-    if (conn && conn.open) {
-      try { conn.send(roleMsg); } catch (e) {}
-    }
-    if (mqttClientRef.current && mqttClientRef.current.connected) {
-      const cleanRoom = roomCodeRef.current.trim().toLowerCase();
-      try {
-        mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/host_to_client`, JSON.stringify(roleMsg));
-      } catch (e) {}
-    }
-    if (broadcastChannelRef.current) {
-      try { broadcastChannelRef.current.postMessage(roleMsg); } catch (e) {}
-    }
-  }, [isHost]);
-
-  // Host: Kick a client
-  const kickClient = useCallback((clientId: string) => {
-    if (!isHost) return;
-    kickedClientIdsRef.current.add(clientId);
-    const client = connectedClientsRef.current.get(clientId);
-    connectedClientsRef.current.delete(clientId);
-    setConnectedClients(Array.from(connectedClientsRef.current.values()));
-    setConnectedClientsCount(connectedClientsRef.current.size);
-
-    const kickMsg: PeerMessage = {
-      type: 'KICK_CLIENT',
-      targetClientId: clientId,
-      timestamp: Date.now(),
-    };
-
-    // Close WebRTC connection
-    connectionsRef.current.forEach((conn, peerId) => {
-      if (conn.open && (peerId === client?.peerId || peerId === clientId)) {
-        try { conn.send(kickMsg); } catch (e) {}
-        try { conn.close(); } catch (e) {}
-        connectionsRef.current.delete(peerId);
-      } else if (conn.open) {
-        try { conn.send(kickMsg); } catch (e) {}
-      }
-    });
-
-    // Cloud MQTT
-    if (mqttClientRef.current && mqttClientRef.current.connected) {
-      const cleanRoom = roomCodeRef.current.trim().toLowerCase();
-      try {
-        mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/host_to_client`, JSON.stringify(kickMsg));
-      } catch (e) {}
-    }
-
-    // Local BroadcastChannel
-    if (broadcastChannelRef.current) {
-      try { broadcastChannelRef.current.postMessage(kickMsg); } catch (e) {}
-    }
-  }, [isHost]);
+    },
+    [isHost]
+  );
 
   // Host: Unblock all kicked clients
   const unblockKickedClients = useCallback(() => {
     kickedClientIdsRef.current.clear();
   }, []);
 
-  // Host: Change client permission role ('editor' or 'viewer')
-  const setClientRole = useCallback((clientId: string, role: RemoteRole) => {
-    if (!isHost) return;
-    const client = connectedClientsRef.current.get(clientId);
-    if (client) {
-      client.role = role;
-      connectedClientsRef.current.set(clientId, { ...client });
-      setConnectedClients(Array.from(connectedClientsRef.current.values()));
-    }
-
-    const roleMsg: PeerMessage = {
-      type: 'ROLE_UPDATE',
-      targetClientId: clientId,
-      role,
-      timestamp: Date.now(),
-    };
-
-    connectionsRef.current.forEach((conn) => {
-      if (conn.open) {
-        try { conn.send(roleMsg); } catch (e) {}
+  // Host: Change client permission role
+  const setClientRole = useCallback(
+    (clientId: string, role: RemoteRole) => {
+      if (!isHost) return;
+      const client = connectedClientsRef.current.get(clientId);
+      if (client) {
+        client.role = role;
+        connectedClientsRef.current.set(clientId, { ...client });
+        setConnectedClients(Array.from(connectedClientsRef.current.values()));
       }
-    });
 
-    if (mqttClientRef.current && mqttClientRef.current.connected) {
-      const cleanRoom = roomCodeRef.current.trim().toLowerCase();
-      try {
-        mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/host_to_client`, JSON.stringify(roleMsg));
-      } catch (e) {}
-    }
+      const roleMsg: PeerMessage = {
+        type: 'ROLE_UPDATE',
+        hostSessionId: hostSessionIdRef.current,
+        targetClientId: clientId,
+        role,
+        timestamp: Date.now(),
+      };
 
-    if (broadcastChannelRef.current) {
-      try { broadcastChannelRef.current.postMessage(roleMsg); } catch (e) {}
-    }
-  }, [isHost]);
+      if (mqttClientRef.current && mqttClientRef.current.connected) {
+        const cleanRoom = roomCodeRef.current.trim().toLowerCase();
+        try {
+          mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/host/ctrl`, JSON.stringify(roleMsg));
+        } catch {}
+      }
+      if (broadcastChannelRef.current) {
+        try {
+          broadcastChannelRef.current.postMessage(roleMsg);
+        } catch {}
+      }
+    },
+    [isHost]
+  );
 
-  // Client: Retry connection after kicked
+  // Client: Retry connection after being kicked
   const retryConnectAfterKick = useCallback(() => {
     setIsKicked(false);
     setErrorMessage(null);
@@ -374,122 +661,134 @@ export function usePeerSync({
       timestamp: Date.now(),
     };
 
-    if (clientConnRef.current && clientConnRef.current.open) {
-      try { clientConnRef.current.send(helloMsg); } catch (e) {}
-    }
     if (mqttClientRef.current && mqttClientRef.current.connected && cleanRoom) {
       try {
-        mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/client_to_host`, JSON.stringify(helloMsg));
-      } catch (e) {}
+        mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/client/action`, JSON.stringify(helloMsg));
+        mqttClientRef.current.publish(
+          `bsb3/room/${cleanRoom}/client/action`,
+          JSON.stringify({ type: 'REQUEST_STATE', clientId: myClientId, timestamp: Date.now() })
+        );
+      } catch {}
     }
     if (broadcastChannelRef.current) {
-      try { broadcastChannelRef.current.postMessage(helloMsg); } catch (e) {}
+      try {
+        broadcastChannelRef.current.postMessage(helloMsg);
+      } catch {}
     }
   }, [myClientId]);
 
-  // Broadcast state changes to all connected peers and cloud MQTT subscribers (Host only)
-  const broadcastState = useCallback((stateToBroadcast?: GameState, langToBroadcast?: 'en' | 'zh' | 'ja') => {
-    if (!isHost) return;
-    stateVersionRef.current += 1;
-    const msg: PeerMessage = {
-      type: 'SYNC_STATE',
-      state: stateToBroadcast || currentStateRef.current,
-      stateVersion: stateVersionRef.current,
-      language: langToBroadcast || currentLanguageRef.current,
-      timestamp: Date.now(),
-    };
+  // Broadcast state changes to all connected peers and cloud subscribers (Host only)
+  const broadcastState = useCallback(
+    (stateToBroadcast?: GameState, langToBroadcast?: 'en' | 'zh' | 'ja') => {
+      if (!isHost) return;
+      stateVersionRef.current += 1;
+      const cleanRoom = roomCodeRef.current.trim().toLowerCase();
+      if (!cleanRoom) return;
 
-    // 1. WebRTC DataConnection
-    connectionsRef.current.forEach((conn) => {
-      if (conn.open) {
+      const targetState = stateToBroadcast || currentStateRef.current;
+      const targetLang = langToBroadcast || currentLanguageRef.current;
+      const now = Date.now();
+      const ver = stateVersionRef.current;
+      const hostSessionId = hostSessionIdRef.current;
+
+      // 1. Local BroadcastChannel (0ms latency for same-machine tabs & OBS, keeps full inline logos)
+      if (broadcastChannelRef.current) {
         try {
-          conn.send(msg);
-        } catch (e) {
-          console.warn('[PeerSync] Failed to send state update to WebRTC peer', e);
+          broadcastChannelRef.current.postMessage({
+            type: 'SYNC_STATE',
+            hostSessionId,
+            state: targetState,
+            stateVersion: ver,
+            language: targetLang,
+            timestamp: now,
+          } satisfies PeerMessage);
+        } catch {}
+      }
+
+      // 2. Cloud MQTT WebSocket
+      if (mqttClientRef.current && mqttClientRef.current.connected) {
+        const { wireState, extractedLogos } = stripStateLogos(targetState);
+        const wireMsg: PeerMessage = {
+          type: 'SYNC_STATE',
+          hostSessionId,
+          state: wireState,
+          stateVersion: ver,
+          language: targetLang,
+          timestamp: now,
+        };
+
+        try {
+          // Immediate non-retained live broadcast (chunked if > 36KB)
+          publishLiveMqttPayload(mqttClientRef.current, `bsb3/room/${cleanRoom}/host/live`, wireMsg);
+          // Separate lightweight logo channel (only sends unseen hashes)
+          publishExtractedLogos(mqttClientRef.current, cleanRoom, extractedLogos);
+          // Throttled retained snapshot fallback for cold joins
+          scheduleRetainedPublish(`bsb3/room/${cleanRoom}/host/state`, wireMsg);
+        } catch {}
+      }
+    },
+    [isHost, publishExtractedLogos, scheduleRetainedPublish]
+  );
+
+  // Send action to host (Client only, with outbox queue so no clicks are lost)
+  const sendAction = useCallback(
+    (action: ActionType) => {
+      if (isHost) {
+        if (onRemoteDispatchRef.current) {
+          onRemoteDispatchRef.current(action);
         }
+        return;
       }
-    });
 
-    // 2. Cloud MQTT WebSocket
-    if (mqttClientRef.current && mqttClientRef.current.connected) {
+      if (isKickedRef.current) {
+        console.warn('[PeerSync Client] Cannot send action: remote session disconnected');
+        return;
+      }
+
+      if (myRoleRef.current === 'viewer') {
+        console.warn('[PeerSync Client] Blocked action: read-only viewer mode');
+        return;
+      }
+
+      const now = Date.now();
+      const actionKey = JSON.stringify(action);
+      if (actionKey === lastSentActionRef.current.key && now - lastSentActionRef.current.time < 80) {
+        return;
+      }
+      lastSentActionRef.current = { key: actionKey, time: now };
+
+      const actionId = `act_${now}_${Math.random().toString(36).substring(2, 9)}`;
+      const msg: PeerMessage = {
+        type: 'DISPATCH',
+        actionId,
+        clientId: myClientId,
+        action,
+        timestamp: now,
+      };
+
       const cleanRoom = roomCodeRef.current.trim().toLowerCase();
-      if (cleanRoom) {
+
+      // 1. Local BroadcastChannel (Instant 0ms if on same computer)
+      if (broadcastChannelRef.current) {
         try {
-          mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/state`, JSON.stringify(msg), { retain: true, qos: 0 });
-        } catch (e) {}
+          broadcastChannelRef.current.postMessage(msg);
+        } catch {}
       }
-    }
 
-    // 3. Local BroadcastChannel (0ms latency for same-machine tabs/OBS)
-    if (broadcastChannelRef.current) {
-      try {
-        broadcastChannelRef.current.postMessage(msg);
-      } catch (e) {}
-    }
-  }, [isHost]);
-
-  // Send action to host (Client only)
-  const sendAction = useCallback((action: ActionType) => {
-    if (isHost) {
-      if (onRemoteDispatchRef.current) {
-        onRemoteDispatchRef.current(action);
-      }
-      return;
-    }
-
-    if (isKickedRef.current) {
-      console.warn('[PeerSync Client] Cannot send action: remote disconnected by host');
-      return;
-    }
-
-    if (myRoleRef.current === 'viewer') {
-      console.warn('[PeerSync Client] Blocked action: read-only viewer mode');
-      return;
-    }
-
-    const now = Date.now();
-    const actionKey = JSON.stringify(action);
-    if (actionKey === lastSentActionRef.current.key && now - lastSentActionRef.current.time < 80) {
-      return;
-    }
-    lastSentActionRef.current = { key: actionKey, time: now };
-
-    const actionId = `act_${now}_${Math.random().toString(36).substring(2, 9)}`;
-    const msg: PeerMessage = {
-      type: 'DISPATCH',
-      actionId,
-      clientId: myClientId,
-      action,
-      timestamp: now,
-    };
-
-    // 1. WebRTC
-    const conn = clientConnRef.current;
-    if (conn && conn.open) {
-      try {
-        conn.send(msg);
-      } catch (e) {
-        console.error('[PeerSync] Error sending action to host via WebRTC', e);
-      }
-    }
-
-    // 2. Cloud MQTT
-    if (mqttClientRef.current && mqttClientRef.current.connected) {
-      const cleanRoom = roomCodeRef.current.trim().toLowerCase();
-      if (cleanRoom) {
+      // 2. Cloud MQTT
+      if (mqttClientRef.current && mqttClientRef.current.connected && cleanRoom) {
         try {
-          mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/client_to_host`, JSON.stringify(msg));
-        } catch (e) {}
+          mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/client/action`, JSON.stringify(msg));
+        } catch {
+          pendingActionsRef.current.push(action);
+        }
+      } else {
+        // Connection temporarily interrupted: queue action to flush immediately upon reconnect
+        pendingActionsRef.current.push(action);
       }
-    }
-
-    // 3. Local BroadcastChannel
-    if (broadcastChannelRef.current) {
-      try {
-        broadcastChannelRef.current.postMessage(msg);
-      } catch (e) {}
-    }
-  }, [isHost, myClientId]);
+    },
+    [isHost, myClientId]
+  );
 
   // Request state from host (Client only)
   const requestState = useCallback(() => {
@@ -499,29 +798,21 @@ export function usePeerSync({
       timestamp: Date.now(),
     };
 
-    // 1. WebRTC
-    const conn = clientConnRef.current;
-    if (conn && conn.open) {
-      try { conn.send(reqMsg); } catch (e) {}
+    const cleanRoom = roomCodeRef.current.trim().toLowerCase();
+    if (mqttClientRef.current && mqttClientRef.current.connected && cleanRoom) {
+      try {
+        mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/client/action`, JSON.stringify(reqMsg));
+      } catch {}
     }
 
-    // 2. Cloud MQTT
-    if (mqttClientRef.current && mqttClientRef.current.connected) {
-      const cleanRoom = roomCodeRef.current.trim().toLowerCase();
-      if (cleanRoom) {
-        try {
-          mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/client_to_host`, JSON.stringify(reqMsg));
-        } catch (e) {}
-      }
-    }
-
-    // 3. Local BroadcastChannel
     if (broadcastChannelRef.current) {
-      try { broadcastChannelRef.current.postMessage(reqMsg); } catch (e) {}
+      try {
+        broadcastChannelRef.current.postMessage(reqMsg);
+      } catch {}
     }
   }, [myClientId]);
 
-  // Comprehensive manual/auto reconnect routine
+  // Reconnect function ref
   const reconnectRef = useRef<() => void>(() => {});
 
   useEffect(() => {
@@ -534,11 +825,157 @@ export function usePeerSync({
     if (!cleanRoom) return;
 
     let isDestroyed = false;
+    let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+    let inactivePruneTimer: ReturnType<typeof setInterval> | null = null;
+    let watchdogTimer: ReturnType<typeof setInterval> | null = null;
+    let fallbackCounter = 0;
+
+    // Reset session/sync tracking on room or role setup
+    if (isHost) {
+      hostSessionIdRef.current = `hs_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+      sentLogoHashesRef.current.clear();
+    } else {
+      syncedHostSessionRef.current = '';
+      syncedStateVersionRef.current = -1;
+      hasAppliedLiveStateRef.current = false;
+      lastWireStateRef.current = null;
+      lastWireLangRef.current = undefined;
+      chunkBufferRef.current.clear();
+    }
+
     setStatus('connecting');
     setErrorMessage(null);
     lastHostSeenRef.current = 0;
+    isMqttSubscribedRef.current = false;
 
-    // 1. Initialize local BroadcastChannel (for 0ms same-device sync between tabs & OBS)
+    const hostSubTopic = `bsb3/room/${cleanRoom}/client/#`;
+    const hostLiveTopic = `bsb3/room/${cleanRoom}/host/live`;
+    const hostLogosTopic = `bsb3/room/${cleanRoom}/host/logos`;
+    const hostStateTopic = `bsb3/room/${cleanRoom}/host/state`;
+    const hostCtrlTopic = `bsb3/room/${cleanRoom}/host/ctrl`;
+
+    const clientSubTopic = `bsb3/room/${cleanRoom}/host/#`;
+    const clientActionTopic = `bsb3/room/${cleanRoom}/client/action`;
+
+    const handleParsedClientMessage = (msg: PeerMessage, isRetained: boolean) => {
+      if (isDestroyed) return;
+
+      // Chunk reassembly
+      if (
+        msg.type === 'STATE_CHUNK' &&
+        msg.chunkGroupId &&
+        typeof msg.chunkIndex === 'number' &&
+        typeof msg.totalChunks === 'number' &&
+        typeof msg.data === 'string'
+      ) {
+        if (isRetained) return;
+        const now = Date.now();
+        // Prune stale incomplete chunk groups
+        chunkBufferRef.current.forEach((buf, key) => {
+          if (now - buf.createdAt > 15000) {
+            chunkBufferRef.current.delete(key);
+          }
+        });
+
+        let entry = chunkBufferRef.current.get(msg.chunkGroupId);
+        if (!entry) {
+          entry = {
+            chunks: new Array(msg.totalChunks),
+            received: 0,
+            total: msg.totalChunks,
+            createdAt: now,
+          };
+          chunkBufferRef.current.set(msg.chunkGroupId, entry);
+        }
+
+        if (msg.chunkIndex >= 0 && msg.chunkIndex < entry.total && entry.chunks[msg.chunkIndex] === undefined) {
+          entry.chunks[msg.chunkIndex] = msg.data;
+          entry.received += 1;
+        }
+
+        if (entry.received === entry.total) {
+          chunkBufferRef.current.delete(msg.chunkGroupId);
+          try {
+            const fullMsg = JSON.parse(entry.chunks.join('')) as PeerMessage;
+            handleParsedClientMessage(fullMsg, false);
+          } catch (e) {
+            console.warn('[PeerSync] Chunk decode notice:', e);
+          }
+        }
+        return;
+      }
+
+      // Retained messages can NEVER assert live host presence or overwrite live state
+      if (isRetained) {
+        if (msg.type === 'SYNC_STATE' && msg.state && !hasAppliedLiveStateRef.current) {
+          const msgAge = msg.timestamp ? Date.now() - msg.timestamp : Infinity;
+          if (msgAge <= RETAIN_MAX_AGE_MS) {
+            // Apply as temporary visual preview only; keep status 'connecting' and version -1
+            // so live heartbeat immediately reconciles with the active Host.
+            applyWireState(msg.state, {
+              isLive: false,
+              language: msg.language,
+            });
+          }
+        }
+        return;
+      }
+
+      // Live messages from active Host
+      if (msg.type === 'SYNC_STATE' && msg.state) {
+        applyWireState(msg.state, {
+          isLive: true,
+          language: msg.language,
+          hostSessionId: msg.hostSessionId,
+          stateVersion: msg.stateVersion,
+        });
+      } else if (msg.type === 'SYNC_LOGOS' && msg.logos) {
+        lastHostSeenRef.current = Date.now();
+        Object.entries(msg.logos).forEach(([hash, dataUrl]) => {
+          if (logoCacheRef.current.size > 12) {
+            const firstKey = logoCacheRef.current.keys().next().value;
+            if (firstKey) logoCacheRef.current.delete(firstKey);
+          }
+          logoCacheRef.current.set(hash, dataUrl);
+        });
+        if (lastWireStateRef.current && onRemoteStateUpdateRef.current) {
+          const { hydratedState } = rehydrateStateLogos(lastWireStateRef.current, logoCacheRef.current);
+          onRemoteStateUpdateRef.current(hydratedState, lastWireLangRef.current);
+        }
+      } else if (msg.type === 'HEARTBEAT' || msg.type === 'PONG') {
+        const now = Date.now();
+        lastHostSeenRef.current = now;
+        setStatus('connected');
+        setErrorMessage(null);
+        if (msg.type === 'PONG' && msg.timestamp) {
+          setLatency(Math.max(1, now - msg.timestamp));
+        }
+
+        // Self-healing session & version check: if our state doesn't match Host's live version, pull immediately!
+        const sessionMismatch =
+          Boolean(msg.hostSessionId) && msg.hostSessionId !== syncedHostSessionRef.current;
+        const versionMismatch =
+          typeof msg.stateVersion === 'number' && msg.stateVersion !== syncedStateVersionRef.current;
+
+        if ((sessionMismatch || versionMismatch) && now - lastAutoRequestRef.current > 1200) {
+          lastAutoRequestRef.current = now;
+          requestState();
+        }
+      } else if (msg.type === 'ROLE_UPDATE') {
+        lastHostSeenRef.current = Date.now();
+        if (msg.targetClientId === myClientId || !msg.targetClientId) {
+          if (msg.role) setMyRole(msg.role);
+        }
+      } else if (msg.type === 'KICK_CLIENT') {
+        if (msg.targetClientId === myClientId || !msg.targetClientId) {
+          setIsKicked(true);
+          setStatus('disconnected');
+          setErrorMessage('您的遠端遙控已被主機解除');
+        }
+      }
+    };
+
+    // 1. Local BroadcastChannel for 0ms same-machine tabs / OBS
     if (typeof BroadcastChannel !== 'undefined') {
       try {
         const bc = new BroadcastChannel(`bsb3_sync_${cleanRoom}`);
@@ -553,480 +990,251 @@ export function usePeerSync({
               handleHostIncomingAction(msg.action, msg.actionId);
             } else if (msg.type === 'REQUEST_STATE') {
               registerOrUpdateClient(msg, 'broadcast_channel');
-              const resp: PeerMessage = {
+              bc.postMessage({
                 type: 'SYNC_STATE',
+                hostSessionId: hostSessionIdRef.current,
                 state: currentStateRef.current,
                 stateVersion: stateVersionRef.current,
                 language: currentLanguageRef.current,
                 timestamp: Date.now(),
-              };
-              bc.postMessage(resp);
+              } satisfies PeerMessage);
             } else if (msg.type === 'CLIENT_HELLO' || msg.type === 'PING') {
               registerOrUpdateClient(msg, 'broadcast_channel');
-              bc.postMessage({ type: 'PONG', timestamp: msg.timestamp });
+              bc.postMessage({
+                type: 'PONG',
+                hostSessionId: hostSessionIdRef.current,
+                stateVersion: stateVersionRef.current,
+                timestamp: msg.timestamp,
+              } satisfies PeerMessage);
             }
           } else {
-            // Client
-            if (msg.type === 'SYNC_STATE' && msg.state) {
-              lastHostSeenRef.current = Date.now();
-              handleClientIncomingState(msg.state, msg.language, msg.stateVersion);
-            } else if (msg.type === 'HEARTBEAT') {
-              lastHostSeenRef.current = Date.now();
-              setStatus('connected');
-              setErrorMessage(null);
-            } else if (msg.type === 'PONG' && msg.timestamp) {
-              lastHostSeenRef.current = Date.now();
-              setLatency(Date.now() - msg.timestamp);
-              setStatus('connected');
-            } else if (msg.type === 'ROLE_UPDATE' && (msg.targetClientId === myClientId || !msg.targetClientId)) {
-              if (msg.role) setMyRole(msg.role);
-            } else if (msg.type === 'KICK_CLIENT' && (msg.targetClientId === myClientId || !msg.targetClientId)) {
-              setIsKicked(true);
-              setStatus('disconnected');
-              setErrorMessage('您的遠端遙控已被主機解除');
-            }
+            handleParsedClientMessage(msg, false);
           }
         };
       } catch (e) {
-        console.warn('[PeerSync] BroadcastChannel not available', e);
+        console.warn('[PeerSync] BroadcastChannel init note:', e);
       }
     }
 
-    const iceServers = [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:global.stun.twilio.com:3478' },
-    ];
+    // 2. Cloud MQTT WebSocket PubSub Architecture
+    let activeBrokerUrl = PRIMARY_BROKER;
+    let client: MqttClient | null = null;
+    let setupStartedAt = Date.now();
 
-    const hostPeerId = `${PEER_PREFIX}${cleanRoom}`;
-
-    let reconnectTimer: any = null;
-    let clientConnectTimer: any = null;
-    let heartbeatTimer: any = null;
-    let inactivePruneTimer: any = null;
-    let watchdogTimer: any = null;
-    let reconnectAttempts = 0;
-
-    // 2. Cloud MQTT WebSocket with unified broker (No split-brain!)
-    const stateTopic = `bsb3/room/${cleanRoom}/state`;
-    const actionTopic = `bsb3/room/${cleanRoom}/client_to_host`;
-    const controlTopic = `bsb3/room/${cleanRoom}/host_to_client`;
-    const clientId = `bsb_${isHost ? 'host' : 'cli'}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-
-    let mqttClient: MqttClient | null = null;
-
-    try {
-      const client = mqtt.connect(SHARED_MQTT_BROKER, {
-        clientId,
-        clean: true,
-        connectTimeout: 15000,
-        reconnectPeriod: 2000,
-        keepalive: 20,
-      });
-      mqttClient = client;
-      mqttClientRef.current = client;
-
-      client.on('connect', () => {
-        if (isDestroyed) return;
-        mqttConnectedRef.current = true;
-
-        if (isHost) {
-          client.subscribe(actionTopic);
-          setStatus('connected');
-          setErrorMessage(null);
-
-          // Publish current state to MQTT topic with retain: true
-          const payload = JSON.stringify({
-            type: 'SYNC_STATE',
-            state: currentStateRef.current,
-            stateVersion: stateVersionRef.current,
-            language: currentLanguageRef.current,
-            timestamp: Date.now(),
-          });
-          client.publish(stateTopic, payload, { retain: true, qos: 0 });
-        } else {
-          // Client subscribes to state updates and host control commands
-          client.subscribe([stateTopic, controlTopic], { qos: 0 }, (err) => {
-            if (!err) {
-              const helloPayload = JSON.stringify({
-                type: 'CLIENT_HELLO',
-                clientId: myClientId,
-                clientName: getDeviceSummary(),
-                timestamp: Date.now(),
-              });
-              client.publish(actionTopic, helloPayload);
-              client.publish(actionTopic, JSON.stringify({ type: 'REQUEST_STATE', clientId: myClientId, timestamp: Date.now() }));
-            }
-          });
-        }
-      });
-
-      client.on('message', (topic, payload) => {
-        if (isDestroyed) return;
-        try {
-          const msg = JSON.parse(payload.toString()) as PeerMessage;
-          if (topic === stateTopic && msg.type === 'SYNC_STATE' && msg.state) {
-            if (!isHost) {
-              lastHostSeenRef.current = Date.now();
-              mqttConnectedRef.current = true;
-              handleClientIncomingState(msg.state, msg.language, msg.stateVersion);
-            }
-          } else if (topic === controlTopic && !isHost) {
-            lastHostSeenRef.current = Date.now();
-            if (msg.type === 'HEARTBEAT') {
-              setStatus('connected');
-              setErrorMessage(null);
-            } else if (msg.type === 'ROLE_UPDATE') {
-              if (msg.targetClientId === myClientId || !msg.targetClientId) {
-                if (msg.role) setMyRole(msg.role);
-              }
-            } else if (msg.type === 'KICK_CLIENT') {
-              if (msg.targetClientId === myClientId || !msg.targetClientId) {
-                setIsKicked(true);
-                setStatus('disconnected');
-                setErrorMessage('您的遠端遙控已被主機解除');
-                if (clientConnRef.current) {
-                  try { clientConnRef.current.close(); } catch (e) {}
-                }
-              }
-            }
-          } else if (topic === actionTopic && isHost) {
-            if (msg.type === 'CLIENT_HELLO' || msg.type === 'DEVICE_INFO' || msg.type === 'PING') {
-              registerOrUpdateClient(msg, 'mqtt');
-              if (msg.type === 'PING' && msg.timestamp) {
-                const pongMsg = JSON.stringify({ type: 'PONG', timestamp: msg.timestamp });
-                client.publish(controlTopic, pongMsg);
-              }
-            } else if (msg.type === 'DISPATCH' && msg.action) {
-              const cid = msg.clientId;
-              if (cid && kickedClientIdsRef.current.has(cid)) {
-                console.warn('[PeerSync Host] Rejected action from kicked client:', cid);
-                return;
-              }
-              if (cid) {
-                const clientObj = connectedClientsRef.current.get(cid);
-                if (clientObj && clientObj.role === 'viewer') {
-                  console.warn('[PeerSync Host] Rejected action from viewer client:', cid);
-                  return;
-                }
-              }
-              handleHostIncomingAction(msg.action, msg.actionId);
-            } else if (msg.type === 'REQUEST_STATE') {
-              if (msg.clientId) {
-                registerOrUpdateClient(msg, 'mqtt');
-              }
-              const resp = JSON.stringify({
-                type: 'SYNC_STATE',
-                state: currentStateRef.current,
-                stateVersion: stateVersionRef.current,
-                language: currentLanguageRef.current,
-                timestamp: Date.now(),
-              });
-              client.publish(stateTopic, resp, { retain: true, qos: 0 });
-            }
-          }
-        } catch (e) {
-          console.warn('[Cloud Sync] Failed to parse message', e);
-        }
-      });
-
-      client.on('error', (err) => {
-        console.warn('[Cloud Sync] MQTT connection notice:', err);
-      });
-
-      client.on('close', () => {
-        mqttConnectedRef.current = false;
-        if (!webrtcConnectedRef.current && !isDestroyed) {
-          setStatus('connecting');
-        }
-      });
-    } catch (e) {
-      console.warn('[Cloud Sync] MQTT init error:', e);
-    }
-
-    // 3. WebRTC Peer Connection
-    const connectClientToHost = () => {
-      if (isDestroyed || !peerRef.current || peerRef.current.destroyed || isHost) return;
-      if (isKickedRef.current) return;
-
-      // Close stale connection if already exists
-      if (clientConnRef.current) {
-        try { clientConnRef.current.close(); } catch (e) {}
-        clientConnRef.current = null;
-      }
-
-      try {
-        const conn = peerRef.current.connect(hostPeerId, {
-          reliable: true,
-        });
-        clientConnRef.current = conn;
-
-        conn.on('open', () => {
-          if (isDestroyed) return;
-          webrtcConnectedRef.current = true;
-          lastHostSeenRef.current = Date.now();
-          setStatus('connected');
-          setErrorMessage(null);
-
-          // Say hello with device info & identity
-          conn.send({
-            type: 'CLIENT_HELLO',
-            clientId: myClientId,
-            clientName: getDeviceSummary(),
-            timestamp: Date.now(),
-          });
-
-          // Request state
-          conn.send({
-            type: 'REQUEST_STATE',
-            clientId: myClientId,
-            device: typeof navigator !== 'undefined' ? navigator.userAgent : 'mobile',
-            timestamp: Date.now(),
-          });
-        });
-
-        conn.on('data', (data: any) => {
-          if (isDestroyed) return;
-          const msg = data as PeerMessage;
-          lastHostSeenRef.current = Date.now();
-          if (msg.type === 'SYNC_STATE' && msg.state) {
-            handleClientIncomingState(msg.state, msg.language, msg.stateVersion);
-          } else if (msg.type === 'HEARTBEAT') {
-            setStatus('connected');
-            setErrorMessage(null);
-          } else if (msg.type === 'ROLE_UPDATE') {
-            if (msg.targetClientId === myClientId || !msg.targetClientId) {
-              if (msg.role) setMyRole(msg.role);
-            }
-          } else if (msg.type === 'KICK_CLIENT') {
-            if (msg.targetClientId === myClientId || !msg.targetClientId) {
-              setIsKicked(true);
-              setStatus('disconnected');
-              setErrorMessage('您的遠端遙控已被主機解除');
-              try { conn.close(); } catch (e) {}
-            }
-          } else if (msg.type === 'PONG' && msg.timestamp) {
-            const rtt = Date.now() - msg.timestamp;
-            setLatency(rtt);
-            setStatus('connected');
-          }
-        });
-
-        conn.on('close', () => {
-          if (isDestroyed) return;
-          webrtcConnectedRef.current = false;
-          if (!isKickedRef.current) {
-            if (clientConnectTimer) clearTimeout(clientConnectTimer);
-            clientConnectTimer = setTimeout(connectClientToHost, 3000);
-          }
-        });
-
-        conn.on('error', () => {
-          if (isDestroyed) return;
-          webrtcConnectedRef.current = false;
-          if (!isKickedRef.current) {
-            if (clientConnectTimer) clearTimeout(clientConnectTimer);
-            clientConnectTimer = setTimeout(connectClientToHost, 3000);
-          }
-        });
-      } catch (e) {
-        if (!isKickedRef.current) {
-          if (clientConnectTimer) clearTimeout(clientConnectTimer);
-          clientConnectTimer = setTimeout(connectClientToHost, 3000);
-        }
-      }
-    };
-
-    const scheduleReconnect = () => {
-      if (isDestroyed || !peerRef.current || peerRef.current.destroyed) return;
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      const delay = Math.min(1500 * Math.pow(1.5, Math.min(reconnectAttempts, 5)), 10000);
-      reconnectTimer = setTimeout(() => {
-        if (isDestroyed || !peerRef.current || peerRef.current.destroyed) return;
-        if (peerRef.current.disconnected) {
-          try {
-            reconnectAttempts++;
-            peerRef.current.reconnect();
-          } catch (e) {
-            console.warn('[PeerSync] Reconnection invocation error', e);
-          }
-        }
-      }, delay);
-    };
-
-    const initPeer = () => {
+    const setupMqttClient = (brokerUrl: string) => {
       if (isDestroyed) return;
+      setupStartedAt = Date.now();
+      if (client) {
+        try {
+          client.end(true);
+        } catch {}
+      }
+
+      const uniqueClientId = `bsb_${isHost ? 'host' : 'cli'}_${Date.now().toString(36)}_${Math.random()
+        .toString(36)
+        .substring(2, 7)}`;
+
       try {
-        if (peerRef.current) {
-          try {
-            peerRef.current.destroy();
-          } catch (e) {}
-        }
-
-        const peer = isHost
-          ? new Peer(hostPeerId, {
-              debug: 0,
-              config: { iceServers },
-            })
-          : new Peer({
-              debug: 0,
-              config: { iceServers },
-            });
-
-        peerRef.current = peer;
-
-        peer.on('open', () => {
-          if (isDestroyed) return;
-          reconnectAttempts = 0;
-          if (reconnectTimer) clearTimeout(reconnectTimer);
-          
-          if (isHost) {
-            setStatus('connected');
-            setErrorMessage(null);
-          } else {
-            connectClientToHost();
-          }
+        const m = mqtt.connect(brokerUrl, {
+          clientId: uniqueClientId,
+          clean: true,
+          connectTimeout: 10000,
+          reconnectPeriod: 2000,
+          keepalive: 15,
         });
+        client = m;
+        mqttClientRef.current = m;
 
-        if (isHost) {
-          peer.on('connection', (conn) => {
-            if (isDestroyed) return;
+        m.on('connect', () => {
+          if (isDestroyed || mqttClientRef.current !== m) return;
+          fallbackCounter = 0;
 
-            conn.on('open', () => {
-              if (isDestroyed) return;
-              connectionsRef.current.set(conn.peer, conn);
+          if (isHost) {
+            sentLogoHashesRef.current.clear();
+            m.subscribe(hostSubTopic, { qos: 0 }, (err) => {
+              if (!err && !isDestroyed && mqttClientRef.current === m) {
+                isMqttSubscribedRef.current = true;
+                setStatus('connected');
+                setErrorMessage(null);
 
-              // Immediately push state to connected peer
-              conn.send({
-                type: 'SYNC_STATE',
-                state: currentStateRef.current,
-                stateVersion: stateVersionRef.current,
-                language: currentLanguageRef.current,
-                timestamp: Date.now(),
-              });
-            });
-
-            conn.on('data', (data: any) => {
-              if (isDestroyed) return;
-              const msg = data as PeerMessage;
-              if (msg.type === 'CLIENT_HELLO' || msg.type === 'DEVICE_INFO') {
-                registerOrUpdateClient(msg, 'webrtc', conn);
-              } else if (msg.type === 'PING') {
-                registerOrUpdateClient(msg, 'webrtc', conn);
-                if (msg.timestamp) {
-                  conn.send({
-                    type: 'PONG',
-                    timestamp: msg.timestamp,
-                  });
-                }
-              } else if (msg.type === 'DISPATCH' && msg.action) {
-                const cid = msg.clientId;
-                if (cid && kickedClientIdsRef.current.has(cid)) {
-                  console.warn('[PeerSync Host] Rejected action from kicked client:', cid);
-                  return;
-                }
-                if (cid) {
-                  const clientObj = connectedClientsRef.current.get(cid);
-                  if (clientObj && clientObj.role === 'viewer') {
-                    console.warn('[PeerSync Host] Rejected action from viewer client:', cid);
-                    return;
-                  }
-                }
-                handleHostIncomingAction(msg.action, msg.actionId);
-              } else if (msg.type === 'REQUEST_STATE') {
-                if (msg.clientId) {
-                  registerOrUpdateClient(msg, 'webrtc', conn);
-                }
-                conn.send({
+                const { wireState, extractedLogos } = stripStateLogos(currentStateRef.current);
+                const liveMsg: PeerMessage = {
                   type: 'SYNC_STATE',
-                  state: currentStateRef.current,
+                  hostSessionId: hostSessionIdRef.current,
+                  state: wireState,
                   stateVersion: stateVersionRef.current,
                   language: currentLanguageRef.current,
                   timestamp: Date.now(),
-                });
+                };
+                publishLiveMqttPayload(m, hostLiveTopic, liveMsg);
+                publishExtractedLogos(m, cleanRoom, extractedLogos, Object.keys(extractedLogos));
+                scheduleRetainedPublish(hostStateTopic, liveMsg);
               }
             });
+          } else {
+            m.subscribe(clientSubTopic, { qos: 0 }, (err) => {
+              if (!err && !isDestroyed && mqttClientRef.current === m) {
+                isMqttSubscribedRef.current = true;
 
-            conn.on('close', () => {
-              connectionsRef.current.delete(conn.peer);
-            });
+                const helloPayload = JSON.stringify({
+                  type: 'CLIENT_HELLO',
+                  clientId: myClientId,
+                  clientName: getDeviceSummary(),
+                  timestamp: Date.now(),
+                } satisfies PeerMessage);
+                m.publish(clientActionTopic, helloPayload);
+                m.publish(
+                  clientActionTopic,
+                  JSON.stringify({
+                    type: 'REQUEST_STATE',
+                    clientId: myClientId,
+                    timestamp: Date.now(),
+                  } satisfies PeerMessage)
+                );
 
-            conn.on('error', () => {
-              connectionsRef.current.delete(conn.peer);
-            });
-          });
-        }
-
-        peer.on('error', (err: any) => {
-          if (isDestroyed) return;
-          const msg = String(err?.message || err || '');
-          const errType = err?.type || '';
-
-          if (errType === 'network' || errType === 'server-error' || errType === 'socket-closed' || errType === 'socket-error' || msg.includes('Lost connection to server')) {
-            scheduleReconnect();
-            return;
-          }
-
-          if (errType === 'unavailable-id') {
-            setTimeout(() => {
-              if (!isDestroyed) {
-                initPeer();
+                // Flush pending queued actions
+                while (pendingActionsRef.current.length > 0) {
+                  const pendingAction = pendingActionsRef.current.shift();
+                  if (pendingAction) {
+                    m.publish(
+                      clientActionTopic,
+                      JSON.stringify({
+                        type: 'DISPATCH',
+                        actionId: `act_flush_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                        clientId: myClientId,
+                        action: pendingAction,
+                        timestamp: Date.now(),
+                      } satisfies PeerMessage)
+                    );
+                  }
+                }
               }
-            }, 2500);
-          } else if (errType === 'peer-unavailable') {
-            webrtcConnectedRef.current = false;
-            if (clientConnectTimer) clearTimeout(clientConnectTimer);
-            clientConnectTimer = setTimeout(connectClientToHost, 3000);
+            });
           }
         });
 
-        peer.on('disconnected', () => {
-          if (isDestroyed) return;
-          scheduleReconnect();
+        m.on('message', (_topic, payload, packet) => {
+          if (isDestroyed || mqttClientRef.current !== m) return;
+          try {
+            const msg = JSON.parse(payload.toString()) as PeerMessage;
+            const isRetained = Boolean((packet as { retain?: boolean } | undefined)?.retain);
+
+            if (isHost) {
+              if (isRetained) return;
+              if (msg.type === 'DISPATCH' && msg.action) {
+                const cid = msg.clientId;
+                if (cid && kickedClientIdsRef.current.has(cid)) return;
+                if (cid) {
+                  const clientObj = connectedClientsRef.current.get(cid);
+                  if (clientObj && clientObj.role === 'viewer') return;
+                }
+                handleHostIncomingAction(msg.action, msg.actionId);
+              } else if (msg.type === 'REQUEST_STATE') {
+                if (msg.clientId) registerOrUpdateClient(msg, 'cloud_mqtt');
+                const { wireState, extractedLogos } = stripStateLogos(currentStateRef.current);
+                const respMsg: PeerMessage = {
+                  type: 'SYNC_STATE',
+                  hostSessionId: hostSessionIdRef.current,
+                  state: wireState,
+                  stateVersion: stateVersionRef.current,
+                  language: currentLanguageRef.current,
+                  timestamp: Date.now(),
+                };
+                publishLiveMqttPayload(m, hostLiveTopic, respMsg);
+                publishExtractedLogos(m, cleanRoom, extractedLogos, Object.keys(extractedLogos));
+                scheduleRetainedPublish(hostStateTopic, respMsg);
+              } else if (msg.type === 'REQUEST_LOGOS' && Array.isArray(msg.missingHashes)) {
+                const { extractedLogos } = stripStateLogos(currentStateRef.current);
+                publishExtractedLogos(m, cleanRoom, extractedLogos, msg.missingHashes);
+              } else if (msg.type === 'CLIENT_HELLO' || msg.type === 'DEVICE_INFO') {
+                registerOrUpdateClient(msg, 'cloud_mqtt');
+              } else if (msg.type === 'PING' && msg.timestamp) {
+                registerOrUpdateClient(msg, 'cloud_mqtt');
+                m.publish(
+                  hostCtrlTopic,
+                  JSON.stringify({
+                    type: 'PONG',
+                    hostSessionId: hostSessionIdRef.current,
+                    stateVersion: stateVersionRef.current,
+                    timestamp: msg.timestamp,
+                  } satisfies PeerMessage)
+                );
+              }
+            } else {
+              handleParsedClientMessage(msg, isRetained);
+            }
+          } catch (e) {
+            console.warn('[PeerSync] Message decode notice:', e);
+          }
         });
-      } catch (err: any) {
-        console.warn('[PeerSync] Init PeerJS error:', err);
+
+        m.on('error', () => {
+          if (isDestroyed || mqttClientRef.current !== m) return;
+          fallbackCounter++;
+          if (fallbackCounter > 4) {
+            fallbackCounter = 0;
+            activeBrokerUrl = activeBrokerUrl === PRIMARY_BROKER ? FALLBACK_BROKER : PRIMARY_BROKER;
+            console.log('[PeerSync] Cycling MQTT broker after errors:', activeBrokerUrl);
+            setupMqttClient(activeBrokerUrl);
+          }
+        });
+
+        m.on('close', () => {
+          if (mqttClientRef.current !== m) return;
+          isMqttSubscribedRef.current = false;
+          if (!isDestroyed) {
+            setStatus('connecting');
+          }
+        });
+      } catch (err) {
+        console.warn('[PeerSync] MQTT init notice:', err);
       }
     };
 
-    initPeer();
+    setupMqttClient(activeBrokerUrl);
 
-    // 4. Heartbeat & Liveness Management
+    // 3. Heartbeat & Watchdog Management
     if (isHost) {
-      // Host: Send heartbeat every 2.5 seconds to WebRTC, MQTT, and BroadcastChannel
+      let hostOfflineSince = 0;
+
       heartbeatTimer = setInterval(() => {
+        if (isDestroyed) return;
+        const now = Date.now();
         const hbMsg: PeerMessage = {
           type: 'HEARTBEAT',
-          timestamp: Date.now(),
+          hostSessionId: hostSessionIdRef.current,
+          stateVersion: stateVersionRef.current,
+          timestamp: now,
         };
 
-        // WebRTC
-        connectionsRef.current.forEach((conn) => {
-          if (conn.open) {
-            try { conn.send(hbMsg); } catch (e) {}
-          }
-        });
-
-        // MQTT
         if (mqttClientRef.current && mqttClientRef.current.connected) {
+          hostOfflineSince = 0;
           try {
-            mqttClientRef.current.publish(`bsb3/room/${cleanRoom}/host_to_client`, JSON.stringify(hbMsg));
-          } catch (e) {}
+            mqttClientRef.current.publish(hostCtrlTopic, JSON.stringify(hbMsg));
+          } catch {}
+        } else {
+          if (hostOfflineSince === 0) {
+            hostOfflineSince = now;
+          } else if (now - hostOfflineSince >= 15000) {
+            hostOfflineSince = now;
+            activeBrokerUrl = activeBrokerUrl === PRIMARY_BROKER ? FALLBACK_BROKER : PRIMARY_BROKER;
+            setupMqttClient(activeBrokerUrl);
+          }
         }
 
-        // BroadcastChannel
         if (broadcastChannelRef.current) {
-          try { broadcastChannelRef.current.postMessage(hbMsg); } catch (e) {}
+          try {
+            broadcastChannelRef.current.postMessage(hbMsg);
+          } catch {}
         }
       }, 2500);
 
-      // Host: Prune inactive clients older than 15s
+      // Host: Prune inactive clients older than 20 seconds
       inactivePruneTimer = setInterval(() => {
         const now = Date.now();
         let changed = false;
         connectedClientsRef.current.forEach((clientObj, id) => {
-          if (now - clientObj.lastSeen > 15000) {
+          if (now - clientObj.lastSeen > 20000) {
             connectedClientsRef.current.delete(id);
             changed = true;
           }
@@ -1037,110 +1245,132 @@ export function usePeerSync({
         }
       }, 4000);
     } else {
-      // Client: Watchdog timer verifying authentic connection to host
+      // Client: Watchdog, ping, version reconciliation & broker failover loop
       watchdogTimer = setInterval(() => {
-        if (isKickedRef.current) return;
+        if (isDestroyed || isKickedRef.current) return;
         const now = Date.now();
 
-        // Send PING and keepalive REQUEST_STATE
-        const conn = clientConnRef.current;
-        if (conn && conn.open) {
+        if (mqttClientRef.current && mqttClientRef.current.connected) {
           try {
-            conn.send({ type: 'PING', clientId: myClientId, timestamp: now });
-          } catch (e) {}
-        } else {
-          connectClientToHost();
+            mqttClientRef.current.publish(
+              clientActionTopic,
+              JSON.stringify({ type: 'PING', clientId: myClientId, timestamp: now } satisfies PeerMessage)
+            );
+          } catch {}
+
+          // If connected to MQTT but live Host state hasn't arrived yet, keep requesting
+          if (!hasAppliedLiveStateRef.current && now - setupStartedAt > 2500) {
+            requestState();
+          }
         }
 
-        // Check if Host has gone silent
-        if (lastHostSeenRef.current > 0 && now - lastHostSeenRef.current > 6500) {
-          // No response from host in 6.5s! We are disconnected from host
+        const silentDuration =
+          lastHostSeenRef.current > 0 ? now - lastHostSeenRef.current : now - setupStartedAt;
+
+        if (silentDuration >= 18000) {
+          // Prolonged silence (split-brain broker or dead silent WebSocket): force broker cycle & fresh socket
           setStatus('connecting');
-          setErrorMessage('與計分板通訊逾時，正在重新連線...');
           setLatency(null);
-          // Auto-trigger recovery
-          requestState();
-        } else if (lastHostSeenRef.current === 0) {
+          setErrorMessage('正在切換同步節點並重新連線...');
+          activeBrokerUrl = activeBrokerUrl === PRIMARY_BROKER ? FALLBACK_BROKER : PRIMARY_BROKER;
+          setupMqttClient(activeBrokerUrl);
+        } else if (
+          (lastHostSeenRef.current > 0 && silentDuration > 10000) ||
+          (lastHostSeenRef.current === 0 && silentDuration > 12000)
+        ) {
           setStatus('connecting');
+          setLatency(null);
+          setErrorMessage('與計分板通訊暫停，正在重新同步...');
+          requestState();
         }
-      }, 2500);
+      }, 3000);
     }
 
-    // 5. Mobile Lifecycle & Visibility Change Handler
-    const handleVisibilityChange = () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && !isDestroyed) {
-        // Device woke up or tab focused: force immediate sync check
-        if (!isHost) {
-          connectClientToHost();
-          requestState();
+    // 4. Mobile & Desktop Wake/Visibility Lifecycle Handlers
+    const handleWakeSync = () => {
+      if (isDestroyed) return;
+      if (!isHost) {
+        if (!mqttClientRef.current || !mqttClientRef.current.connected) {
+          try {
+            if (mqttClientRef.current) {
+              mqttClientRef.current.reconnect();
+            } else {
+              setupMqttClient(activeBrokerUrl);
+            }
+          } catch {
+            setupMqttClient(activeBrokerUrl);
+          }
+        }
+        requestState();
+      } else {
+        if (!mqttClientRef.current || !mqttClientRef.current.connected) {
+          try {
+            if (mqttClientRef.current) {
+              mqttClientRef.current.reconnect();
+            } else {
+              setupMqttClient(activeBrokerUrl);
+            }
+          } catch {
+            setupMqttClient(activeBrokerUrl);
+          }
         } else {
           broadcastState();
         }
       }
     };
 
-    const handleOnline = () => {
-      if (!isDestroyed) {
-        if (!isHost) {
-          connectClientToHost();
-          requestState();
-        }
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        handleWakeSync();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('online', handleOnline);
+    window.addEventListener('online', handleWakeSync);
+    window.addEventListener('focus', handleWakeSync);
 
-    // Provide reconnect method implementation to ref
     reconnectRef.current = () => {
       if (isDestroyed) return;
       setStatus('connecting');
       setErrorMessage(null);
       if (!isHost) {
-        connectClientToHost();
+        syncedStateVersionRef.current = -1;
+        hasAppliedLiveStateRef.current = false;
+      }
+      setupMqttClient(activeBrokerUrl);
+      if (!isHost) {
         requestState();
       } else {
         broadcastState();
       }
     };
 
-    const handleBeforeUnload = () => {
-      if (peerRef.current) {
-        try { peerRef.current.destroy(); } catch (e) {}
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
     return () => {
       isDestroyed = true;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('online', handleWakeSync);
+      window.removeEventListener('focus', handleWakeSync);
 
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      if (clientConnectTimer) clearTimeout(clientConnectTimer);
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       if (inactivePruneTimer) clearInterval(inactivePruneTimer);
       if (watchdogTimer) clearInterval(watchdogTimer);
-
-      connectionsRef.current.forEach((conn) => conn.close());
-      connectionsRef.current.clear();
-
-      if (clientConnRef.current) {
-        try { clientConnRef.current.close(); } catch (e) {}
-        clientConnRef.current = null;
+      if (retainFlushTimerRef.current) {
+        clearTimeout(retainFlushTimerRef.current);
+        retainFlushTimerRef.current = null;
       }
-      if (peerRef.current) {
-        try { peerRef.current.destroy(); } catch (e) {}
-        peerRef.current = null;
-      }
-      if (mqttClient) {
-        try { mqttClient.end(true); } catch (e) {}
+      pendingRetainRef.current = null;
+
+      if (client) {
+        try {
+          client.end(true);
+        } catch {}
       }
       mqttClientRef.current = null;
 
       if (broadcastChannelRef.current) {
-        try { broadcastChannelRef.current.close(); } catch (e) {}
+        try {
+          broadcastChannelRef.current.close();
+        } catch {}
         broadcastChannelRef.current = null;
       }
 
@@ -1149,7 +1379,19 @@ export function usePeerSync({
       setConnectedClients([]);
       setLatency(null);
     };
-  }, [isHost, roomCode, enabled, handleClientIncomingState, handleHostIncomingAction, myClientId, registerOrUpdateClient, requestState, broadcastState]);
+  }, [
+    isHost,
+    roomCode,
+    enabled,
+    applyWireState,
+    handleHostIncomingAction,
+    myClientId,
+    registerOrUpdateClient,
+    requestState,
+    broadcastState,
+    publishExtractedLogos,
+    scheduleRetainedPublish,
+  ]);
 
   const reconnect = useCallback(() => {
     reconnectRef.current();

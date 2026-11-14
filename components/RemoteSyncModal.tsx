@@ -315,13 +315,28 @@ export const RemoteSyncModal: React.FC<RemoteSyncModalProps> = ({
                   if (!manualJoinCode.trim()) return;
                   const targetCode = manualJoinCode.trim().toUpperCase();
                   const targetUrl = `${window.location.origin}${window.location.pathname}?mode=remote&room=${targetCode.toLowerCase()}`;
+                  window.location.href = targetUrl;
+                }}
+                disabled={!manualJoinCode.trim()}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                title={language === 'zh' ? '在此頁面直接切換為此房間的遙控控制台' : 'Switch this window to Remote Mode'}
+              >
+                <Smartphone size={14} />
+                <span>{language === 'zh' ? '在此視窗遙控' : 'Remote Here'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!manualJoinCode.trim()) return;
+                  const targetCode = manualJoinCode.trim().toUpperCase();
+                  const targetUrl = `${window.location.origin}${window.location.pathname}?mode=remote&room=${targetCode.toLowerCase()}`;
                   window.open(targetUrl, '_blank');
                 }}
                 disabled={!manualJoinCode.trim()}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
               >
-                <Smartphone size={14} />
-                <span>{language === 'zh' ? '另開新分頁遙控' : 'Open Remote'}</span>
+                <ExternalLink size={14} />
+                <span>{language === 'zh' ? '另開新分頁' : 'Open Tab'}</span>
               </button>
               {onChangeRoomCode && (
                 <button
@@ -335,7 +350,7 @@ export const RemoteSyncModal: React.FC<RemoteSyncModalProps> = ({
                   className="px-4 py-2 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 disabled:opacity-40 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <RefreshCw size={14} />
-                  <span>{language === 'zh' ? '切換主控台房間' : 'Switch Room'}</span>
+                  <span>{language === 'zh' ? '更換主機房間' : 'Switch Room'}</span>
                 </button>
               )}
             </div>
@@ -437,7 +452,7 @@ export const RemoteSyncModal: React.FC<RemoteSyncModalProps> = ({
                             <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400">
                               <span className="flex items-center gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                {client.transport === 'webrtc' ? '⚡ P2P 直連' : '☁️ 雲端同步'}
+                                {client.transport === 'broadcast_channel' ? '⚡ 本機直連 (0ms)' : '☁️ 雲端同步'}
                               </span>
                               <span>•</span>
                               <span className={isViewer ? 'text-amber-400 font-semibold' : 'text-blue-400 font-semibold'}>

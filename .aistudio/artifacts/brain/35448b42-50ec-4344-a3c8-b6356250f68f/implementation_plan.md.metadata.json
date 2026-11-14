@@ -1,6 +1,0 @@
-{
-  "summary": "已完成攻守紀錄表旁新增逐打席紀錄表（Play-by-Play Table）、分局篩選器（第1局至第9局+）、當下出局數、幾壘有人、打席結束好壞球數、打席內暴投/捕逸事件記錄，以及 JSON 與 Excel (.xlsx) 雙工作表匯出功能。",
-  "updatedAt": "2026-11-04T04:35:49.112476973Z",
-  "requestFeedback": true,
-  "userFacing": true
-}

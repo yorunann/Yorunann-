@@ -3,7 +3,7 @@ import {
   X, Save, FileText, Download, Upload, Printer, Copy, Check, 
   Edit2, Trash2, Plus, Minus, Calendar, Trophy, ChevronRight, ChevronLeft,
   Share2, RotateCcw, History, User, ListOrdered, Sparkles, CheckCircle2,
-  Search, CornerDownLeft, FileSpreadsheet, AlertTriangle, Layers, Filter
+  Search, CornerDownLeft, FileSpreadsheet, AlertTriangle, Layers, Filter, ArrowRightLeft
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { GameState, Team, Player, SavedGameRecord, PlateAppearanceRecord } from '../types';
@@ -465,7 +465,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
         if (pId) {
           const playerPbpIndices: number[] = [];
           currentPbp.forEach((rec, idx) => {
-            if (rec.batterId === pId || (rec.batterName === targetPlayer.name && rec.battingTeam === (isAway ? 'away' : 'home'))) {
+            if (rec.recordType !== 'sub' && (rec.batterId === pId || (rec.batterName === targetPlayer.name && rec.battingTeam === (isAway ? 'away' : 'home')))) {
               playerPbpIndices.push(idx);
             }
           });
@@ -485,12 +485,14 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
             }
           } else if (abIndex === 'new' && !isClear) {
             const oppTeam = isAway ? state.homeTeam : state.awayTeam;
+            const currentPaOnly = currentPbp.filter(p => p.recordType !== 'sub');
             const newRecord: PlateAppearanceRecord = {
               id: `pa-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+              recordType: 'pa',
               inning: state.inning,
               isTop: isAway,
-              paNumber: currentPbp.length + 1,
-              paInningNumber: currentPbp.filter(p => p.inning === state.inning && p.isTop === isAway).length + 1,
+              paNumber: currentPaOnly.length + 1,
+              paInningNumber: currentPaOnly.filter(p => p.inning === state.inning && p.isTop === isAway).length + 1,
               battingTeam: isAway ? 'away' : 'home',
               battingTeamName: targetTeam.name,
               pitchingTeam: isAway ? 'home' : 'away',
@@ -631,7 +633,7 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
         if (pId) {
           const playerPbpIndices: number[] = [];
           currentPbp.forEach((rec, idx) => {
-            if (rec.batterId === pId || (rec.batterName === targetPlayer.name && rec.battingTeam === (isAway ? 'away' : 'home'))) {
+            if (rec.recordType !== 'sub' && (rec.batterId === pId || (rec.batterName === targetPlayer.name && rec.battingTeam === (isAway ? 'away' : 'home')))) {
               playerPbpIndices.push(idx);
             }
           });
@@ -1029,6 +1031,35 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
           p.bases[2] ? '三壘' : null
         ].filter(Boolean);
         const baseText = baseStatus.length === 0 ? '無人在壘' : baseStatus.length === 3 ? '滿壘' : baseStatus.join('、') + '有人';
+
+        if (p.recordType === 'sub' && p.subDetail) {
+          const sd = p.subDetail;
+          const subLabel = sd.subType === 'pitcher_change' ? '換投' : sd.subType === 'pinch_hit' ? '代打/替換' : '球員調度';
+          pbpAoa.push([
+            '球員異動',
+            `${p.inning}局`,
+            p.isTop ? '上半局 (▲)' : '下半局 (▼)',
+            sd.teamName,
+            '-',
+            sd.orderIndex ? `第 ${sd.orderIndex} 棒` : '-',
+            sd.incomingName,
+            `#${sd.incomingNumber}`,
+            sd.subType === 'pitcher_change' ? sd.outgoingName : p.pitcherName,
+            sd.subType === 'pitcher_change' ? `#${sd.outgoingNumber}` : `#${p.pitcherNumber}`,
+            `${p.outs} 出局`,
+            baseText,
+            `${p.balls}B - ${p.strikes}S`,
+            subLabel,
+            p.result,
+            0,
+            0,
+            p.awayScore,
+            p.homeScore,
+            p.timestamp ? new Date(p.timestamp).toLocaleTimeString() : '-'
+          ]);
+          return;
+        }
+
         const inPaEvents = p.eventsDuringPa && p.eventsDuringPa.length > 0 ? p.eventsDuringPa.join(', ') : '無';
 
         pbpAoa.push([
@@ -1968,13 +1999,18 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                       <ListOrdered size={18} className="text-teal-400" />
                       <span>{language === 'zh' ? '逐打席詳細紀錄表 (Play-by-Play)' : 'Play-by-Play Game Log'}</span>
                       <span className="text-xs font-mono font-normal text-teal-300 bg-teal-950/60 border border-teal-500/40 px-2 py-0.5 rounded-full">
-                        共 {effectivePlayByPlay.length} 打席
+                        共 {effectivePlayByPlay.filter(p => p.recordType !== 'sub').length} 打席
+                        {effectivePlayByPlay.some(p => p.recordType === 'sub') && (
+                          <span className="text-amber-300 ml-1">
+                            • {effectivePlayByPlay.filter(p => p.recordType === 'sub').length} 更換
+                          </span>
+                        )}
                       </span>
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
                       {language === 'zh' 
-                        ? '詳細記載每打席當下出局數、幾壘有人、結束時球數 (B-S)、暴投/捕逸事件與打擊結果' 
-                        : 'Detailed log of each PA: outs, runners on base, final count, WP/PB incidents and result'}
+                        ? '詳細記載每打席當下出局數、幾壘有人、結束時球數 (B-S)、球員更換、暴投/捕逸事件與打擊結果' 
+                        : 'Detailed log of each PA: outs, runners on base, final count, substitutions, WP/PB incidents and result'}
                     </p>
                   </div>
 
@@ -2142,6 +2178,104 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                     <div className="grid grid-cols-1 gap-2.5">
                       {filteredPbp.map((pa, idx) => {
                         const isTop = pa.isTop;
+
+                        // Render distinct compact card for Player Substitution records
+                        if (pa.recordType === 'sub' && pa.subDetail) {
+                          const sd = pa.subDetail;
+                          const subTeamColor = sd.team === 'away' ? state.awayTeam.color : state.homeTeam.color;
+                          const isPitcherSub = sd.subType === 'pitcher_change';
+                          const subBadgeText = isPitcherSub ? '換投' : sd.subType === 'pinch_hit' ? '代打/替換' : '球員調度';
+
+                          return (
+                            <div
+                              key={pa.id || idx}
+                              className={`rounded-2xl p-3 sm:px-4 sm:py-3 border shadow-md transition-all ${
+                                isPitcherSub
+                                  ? 'bg-sky-950/35 border-sky-700/50 hover:border-sky-500/70'
+                                  : 'bg-amber-950/30 border-amber-700/50 hover:border-amber-500/70'
+                              }`}
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className={`px-2 py-0.5 rounded-lg font-black text-[11px] flex items-center gap-1 border ${
+                                    isPitcherSub
+                                      ? 'bg-sky-500/20 text-sky-300 border-sky-400/40'
+                                      : 'bg-amber-500/20 text-amber-300 border-amber-400/40'
+                                  }`}>
+                                    <ArrowRightLeft size={11} />
+                                    <span>{subBadgeText}</span>
+                                  </span>
+
+                                  <span className={`px-2 py-0.5 rounded-lg font-bold text-[11px] flex items-center gap-1 ${
+                                    isTop ? 'bg-blue-950 text-blue-300 border border-blue-800/60' : 'bg-indigo-950 text-indigo-300 border border-indigo-800/60'
+                                  }`}>
+                                    <span>{isTop ? '▲' : '▼'}</span>
+                                    <span>{pa.inning} 局{isTop ? '上' : '下'}</span>
+                                  </span>
+
+                                  <span className="px-2 py-0.5 rounded-lg bg-slate-900 text-slate-300 border border-slate-700/70 font-bold text-[11px]">
+                                    {pa.outs} 出局
+                                  </span>
+
+                                  <div className="flex items-center gap-1.5 font-bold">
+                                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: subTeamColor }} />
+                                    <span className="text-white">{sd.teamName}</span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2.5 text-slate-400 font-mono text-[11px]">
+                                  <span className="bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-slate-300">
+                                    比分 {state.awayTeam.name} {pa.awayScore} - {pa.homeScore} {state.homeTeam.name}
+                                  </span>
+                                  {pa.timestamp && (
+                                    <span className="hidden sm:inline text-slate-500">
+                                      {new Date(pa.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      dispatch({ type: 'DELETE_PLAY_BY_PLAY_RECORD', id: pa.id });
+                                    }}
+                                    className="text-slate-500 hover:text-rose-400 transition-colors p-1 rounded hover:bg-slate-800 cursor-pointer"
+                                    title="刪除此球員更換紀錄"
+                                  >
+                                    <X size={13} />
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+                                {sd.orderIndex && (
+                                  <span className="bg-slate-800 text-slate-200 text-[11px] font-bold px-2 py-0.5 rounded font-mono border border-slate-700">
+                                    第 {sd.orderIndex} 棒 {sd.position ? `(${sd.position})` : ''}
+                                  </span>
+                                )}
+                                {sd.outgoingName ? (
+                                  <>
+                                    <span className="text-slate-400 text-xs">退場</span>
+                                    <span className="px-2 py-0.5 rounded-lg bg-slate-900/90 border border-slate-700 text-slate-300 font-bold">
+                                      <span className="font-mono text-slate-400 mr-1">#{sd.outgoingNumber || '--'}</span>
+                                      {sd.outgoingName}
+                                    </span>
+                                    <span className="text-slate-500 font-black">➔</span>
+                                  </>
+                                ) : null}
+                                <span className={`text-xs font-bold ${isPitcherSub ? 'text-sky-300' : 'text-amber-300'}`}>登場</span>
+                                <span className={`px-2.5 py-0.5 rounded-lg border font-black ${
+                                  isPitcherSub
+                                    ? 'bg-sky-900/50 border-sky-500/50 text-sky-100'
+                                    : 'bg-amber-900/50 border-amber-500/50 text-amber-100'
+                                }`}>
+                                  <span className="font-mono opacity-80 mr-1">#{sd.incomingNumber || '--'}</span>
+                                  {sd.incomingName}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        }
+
                         const battingColor = isTop ? state.awayTeam.color : state.homeTeam.color;
                         const pitchingColor = isTop ? state.homeTeam.color : state.awayTeam.color;
 
