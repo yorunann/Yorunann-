@@ -254,6 +254,8 @@ export type ActionType =
   | { type: 'UPDATE_BENCH_PLAYER'; team: 'home' | 'away'; index: number; field: keyof Player; value: string }
   | { type: 'REMOVE_PLAYER_FROM_BENCH'; team: 'home' | 'away'; index: number }
   | { type: 'SWAP_LINEUP_BENCH'; team: 'home' | 'away'; lineupIndex: number; benchIndex: number }
+  | { type: 'SWAP_PLAYERS'; team: 'home' | 'away'; list1: 'lineup' | 'bench'; index1: number; list2: 'lineup' | 'bench'; index2: number }
+  | { type: 'SWAP_POSITIONS'; team: 'home' | 'away'; list1: 'lineup' | 'bench'; index1: number; list2: 'lineup' | 'bench'; index2: number }
   | { type: 'MOVE_TO_BENCH'; team: 'home' | 'away'; index: number }
   | { type: 'MOVE_TO_LINEUP'; team: 'home' | 'away'; index: number }
   | { type: 'REORDER_LINEUP'; team: 'home' | 'away'; startIndex: number; endIndex: number }

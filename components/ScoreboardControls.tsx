@@ -5,7 +5,7 @@ import { PitcherLineupSubModal, PitcherCandidate } from './PitcherLineupSubModal
 import React, { useRef, useEffect, useState } from 'react';
 import { GameState, ActionType, Player, Team, PitchInfo, GameMeta } from '../types';
 import { getPitcherCount } from '../reducer';
-import { Play, Pause, RotateCcw, RotateCw, Eye, EyeOff, User, Trash2, Plus, PenTool, Tv, LayoutTemplate, Square, Image as ImageIcon, RefreshCw, ArrowDown, ArrowUp, GripVertical, Settings, Check, CircleDot, ChevronDown, ChevronUp, ChevronRight, X, Flame, FileSpreadsheet, Smartphone } from 'lucide-react';
+import { Play, Pause, RotateCcw, RotateCw, Eye, EyeOff, User, Trash2, Plus, PenTool, Tv, LayoutTemplate, Square, Image as ImageIcon, RefreshCw, ArrowDown, ArrowUp, GripVertical, Settings, Check, CircleDot, ChevronDown, ChevronUp, ChevronRight, X, Flame, FileSpreadsheet, Smartphone, Pencil, ArrowLeftRight } from 'lucide-react';
 import { ImageCropperModal } from './ImageCropperModal';
 import { 
   DndContext, 
@@ -35,6 +35,7 @@ interface ControlsProps {
 const SortablePlayerRow = ({ 
   player, 
   idx, 
+  teamKey,
   isLineup, 
   isCurrentBatter, 
   onUpdate, 
@@ -45,6 +46,9 @@ const SortablePlayerRow = ({
   selectedPosId,
   selectedPlayerId,
   onRowClick,
+  onStartEdit,
+  onEndEdit,
+  isRowEditing,
   onPosClick,
   onPosDoubleClick,
   onPosBlur,
@@ -52,6 +56,7 @@ const SortablePlayerRow = ({
 }: { 
   player: Player; 
   idx: number; 
+  teamKey: 'home' | 'away';
   isLineup: boolean; 
   isCurrentBatter: boolean;
   onUpdate: (field: keyof Player, value: string) => void;
@@ -63,6 +68,9 @@ const SortablePlayerRow = ({
   selectedPosId?: string | null;
   selectedPlayerId?: string | null;
   onRowClick?: (id: string) => void;
+  onStartEdit?: (id: string) => void;
+  onEndEdit?: () => void;
+  isRowEditing?: boolean;
   onPosClick?: (id: string) => void;
   onPosDoubleClick?: (id: string) => void;
   onPosBlur?: () => void;
@@ -83,66 +91,186 @@ const SortablePlayerRow = ({
     zIndex: isDragging ? 10 : 1,
   };
 
+  const isSelected = selectedPlayerId === player.id;
+  const isSwapTarget = Boolean(selectedPlayerId && selectedPlayerId !== player.id);
+
   return (
     <div 
       ref={setNodeRef} 
       style={style} 
-      className={`flex items-center gap-1 text-xs p-1 rounded border min-w-max transition-colors ${isDragging ? 'opacity-50 bg-blue-50 border-blue-200' : selectedPlayerId === player.id ? 'bg-indigo-100 border-indigo-400' : isCurrentBatter ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-transparent hover:bg-gray-100'}`}
-      onClick={(e) => {
-        const target = e.target as HTMLElement;
-        if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || target.closest('.cursor-grab')) return;
-        onRowClick?.(player.id);
-      }}
+      data-roster-interactive="true"
+      data-roster-team={teamKey}
+      data-editing-player-id={isRowEditing ? player.id : undefined}
+      className={`flex items-center gap-1.5 text-xs p-1 rounded-md border min-w-max transition-all ${
+        isDragging
+          ? 'opacity-50 bg-blue-50 border-blue-200'
+          : isSelected
+          ? 'bg-indigo-100 border-indigo-500 ring-2 ring-indigo-400/40 shadow-sm'
+          : isSwapTarget
+          ? 'bg-white border-indigo-200 hover:bg-indigo-50 hover:border-indigo-400'
+          : isCurrentBatter
+          ? 'bg-yellow-50 border-yellow-300'
+          : 'bg-gray-50 border-slate-200/70 hover:bg-gray-100'
+      }`}
     >
-      <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 text-gray-500 hover:text-gray-800 transition-colors shrink-0">
+      {/* Drag Handle - clearly separated */}
+      <div
+        {...attributes}
+        {...listeners}
+        onClick={(e) => e.stopPropagation()}
+        className="cursor-grab active:cursor-grabbing p-1 pr-1.5 border-r border-slate-200 text-gray-400 hover:text-gray-800 transition-colors shrink-0"
+        title={language === 'zh' ? '拖曳調整順序' : 'Drag to reorder'}
+      >
         <GripVertical size={14} />
       </div>
-      {!isLineup ? null : <span className="w-4 shrink-0 text-gray-400 font-mono text-[10px] text-right">{idx + 1}</span>}
+
+      {/* Main Clickable Player Area (or Inline Inputs when editing) */}
+      {isRowEditing ? (
+        <div className="flex items-center gap-1 flex-1 min-w-[155px]" onClick={(e) => e.stopPropagation()}>
+          <span className={`w-5 shrink-0 font-mono text-[10px] font-bold text-center ${isLineup ? 'text-blue-600' : 'text-amber-600'}`}>
+            {isLineup ? idx + 1 : `B${idx + 1}`}
+          </span>
+          <input 
+            className="w-9 shrink-0 border border-indigo-300 rounded px-1 py-0.5 text-center text-slate-900 bg-white font-mono" 
+            value={player.number} 
+            placeholder="#" 
+            onChange={(e) => onUpdate('number', e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') onEndEdit?.(); }}
+          />
+          <input 
+            autoFocus
+            className="w-24 shrink-0 border border-indigo-300 rounded px-1.5 py-0.5 text-slate-900 bg-white font-semibold" 
+            value={player.name} 
+            placeholder={language === 'zh' ? '球員姓名' : 'Name'} 
+            onChange={(e) => onUpdate('name', e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') onEndEdit?.(); }}
+          />
+          <input 
+            className="w-12 shrink-0 border border-indigo-300 rounded px-1 py-0.5 text-center text-slate-900 bg-white font-mono" 
+            value={player.stat} 
+            placeholder=".000" 
+            onChange={(e) => onUpdate('stat', e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') onEndEdit?.(); }}
+          />
+        </div>
+      ) : (
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => onRowClick?.(player.id)}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onStartEdit?.(player.id);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onRowClick?.(player.id);
+            }
+          }}
+          className={`flex items-center gap-1.5 flex-1 min-w-[155px] px-1.5 py-1 rounded cursor-pointer select-none transition-colors ${
+            isSelected ? 'text-indigo-950' : 'text-slate-800'
+          }`}
+          title={
+            language === 'zh'
+              ? '點擊選取此球員進行交換（雙擊可編輯姓名/背號）'
+              : 'Click to select for swap (double-click to edit)'
+          }
+        >
+          <span className={`w-5 shrink-0 font-mono text-[10px] font-bold text-center rounded py-0.5 ${
+            isSelected
+              ? 'bg-indigo-600 text-white'
+              : isLineup
+              ? 'bg-slate-200/80 text-slate-600'
+              : 'bg-amber-100 text-amber-700'
+          }`}>
+            {isLineup ? idx + 1 : `B${idx + 1}`}
+          </span>
+          <span className="text-[11px] font-mono text-slate-500 shrink-0 min-w-[24px] text-center">
+            {player.number ? `#${player.number}` : '#--'}
+          </span>
+          <span className={`font-bold truncate max-w-[96px] flex-1 ${!player.name ? 'text-slate-400 italic font-normal' : ''}`}>
+            {player.name || (language === 'zh' ? '未命名' : 'Unnamed')}
+          </span>
+          {player.stat && (
+            <span className="text-[10px] font-mono text-slate-500 shrink-0">
+              {player.stat}
+            </span>
+          )}
+          {isSelected && (
+            <span className="text-[10px] font-bold bg-indigo-600 text-white px-1.5 py-0.5 rounded shrink-0">
+              {language === 'zh' ? '已選取' : 'Selected'}
+            </span>
+          )}
+          {isSwapTarget && (
+            <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-300 px-1.5 py-0.5 rounded flex items-center gap-0.5 shrink-0">
+              <ArrowLeftRight size={10} />
+              <span>{language === 'zh' ? '交換' : 'Swap'}</span>
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Position Pill - separated cleanly from player click area */}
       <input 
-        className={`w-8 shrink-0 border rounded px-1 text-center font-bold text-slate-900 bg-white ${selectedPosId === player.id ? 'ring-2 ring-blue-500' : ''} ${!isPosEditing ? 'cursor-pointer select-none' : ''}`} 
+        className={`w-9 shrink-0 border rounded px-1 py-0.5 text-center font-bold text-[11px] text-slate-900 bg-white transition-all ${
+          selectedPosId === player.id
+            ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50'
+            : selectedPosId
+            ? 'border-blue-300 hover:bg-blue-50'
+            : 'border-slate-300 hover:border-slate-400'
+        } ${!isPosEditing ? 'cursor-pointer select-none' : ''}`} 
         value={player.position || ''} 
         placeholder="Pos" 
+        title={language === 'zh' ? '單擊交換守位 / 雙擊編輯守位' : 'Click to swap position / Double-click to edit'}
         onChange={(e) => onUpdate('position', e.target.value)}
         readOnly={!isPosEditing}
-        onClick={() => onPosClick?.(player.id)}
-        onDoubleClick={() => onPosDoubleClick?.(player.id)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onPosClick?.(player.id);
+        }}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          onPosDoubleClick?.(player.id);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === 'Escape') onPosBlur?.();
+        }}
         onBlur={() => onPosBlur?.()}
       />
-      <input 
-        className="w-8 shrink-0 border rounded px-1 text-center text-slate-900 bg-white" 
-        value={player.number} 
-        placeholder="#" 
-        onChange={(e) => onUpdate('number', e.target.value)} 
-      />
-      <input 
-        className="w-24 shrink-0 border rounded px-1 text-slate-900 bg-white" 
-        value={player.name} 
-        placeholder="Name" 
-        onChange={(e) => onUpdate('name', e.target.value)} 
-      />
-      <input 
-        className="w-12 shrink-0 border rounded px-1 text-center text-slate-900 bg-white" 
-        value={player.stat} 
-        placeholder="Avg" 
-        onChange={(e) => onUpdate('stat', e.target.value)} 
-      />
-      <button 
-        onClick={onMove} 
-        className={`shrink-0 p-1 ${isLineup ? 'text-blue-400 hover:text-blue-600' : 'text-green-600 hover:text-green-700'}`} 
-        title={isLineup ? (language === 'zh' ? "移至板凳" : language === 'en' ? "To Bench" : "ベンチへ") : (language === 'zh' ? "移至打線" : language === 'en' ? "To Lineup" : "打順へ")}
-      >
-        {isLineup ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
-      </button>
-      <button 
-        onClick={onSetPitcher} 
-        className="shrink-0 p-1 text-purple-400 hover:text-purple-600" 
-        title={language === 'en' ? 'Set as Pitcher' : language === 'zh' ? '設為投手' : '投手に設定'}
-      >
-        <CircleDot size={14} />
-      </button>
-      <button onClick={onRemove} className="shrink-0 p-1 text-red-400 hover:text-red-600" title={language === 'zh' ? '移除' : language === 'ja' ? '削除' : 'Remove'}>
-        <Trash2 size={14} />
-      </button>
+
+      {/* Right Action Buttons */}
+      <div className="flex items-center gap-0.5 shrink-0 pl-0.5 border-l border-slate-200" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={() => (isRowEditing ? onEndEdit?.() : onStartEdit?.(player.id))}
+          className={`p-1 rounded transition-colors ${
+            isRowEditing ? 'text-emerald-600 hover:text-emerald-700 bg-emerald-50' : 'text-slate-400 hover:text-slate-700'
+          }`}
+          title={isRowEditing ? (language === 'zh' ? '完成編輯' : 'Done') : (language === 'zh' ? '編輯資料' : 'Edit')}
+        >
+          {isRowEditing ? <Check size={13} /> : <Pencil size={12} />}
+        </button>
+        <button 
+          type="button"
+          onClick={onMove} 
+          className={`shrink-0 p-1 ${isLineup ? 'text-blue-400 hover:text-blue-600' : 'text-green-600 hover:text-green-700'}`} 
+          title={isLineup ? (language === 'zh' ? "移至板凳" : language === 'en' ? "To Bench" : "ベンチへ") : (language === 'zh' ? "移至打線" : language === 'en' ? "To Lineup" : "打順へ")}
+        >
+          {isLineup ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
+        </button>
+        <button 
+          type="button"
+          onClick={onSetPitcher} 
+          className="shrink-0 p-1 text-purple-400 hover:text-purple-600" 
+          title={language === 'en' ? 'Set as Pitcher' : language === 'zh' ? '設為投手' : '投手に設定'}
+        >
+          <CircleDot size={14} />
+        </button>
+        <button type="button" onClick={onRemove} className="shrink-0 p-1 text-red-400 hover:text-red-600" title={language === 'zh' ? '移除' : language === 'ja' ? '削除' : 'Remove'}>
+          <Trash2 size={14} />
+        </button>
+      </div>
     </div>
   );
 };
@@ -273,12 +401,54 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
   const [selectedPosId, setSelectedPosId] = useState<string | null>(null);
   const [editingPosId, setEditingPosId] = useState<string | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
 
   const [isLineupOpen, setIsLineupOpen] = useState(true);
   const [isBenchOpen, setIsBenchOpen] = useState(false);
 
+  // Click anywhere outside interactive player rows/banner or press Escape to cancel selection / editing
+  useEffect(() => {
+    if (!selectedPlayerId && !selectedPosId && !editingPlayerId && !editingPosId) return;
+
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as HTMLElement | null;
+      const interactiveEl = target?.closest('[data-roster-interactive="true"]');
+      if (!interactiveEl || interactiveEl.getAttribute('data-roster-team') !== teamKey) {
+        setSelectedPlayerId(null);
+        setSelectedPosId(null);
+        setEditingPlayerId(null);
+        setEditingPosId(null);
+        return;
+      }
+      if (editingPlayerId) {
+        const editingRow = target?.closest(`[data-editing-player-id="${editingPlayerId}"]`);
+        if (!editingRow) {
+          setEditingPlayerId(null);
+        }
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedPlayerId(null);
+        setSelectedPosId(null);
+        setEditingPlayerId(null);
+        setEditingPosId(null);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedPlayerId, selectedPosId, editingPlayerId, editingPosId, teamKey]);
+
   const handlePosClick = (id: string) => {
     if (editingPosId === id) return;
+    setSelectedPlayerId(null);
+    setEditingPlayerId(null);
     if (selectedPosId && selectedPosId !== id) {
       const getPlayerLoc = (pid: string) => {
         let idx = draft.lineup.findIndex(p => p.id === pid);
@@ -309,6 +479,8 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
 
   
   const handleRowClick = (id: string) => {
+    setSelectedPosId(null);
+    setEditingPlayerId(null);
     if (selectedPlayerId && selectedPlayerId !== id) {
       const getPlayerLoc = (pid: string) => {
         let idx = draft.lineup.findIndex(p => p.id === pid);
@@ -349,6 +521,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
 
   const handlePosDoubleClick = (id: string) => {
     setSelectedPosId(null);
+    setSelectedPlayerId(null);
     setEditingPosId(id);
   };
 
@@ -425,17 +598,27 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
   };
 
   const addLineupPlayer = () => {
+    const newId = Math.random().toString(36).substr(2, 9);
     setDraft(prev => ({
       ...prev,
-      lineup: [...prev.lineup, { id: Math.random().toString(36).substr(2, 9), name: '', number: '', stat: '', position: '' }]
+      lineup: [...prev.lineup, { id: newId, name: '', number: '', stat: '', position: '' }]
     }));
+    setIsLineupOpen(true);
+    setSelectedPlayerId(null);
+    setSelectedPosId(null);
+    setEditingPlayerId(newId);
   };
 
   const addBenchPlayer = () => {
+    const newId = Math.random().toString(36).substr(2, 9);
     setDraft(prev => ({
       ...prev,
-      bench: [...prev.bench, { id: Math.random().toString(36).substr(2, 9), name: '', number: '', stat: '', position: '' }]
+      bench: [...prev.bench, { id: newId, name: '', number: '', stat: '', position: '' }]
     }));
+    setIsBenchOpen(true);
+    setSelectedPlayerId(null);
+    setSelectedPosId(null);
+    setEditingPlayerId(newId);
   };
 
   const removeLineupPlayer = (index: number) => {
@@ -656,9 +839,71 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
           </div>
       </div>
 
+      {/* Active Swap Selection Banner */}
+      {(selectedPlayerId || selectedPosId) && (() => {
+        const targetPlayer = [...draft.lineup, ...draft.bench].find(p => p.id === (selectedPlayerId || selectedPosId));
+        return (
+          <div
+            data-roster-interactive="true"
+            data-roster-team={teamKey}
+            className={`mt-2 p-2 rounded-lg border text-xs flex flex-wrap items-center justify-between gap-2 shadow-sm ${
+              selectedPlayerId
+                ? 'bg-indigo-50 border-indigo-300 text-indigo-900'
+                : 'bg-blue-50 border-blue-300 text-blue-900'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 min-w-0">
+              <ArrowLeftRight size={14} className="shrink-0" />
+              <span className="font-bold truncate">
+                {selectedPlayerId
+                  ? (language === 'zh'
+                      ? `已選取「${targetPlayer?.name || targetPlayer?.number || '球員'}」：點擊任一打線或板凳球員即可直接交換（點空白處取消）`
+                      : `Selected "${targetPlayer?.name || 'Player'}": Click any lineup/bench player to swap`)
+                  : (language === 'zh'
+                      ? `已選取守位「${targetPlayer?.position || 'Pos'}」：點擊另一位守位即可互換（點空白處取消）`
+                      : `Selected position "${targetPlayer?.position || 'Pos'}": Click another position to swap`)}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {selectedPlayerId && !isBenchOpen && draft.bench.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsBenchOpen(true)}
+                  className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded font-bold text-[11px] border border-amber-300 transition-colors cursor-pointer"
+                >
+                  {language === 'zh' ? '展開板凳' : 'Open Bench'}
+                </button>
+              )}
+              {selectedPlayerId && !isLineupOpen && draft.lineup.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsLineupOpen(true)}
+                  className="px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded font-bold text-[11px] border border-blue-300 transition-colors cursor-pointer"
+                >
+                  {language === 'zh' ? '展開打線' : 'Open Lineup'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPlayerId(null);
+                  setSelectedPosId(null);
+                }}
+                className="px-2 py-0.5 bg-white hover:bg-slate-100 text-slate-700 rounded font-bold text-[11px] border border-slate-300 flex items-center gap-1 cursor-pointer"
+              >
+                <X size={12} />
+                <span>{language === 'zh' ? '取消' : 'Cancel'}</span>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Lineup Editor */}
       <div className="bg-white rounded border shadow-sm mt-2 overflow-hidden">
         <div 
+          data-roster-interactive="true"
+          data-roster-team={teamKey}
           onClick={() => setIsLineupOpen(prev => !prev)}
           className="flex justify-between items-center p-2.5 bg-slate-50/70 hover:bg-slate-100/70 cursor-pointer select-none border-b transition-colors"
         >
@@ -678,7 +923,9 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
         </div>
         {isLineupOpen && (
           <div className="p-2.5">
-            <div className="text-[10px] text-gray-400 italic mb-1.5">拖曳左側圖示可重新排序</div>
+            <div className="text-[10px] text-gray-400 italic mb-1.5">
+              {language === 'zh' ? '點擊球員列可直接與打線或板凳交換 • 雙擊或點 ✎ 可編輯 • 拖曳左側 ⋮⋮ 排序' : 'Click row to swap • Double-click or ✎ to edit • Drag ⋮⋮ to reorder'}
+            </div>
             <DndContext 
               sensors={sensors} 
               collisionDetection={closestCenter} 
@@ -692,6 +939,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
                       key={player.id}
                       player={player}
                       idx={idx}
+                      teamKey={teamKey}
                       isLineup={true}
                       isCurrentBatter={idx === globalTeam.currentBatterIndex && ((state.isTop && teamKey === 'away') || (!state.isTop && teamKey === 'home'))}
                       language={language as "en" | "zh" | "ja"}
@@ -702,6 +950,13 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
                       selectedPosId={selectedPosId}
                       selectedPlayerId={selectedPlayerId}
                       onRowClick={handleRowClick}
+                      onStartEdit={(id) => {
+                        setSelectedPlayerId(null);
+                        setSelectedPosId(null);
+                        setEditingPlayerId(id);
+                      }}
+                      onEndEdit={() => setEditingPlayerId(null)}
+                      isRowEditing={editingPlayerId === player.id}
                       onPosClick={handlePosClick}
                       onPosDoubleClick={handlePosDoubleClick}
                       onPosBlur={() => setEditingPosId(null)}
@@ -718,6 +973,8 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
       {/* Bench Editor */}
       <div className="bg-slate-50 rounded border shadow-sm mt-2 overflow-hidden">
         <div 
+          data-roster-interactive="true"
+          data-roster-team={teamKey}
           onClick={() => setIsBenchOpen(prev => !prev)}
           className="flex justify-between items-center p-2.5 bg-slate-100/80 hover:bg-slate-200/60 cursor-pointer select-none border-b transition-colors"
         >
@@ -750,6 +1007,7 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
                       key={player.id}
                       player={player}
                       idx={idx}
+                      teamKey={teamKey}
                       isLineup={false}
                       isCurrentBatter={false}
                       language={language as "en" | "zh" | "ja"}
@@ -760,6 +1018,13 @@ const TeamEditor: React.FC<{ teamKey: 'home' | 'away', state: GameState, dispatc
                       selectedPosId={selectedPosId}
                       selectedPlayerId={selectedPlayerId}
                       onRowClick={handleRowClick}
+                      onStartEdit={(id) => {
+                        setSelectedPlayerId(null);
+                        setSelectedPosId(null);
+                        setEditingPlayerId(id);
+                      }}
+                      onEndEdit={() => setEditingPlayerId(null)}
+                      isRowEditing={editingPlayerId === player.id}
                       onPosClick={handlePosClick}
                       onPosDoubleClick={handlePosDoubleClick}
                       onPosBlur={() => setEditingPosId(null)}

@@ -29,6 +29,9 @@
   },
   "exclude": [
     "node_modules",
-    "*.cjs"
+    "dist",
+    "archive",
+    "*.cjs",
+    "**/*.cjs"
   ]
 }

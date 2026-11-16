@@ -2098,6 +2098,88 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       };
     }
 
+    case 'SWAP_PLAYERS': {
+      const tKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
+      const { list1, index1, list2, index2 } = action;
+      if (list1 === list2 && index1 === index2) return state;
+
+      // Cross-list swap (lineup <-> bench): preserve full pinch-hit history & play-by-play
+      if (list1 !== list2) {
+        const lineupIndex = list1 === 'lineup' ? index1 : index2;
+        const benchIndex = list1 === 'bench' ? index1 : index2;
+        const lineupPlayer = state[tKey].lineup[lineupIndex];
+        const benchPlayer = state[tKey].bench[benchIndex];
+        if (!lineupPlayer || !benchPlayer) return state;
+
+        const newLineup = [...state[tKey].lineup];
+        const newBench = [...state[tKey].bench];
+
+        const prevPlayers = lineupPlayer.previousPlayers && lineupPlayer.previousPlayers.length > 0
+          ? [...lineupPlayer.previousPlayers, { ...lineupPlayer, previousPlayers: undefined, isStarter: false }]
+          : [{ ...lineupPlayer, previousPlayers: undefined, isStarter: true }];
+
+        newLineup[lineupIndex] = {
+          ...benchPlayer,
+          position: 'PH',
+          isStarter: false,
+          previousPlayers: prevPlayers
+        };
+        newBench[benchIndex] = { ...lineupPlayer, position: 'BN', previousPlayers: undefined };
+
+        const subRecord = createSubstitutionRecord(state, {
+          subType: 'pinch_hit',
+          team: action.team === 'home' ? 'home' : 'away',
+          teamName: state[tKey].name || (action.team === 'home' ? '主隊' : '客隊'),
+          outgoingName: lineupPlayer.name || '---',
+          outgoingNumber: lineupPlayer.number || '--',
+          incomingName: benchPlayer.name || '---',
+          incomingNumber: benchPlayer.number || '--',
+          orderIndex: lineupIndex + 1,
+          position: 'PH'
+        });
+
+        return {
+          ...state,
+          playByPlay: hasGameActivity(state) ? [...(state.playByPlay || []), subRecord] : state.playByPlay,
+          [tKey]: { ...state[tKey], lineup: newLineup, bench: newBench }
+        };
+      }
+
+      // Same-list swap (lineup <-> lineup or bench <-> bench)
+      const targetArr = [...state[tKey][list1]];
+      if (!targetArr[index1] || !targetArr[index2]) return state;
+      const temp = targetArr[index1];
+      targetArr[index1] = targetArr[index2];
+      targetArr[index2] = temp;
+
+      return {
+        ...state,
+        [tKey]: { ...state[tKey], [list1]: targetArr }
+      };
+    }
+
+    case 'SWAP_POSITIONS': {
+      const tKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
+      const { list1, index1, list2, index2 } = action;
+      if (list1 === list2 && index1 === index2) return state;
+
+      const newLineup = [...state[tKey].lineup];
+      const newBench = [...state[tKey].bench];
+      const arr1 = list1 === 'lineup' ? newLineup : newBench;
+      const arr2 = list2 === 'lineup' ? newLineup : newBench;
+      if (!arr1[index1] || !arr2[index2]) return state;
+
+      const pos1 = arr1[index1].position;
+      const pos2 = arr2[index2].position;
+      arr1[index1] = { ...arr1[index1], position: pos2 };
+      arr2[index2] = { ...arr2[index2], position: pos1 };
+
+      return {
+        ...state,
+        [tKey]: { ...state[tKey], lineup: newLineup, bench: newBench }
+      };
+    }
+
     case 'SET_INNING_SCORE': {
       const tKey = action.team === 'home' ? 'homeTeam' : 'awayTeam';
       const newInningScores = [...state[tKey].inningScores];
