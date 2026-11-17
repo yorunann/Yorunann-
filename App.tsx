@@ -20,6 +20,7 @@ import { useScoresheetSync } from './hooks/useScoresheetSync';
 import { ScoresheetSyncModal } from './components/ScoresheetSyncModal';
 import { extractScoresheetGameId } from './utils/scoresheetSync';
 import { decodeMatchData } from './utils/matchCodec';
+import { RunnerResolutionModal, needsRunnerPrompt } from './components/RunnerResolutionModal';
 
 import { reducer } from './reducer';
 
@@ -63,12 +64,28 @@ const getInitialState = (init: GameState): GameState => {
 
     // 2. Check localStorage (Host and local Display window only)
     const savedState = localStorage.getItem('scoreboard_state');
+    const savedOriginalModeRaw = localStorage.getItem('scoreboard_original_baseball_mode');
+    const savedOriginalMode = savedOriginalModeRaw ? Boolean(JSON.parse(savedOriginalModeRaw)) : undefined;
     if (savedState) {
       const parsed = JSON.parse(savedState);
       return {
         ...init,
         ...parsed,
+        meta: {
+          ...init.meta,
+          ...(parsed.meta || {}),
+          originalBaseballMode: parsed.meta?.originalBaseballMode ?? savedOriginalMode ?? init.meta.originalBaseballMode ?? false,
+        },
         animation: null, // Clear any animation on start
+      };
+    }
+    if (savedOriginalMode !== undefined) {
+      return {
+        ...init,
+        meta: {
+          ...init.meta,
+          originalBaseballMode: savedOriginalMode,
+        },
       };
     }
   } catch (e) {
@@ -87,6 +104,7 @@ export const App: React.FC = () => {
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isGameRecordModalOpen, setIsGameRecordModalOpen] = useState(false);
+  const [pendingRunnerAction, setPendingRunnerAction] = useState<ActionType | null>(null);
   const [shortcuts, setShortcuts] = useState<ShortcutMap>(DEFAULT_SHORTCUTS);
   const [consoleLanguage, setConsoleLanguage] = useState<'en' | 'zh' | 'ja'>(() => {
     try {
@@ -179,6 +197,15 @@ export const App: React.FC = () => {
       localStorage.setItem('scoreboard_beta_controls', JSON.stringify(val));
     } catch (e) {
       console.error("Failed to save beta controls setting", e);
+    }
+  };
+
+  const handleToggleOriginalBaseballMode = (val: boolean) => {
+    handleDispatch({ type: 'UPDATE_META', field: 'originalBaseballMode', value: val });
+    try {
+      localStorage.setItem('scoreboard_original_baseball_mode', JSON.stringify(val));
+    } catch (e) {
+      console.error("Failed to save original baseball mode setting", e);
     }
   };
 
@@ -658,6 +685,14 @@ export const App: React.FC = () => {
   };
   handleDispatchRef.current = handleDispatch;
 
+  const handleInteractiveDispatch = (action: ActionType) => {
+    if (needsRunnerPrompt(action, stateRef.current)) {
+      setPendingRunnerAction(action);
+      return;
+    }
+    handleDispatch(action);
+  };
+
   // scoresheet sync (read-only). Only the host console polls; displays receive it through the existing sync.
   // Uses dispatch directly instead of handleDispatch so imports are not pushed onto the undo history
   const [isScoresheetModalOpen, setIsScoresheetModalOpen] = useState(false);
@@ -682,8 +717,8 @@ export const App: React.FC = () => {
     }
   }, [state, scoreboardLanguage, isRemoteMode, isObsMode, isDisplayMode, peerBroadcastState]);
 
-  // Shortcuts are always enabled now
-  useShortcuts(true, shortcuts, handleDispatch, state);
+  // Shortcuts are always enabled when runner prompt modal is closed
+  useShortcuts(!pendingRunnerAction, shortcuts, handleInteractiveDispatch, state);
   
   const handleConfirmReset = () => {
     handleDispatch({ type: 'RESET_GAME' });
@@ -1237,7 +1272,7 @@ export const App: React.FC = () => {
                     <ScoreboardDisplay 
                       ref={displayRef} 
                       state={localDisplayMode ? { ...state, displayMode: localDisplayMode } : state} 
-                      dispatch={handleDispatch} 
+                      dispatch={handleInteractiveDispatch} 
                       language={scoreboardLanguage} 
                       isVerticalFullscreen={false} 
                     />
@@ -1271,14 +1306,14 @@ export const App: React.FC = () => {
                 {useBetaControls ? (
                   <ScoreboardControlsV2 
                     state={state} 
-                    dispatch={handleDispatch} 
+                    dispatch={handleInteractiveDispatch} 
                     language={consoleLanguage} 
                     onOpenRecordModal={() => setIsGameRecordModalOpen(true)}
                   />
                 ) : (
                   <ScoreboardControls 
                     state={state} 
-                    dispatch={handleDispatch} 
+                    dispatch={handleInteractiveDispatch} 
                     language={consoleLanguage} 
                     onOpenRecordModal={() => setIsGameRecordModalOpen(true)}
                   />
@@ -1318,6 +1353,19 @@ export const App: React.FC = () => {
           language={consoleLanguage}
           useBetaControls={useBetaControls}
           onToggleBetaControls={handleToggleBetaControls}
+          originalBaseballMode={Boolean(state.meta?.originalBaseballMode)}
+          onToggleOriginalBaseballMode={handleToggleOriginalBaseballMode}
+        />
+
+        <RunnerResolutionModal
+          action={pendingRunnerAction}
+          state={state}
+          language={consoleLanguage}
+          onConfirm={(resolvedAction) => {
+            setPendingRunnerAction(null);
+            handleDispatch(resolvedAction);
+          }}
+          onCancel={() => setPendingRunnerAction(null)}
         />
 
         <GameRecordModal

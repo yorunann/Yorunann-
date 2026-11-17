@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { ScoreboardControls } from './ScoreboardControls';
 import { ScoreboardControlsV2 } from './ScoreboardControlsV2';
+import { RunnerResolutionModal, needsRunnerPrompt } from './RunnerResolutionModal';
 
 interface MobileRemoteViewProps {
   state: GameState;
@@ -63,6 +64,7 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
   const [manualCodeInput, setManualCodeInput] = useState(roomCode);
   const [showCodeInput, setShowCodeInput] = useState(false);
   const [isBannerCollapsed, setIsBannerCollapsed] = useState(false);
+  const [pendingRunnerAction, setPendingRunnerAction] = useState<ActionType | null>(null);
 
   const isViewer = myRole === 'viewer';
 
@@ -79,6 +81,11 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
 
   const handleAction = (action: ActionType) => {
     if (isViewer) {
+      return;
+    }
+    if (needsRunnerPrompt(action, state)) {
+      triggerHaptic();
+      setPendingRunnerAction(action);
       return;
     }
     triggerHaptic();
@@ -589,6 +596,18 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
           )}
         </div>
       </div>
+
+      <RunnerResolutionModal
+        action={pendingRunnerAction}
+        state={state}
+        language={language}
+        onConfirm={(resolvedAction) => {
+          setPendingRunnerAction(null);
+          triggerHaptic();
+          dispatch(resolvedAction);
+        }}
+        onCancel={() => setPendingRunnerAction(null)}
+      />
     </div>
   );
 };

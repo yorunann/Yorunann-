@@ -98,6 +98,7 @@ export const INITIAL_STATE: GameState = {
     gameInfos: ['FPBL 25th', 'G265', '8/3'],
     broadcastMarginX: 20,
     broadcastMarginY: 20,
+    originalBaseballMode: false,
   },
   playByPlay: [],
   currentPaEvents: []
@@ -143,6 +144,7 @@ export const sanitizeGameState = (loadedState: any, fallbackState: GameState = I
     strikes: typeof loadedState.strikes === 'number' ? loadedState.strikes : fallbackState.strikes,
     outs: typeof loadedState.outs === 'number' ? loadedState.outs : fallbackState.outs,
     bases: Array.isArray(loadedState.bases) && loadedState.bases.length === 3 ? loadedState.bases : fallbackState.bases,
+    baseRunners: Array.isArray(loadedState.baseRunners) && loadedState.baseRunners.length === 3 ? loadedState.baseRunners : fallbackState.baseRunners,
     pitcher: loadedState.pitcher || fallbackState.pitcher,
     currentPitch: loadedState.currentPitch || fallbackState.currentPitch,
     timer: typeof loadedState.timer === 'number' ? loadedState.timer : fallbackState.timer,

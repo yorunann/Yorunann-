@@ -95,6 +95,7 @@ export interface GameMeta {
   lineupTeamNameSize?: number;
   lineupLogoSize?: number;
   settingsVersion?: number;
+  originalBaseballMode?: boolean;
 }
 
 export interface AnimationData {
@@ -117,6 +118,22 @@ export interface SubstitutionDetail {
   incomingNumber: string;
   orderIndex?: number;
   position?: string;
+}
+
+export type RunnerDestination = 1 | 2 | 3 | 4 | 'out';
+
+export interface RunnerOutcomeInput {
+  fromBase: 1 | 2 | 3;
+  playerId?: string;
+  toBase: RunnerDestination;
+}
+
+export interface RunnerMovement {
+  playerId?: string;
+  playerName: string;
+  playerNumber?: string;
+  fromBase: 0 | 1 | 2 | 3; // 0 = batter, 1 = 1B, 2 = 2B, 3 = 3B
+  toBase: RunnerDestination;
 }
 
 export interface PlateAppearanceRecord {
@@ -144,6 +161,7 @@ export interface PlateAppearanceRecord {
   strikes: number;
   pitchesCount?: number;
   eventsDuringPa?: string[]; // e.g. ['暴投 (WP)', '捕逸 (PB)', '投手犯規 (BK)']
+  runnerMovements?: RunnerMovement[];
   result: string; // e.g. '一安', '三振', '四壞', '全壘打(2)', '滾地', '犧飛', '犧打'
   rbi: number;
   runs: number;
@@ -217,15 +235,17 @@ export type ActionType =
   | { type: 'RESET_TEAM'; team: 'home' | 'away' }
   | { type: 'RESET_TEAM_SETTINGS' }
   | { type: 'SWAP_TEAMS' }
-  | { type: 'WALK'; walkType?: '四球' | '四壞' | '觸身' | '不死三振' | '敬遠' | 'K+WP' | 'K+PB' | '失誤' }
-  | { type: 'SAC_FLY' }
-  | { type: 'SAC_BUNT' }
-  | { type: 'BATTER_OUT'; outType?: string }
-  | { type: 'SINGLE' }
-  | { type: 'DOUBLE' }
-  | { type: 'TRIPLE' }
+  | { type: 'WALK'; walkType?: '四球' | '四壞' | '觸身' | '不死三振' | '敬遠' | 'K+WP' | 'K+PB' | '失誤'; runnerOutcomes?: RunnerOutcomeInput[]; rbiOverride?: number }
+  | { type: 'SAC_FLY'; runnerOutcomes?: RunnerOutcomeInput[]; rbiOverride?: number }
+  | { type: 'SAC_BUNT'; runnerOutcomes?: RunnerOutcomeInput[]; rbiOverride?: number }
+  | { type: 'BATTER_OUT'; outType?: string; runnerOutcomes?: RunnerOutcomeInput[]; rbiOverride?: number }
+  | { type: 'DOUBLE_PLAY'; runnerOutcomes?: RunnerOutcomeInput[]; rbiOverride?: number }
+  | { type: 'FIELDERS_CHOICE'; runnerOutcomes?: RunnerOutcomeInput[]; rbiOverride?: number }
+  | { type: 'SINGLE'; runnerOutcomes?: RunnerOutcomeInput[]; rbiOverride?: number }
+  | { type: 'DOUBLE'; runnerOutcomes?: RunnerOutcomeInput[]; rbiOverride?: number }
+  | { type: 'TRIPLE'; runnerOutcomes?: RunnerOutcomeInput[]; rbiOverride?: number }
   | { type: 'HOME_RUN' }
-  | { type: 'WILD_PITCH'; subType?: 'WP' | 'PB' | 'BK' }
+  | { type: 'WILD_PITCH'; subType?: 'WP' | 'PB' | 'BK'; runnerOutcomes?: RunnerOutcomeInput[] }
   | { type: 'SET_ANIMATION'; animation: AnimationData | null }
   | { type: 'NEXT_INNING' }
   | { type: 'PREVIOUS_HALF_INNING' }

@@ -203,13 +203,11 @@ export const useShortcuts = (
           case 'WILD_PITCH_WP':
             if (stateRef.current.strikes >= 2) {
               dispatch({ type: 'WALK', walkType: 'K+WP' });
-              dispatch({ type: 'TRIGGER_K' });
             }
             break;
           case 'WILD_PITCH_PB':
             if (stateRef.current.strikes >= 2) {
               dispatch({ type: 'WALK', walkType: 'K+PB' });
-              dispatch({ type: 'TRIGGER_K' });
             }
             break;
           case 'RESET_SCORE':

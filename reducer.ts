@@ -1,4 +1,4 @@
-import { GameState, ActionType, Player, Team, PlateAppearanceRecord, SubstitutionDetail } from './types';
+import { GameState, ActionType, Player, Team, PlateAppearanceRecord, SubstitutionDetail, RunnerMovement, RunnerOutcomeInput, RunnerDestination } from './types';
 import { INITIAL_STATE } from './constants';
 import { applyScoresheetSnapshot } from './utils/scoresheetSync';
 
@@ -12,6 +12,7 @@ export const createPlateAppearanceRecord = (
     runs?: number;
     targetTeam?: 'away' | 'home';
     targetPlayerIndex?: number;
+    runnerMovements?: RunnerMovement[];
   }
 ): PlateAppearanceRecord => {
   const battingTeamKey = params.targetTeam 
@@ -66,6 +67,7 @@ export const createPlateAppearanceRecord = (
     balls: state.balls,
     strikes: state.strikes,
     eventsDuringPa: state.currentPaEvents && state.currentPaEvents.length > 0 ? [...state.currentPaEvents] : undefined,
+    runnerMovements: params.runnerMovements && params.runnerMovements.length > 0 ? params.runnerMovements : undefined,
     result: params.result,
     rbi,
     runs,
@@ -235,9 +237,16 @@ const resolveScoringRunners = (
   const result: (string | null)[] = [];
   const usedIds = new Set<string>();
 
+  // Pre-seed all existing runner IDs on base so fallback guessing never duplicates someone already on another base
+  if (currentRunners) {
+    for (const id of currentRunners) {
+      if (id) usedIds.add(id);
+    }
+  }
+
   for (const baseIdx of scoringBaseIndices) {
     const runnerId = currentRunners ? currentRunners[baseIdx] : null;
-    if (runnerId && !usedIds.has(runnerId)) {
+    if (runnerId) {
       result.push(runnerId);
       usedIds.add(runnerId);
     } else {
@@ -256,6 +265,121 @@ const resolveScoringRunners = (
     }
   }
   return result;
+};
+
+const findTeamPlayerById = (team: Team, id?: string | null): Player | undefined => {
+  if (!id) return undefined;
+  const inLineup = team.lineup.find(p => p.id === id);
+  if (inLineup) return inLineup;
+  const inBench = team.bench.find(p => p.id === id);
+  if (inBench) return inBench;
+  for (const p of team.lineup) {
+    const prev = p.previousPlayers?.find(pp => pp.id === id);
+    if (prev) return prev;
+  }
+  return undefined;
+};
+
+const formatRunnerMovementZh = (m: RunnerMovement): string => {
+  const fromLabel = m.fromBase === 1 ? '一壘跑者' : m.fromBase === 2 ? '二壘跑者' : m.fromBase === 3 ? '三壘跑者' : '打者';
+  const toLabel = m.toBase === 4
+    ? '回本壘得分'
+    : m.toBase === 'out'
+      ? '出局'
+      : m.toBase === 3
+        ? (m.fromBase === 3 ? '留在三壘' : '上三壘')
+        : m.toBase === 2
+          ? (m.fromBase === 2 ? '留在二壘' : '上二壘')
+          : (m.fromBase === 1 ? '留在一壘' : '上一壘');
+  const numPart = m.playerNumber ? ` (#${m.playerNumber})` : '';
+  return `${fromLabel} ${m.playerName}${numPart} ${toLabel}`;
+};
+
+interface ResolvedBasePlay {
+  newBases: [boolean, boolean, boolean];
+  newRunners: [string | null, string | null, string | null];
+  runsScored: number;
+  runnerOuts: number;
+  scoringRunnerIds: (string | null)[];
+  runnerMovements: RunnerMovement[];
+}
+
+const resolveBasePlayRunners = (
+  state: GameState,
+  teamObj: Team,
+  curIndex: number,
+  batter: Player | undefined,
+  defaultDestinations: Partial<Record<1 | 2 | 3, RunnerDestination>>,
+  batterDest: 1 | 2 | 3 | 4 | 'out',
+  runnerOutcomes?: RunnerOutcomeInput[]
+): ResolvedBasePlay => {
+  const rawRunners = state.baseRunners || [null, null, null];
+  // Fill in any occupied bases that don't have a runner ID yet (legacy compatibility)
+  const resolvedIds: [string | null, string | null, string | null] = [...rawRunners] as [string | null, string | null, string | null];
+  const missingBases: (0 | 1 | 2)[] = [];
+  ([0, 1, 2] as const).forEach(idx => {
+    if (state.bases[idx] && !resolvedIds[idx]) {
+      missingBases.push(idx);
+    }
+  });
+  if (missingBases.length > 0) {
+    const guessed = resolveScoringRunners(teamObj, missingBases, resolvedIds, curIndex);
+    missingBases.forEach((bIdx, i) => {
+      resolvedIds[bIdx] = guessed[i] || null;
+    });
+  }
+
+  const newBases: [boolean, boolean, boolean] = [false, false, false];
+  const newRunners: [string | null, string | null, string | null] = [null, null, null];
+  let runsScored = 0;
+  let runnerOuts = 0;
+  const scoringRunnerIds: (string | null)[] = [];
+  const runnerMovements: RunnerMovement[] = [];
+
+  // Process lead runners first (3B -> 2B -> 1B)
+  for (const baseIdx of [2, 1, 0] as const) {
+    if (!state.bases[baseIdx]) continue;
+    const fromBase = (baseIdx + 1) as 1 | 2 | 3;
+    const runnerId = resolvedIds[baseIdx];
+    const player = findTeamPlayerById(teamObj, runnerId);
+    const explicit = runnerOutcomes?.find(o => o.fromBase === fromBase);
+    const toBase: RunnerDestination = explicit ? explicit.toBase : (defaultDestinations[fromBase] ?? fromBase);
+
+    if (toBase === 4) {
+      runsScored += 1;
+      if (runnerId) scoringRunnerIds.push(runnerId);
+    } else if (toBase === 'out') {
+      runnerOuts += 1;
+    } else {
+      newBases[toBase - 1] = true;
+      newRunners[toBase - 1] = runnerId;
+    }
+
+    if (toBase !== fromBase) {
+      runnerMovements.push({
+        playerId: runnerId || undefined,
+        playerName: player?.name || '跑者',
+        playerNumber: player?.number || '',
+        fromBase,
+        toBase
+      });
+    }
+  }
+
+  // Place batter on base if safe
+  if (batterDest === 1 || batterDest === 2 || batterDest === 3) {
+    newBases[batterDest - 1] = true;
+    newRunners[batterDest - 1] = batter?.id || null;
+  }
+
+  return {
+    newBases,
+    newRunners,
+    runsScored,
+    runnerOuts,
+    scoringRunnerIds,
+    runnerMovements
+  };
 };
 
 export const isPitcherPosition = (pos?: string): boolean => {
@@ -380,7 +504,10 @@ export function reducer(state: GameState, action: ActionType): GameState {
     'DOUBLE',
     'TRIPLE',
     'HOME_RUN',
-    'SAC_FLY'
+    'SAC_FLY',
+    'SAC_BUNT',
+    'DOUBLE_PLAY',
+    'FIELDERS_CHOICE'
   ];
 
   if (pitchIncrementActions.includes(action.type)) {
@@ -428,33 +555,19 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         const batter = teamObj.lineup[curIndex];
         const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
 
-        const curRunners = state.baseRunners || [state.bases[0] ? 'r0' : null, state.bases[1] ? 'r1' : null, state.bases[2] ? 'r2' : null];
-        let newBases = [...state.bases] as [boolean, boolean, boolean];
-        let newRunners: [string | null, string | null, string | null] = [...curRunners];
-        let runsScored = 0;
-        let scoringRunnerIds: (string | null)[] = [];
-
-        if (newBases[0]) {
-          if (newBases[1]) {
-            if (newBases[2]) {
-              runsScored = 1;
-              scoringRunnerIds = resolveScoringRunners(teamObj, [2], state.baseRunners, curIndex);
-              newRunners = [batter ? batter.id : null, curRunners[0], curRunners[1]];
-            } else {
-              newBases[2] = true;
-              newRunners[2] = curRunners[1];
-              newRunners[1] = curRunners[0];
-              newRunners[0] = batter ? batter.id : null;
-            }
-          } else {
-            newBases[1] = true;
-            newRunners[1] = curRunners[0];
-            newRunners[0] = batter ? batter.id : null;
-          }
-        } else {
-          newBases[0] = true;
-          newRunners[0] = batter ? batter.id : null;
-        }
+        const defaultWalkDest: Partial<Record<1 | 2 | 3, RunnerDestination>> = {
+          1: state.bases[0] ? 2 : 1,
+          2: state.bases[0] && state.bases[1] ? 3 : 2,
+          3: state.bases[0] && state.bases[1] && state.bases[2] ? 4 : 3
+        };
+        const { newBases, newRunners, runsScored, scoringRunnerIds, runnerMovements } = resolveBasePlayRunners(
+          state,
+          teamObj,
+          curIndex,
+          batter,
+          defaultWalkDest,
+          1
+        );
 
         const { lineup: updatedLineup, bench: updatedBench } = recordTeamScoring(
           teamObj,
@@ -476,7 +589,8 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         const paRecord = createPlateAppearanceRecord(state, {
           result: resultText,
           rbi: runsScored,
-          runs: 0
+          runs: 0,
+          runnerMovements
         });
         paRecord.balls = 4;
         paRecord.strikes = state.strikes;
@@ -657,7 +771,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       } else if (!newRunners[action.baseIndex]) {
         const teamKey = state.isTop ? 'awayTeam' : 'homeTeam';
         const teamObj = state[teamKey];
-        const scoring = resolveScoringRunners(teamObj, [action.baseIndex], state.baseRunners, teamObj.currentBatterIndex);
+        const scoring = resolveScoringRunners(teamObj, [action.baseIndex], newRunners, teamObj.currentBatterIndex);
         newRunners[action.baseIndex] = scoring[0] || `runner_${action.baseIndex}`;
       }
       return { ...state, bases: newBases, baseRunners: newRunners };
@@ -855,45 +969,40 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const curIndex = teamObj.currentBatterIndex;
       const batter = teamObj.lineup[curIndex];
       const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
-      const curRunners = state.baseRunners || [state.bases[0] ? 'r0' : null, state.bases[1] ? 'r1' : null, state.bases[2] ? 'r2' : null];
-      let newBases = [...state.bases] as [boolean, boolean, boolean];
-      let newRunners: [string | null, string | null, string | null] = [...curRunners];
-      let runsScored = 0;
-      let scoringRunnerIds: (string | null)[] = [];
-      
-      if (newBases[0]) {
-        if (newBases[1]) {
-          if (newBases[2]) {
-            runsScored = 1;
-            scoringRunnerIds = resolveScoringRunners(teamObj, [2], state.baseRunners, curIndex);
-            newRunners = [batter ? batter.id : null, curRunners[0], curRunners[1]];
-          } else {
-            newBases[2] = true;
-            newRunners[2] = curRunners[1];
-            newRunners[1] = curRunners[0];
-            newRunners[0] = batter ? batter.id : null;
-          }
-        } else {
-          newBases[1] = true;
-          newRunners[1] = curRunners[0];
-          newRunners[0] = batter ? batter.id : null;
-        }
-      } else {
-        newBases[0] = true;
-        newRunners[0] = batter ? batter.id : null;
-      }
+
+      const rawWalk = (action as any).walkType || '四壞';
+      const walkText = rawWalk === '四球' ? '四壞' : rawWalk;
+      const isDefensiveMiscue = walkText === '失誤';
+      const isDroppedThirdStrike = walkText === '不死三振' || walkText === 'K+WP' || walkText === 'K+PB';
+
+      const defaultWalkDest: Partial<Record<1 | 2 | 3, RunnerDestination>> = {
+        1: state.bases[0] ? 2 : 1,
+        2: state.bases[0] && state.bases[1] ? 3 : 2,
+        3: state.bases[0] && state.bases[1] && state.bases[2] ? 4 : 3
+      };
+
+      const { newBases, newRunners, runsScored, runnerOuts, scoringRunnerIds, runnerMovements } = resolveBasePlayRunners(
+        state,
+        teamObj,
+        curIndex,
+        batter,
+        defaultWalkDest,
+        1,
+        action.runnerOutcomes
+      );
+
+      const defaultRbi = (isDefensiveMiscue || isDroppedThirdStrike) ? 0 : runsScored;
+      const rbiCount = action.rbiOverride !== undefined ? action.rbiOverride : defaultRbi;
 
       const { lineup: updatedLineup, bench: updatedBench } = recordTeamScoring(
         teamObj,
         scoringRunnerIds,
         batter?.id,
-        runsScored, // batter gets 1 RBI if bases loaded
+        rbiCount,
         false
       );
 
-      const rawWalk = (action as any).walkType || '四壞';
-      const walkText = rawWalk === '四球' ? '四壞' : rawWalk;
-      const resultText = runsScored > 0 ? `${walkText}(1)` : walkText;
+      const resultText = rbiCount > 0 ? `${walkText}(${rbiCount})` : walkText;
       const newLineup = [...updatedLineup];
       if (newLineup[curIndex]) {
         newLineup[curIndex] = {
@@ -902,84 +1011,47 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         };
       }
 
-      const isDefensiveMiscue = walkText === '失誤';
       const fieldingTeamKey = state.isTop ? 'homeTeam' : 'awayTeam';
       const fieldingTeam = state[fieldingTeamKey];
-      const updatedFieldingTeam = isDefensiveMiscue
-        ? { ...fieldingTeam, errors: (fieldingTeam.errors || 0) + 1 }
-        : fieldingTeam;
+      const curPitcher = fieldingTeam.pitcher;
+      const updatedFieldingTeam = {
+        ...fieldingTeam,
+        ...(isDefensiveMiscue ? { errors: (fieldingTeam.errors || 0) + 1 } : {}),
+        ...(isDroppedThirdStrike && curPitcher ? {
+          pitcher: { ...curPitcher, strikeouts: (curPitcher.strikeouts || 0) + 1 }
+        } : {})
+      };
 
-      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: runsScored, runs: 0 });
+      const paRecord = createPlateAppearanceRecord(state, {
+        result: resultText,
+        rbi: rbiCount,
+        runs: 0,
+        runnerMovements
+      });
       if (walkText === '四壞' || walkText === '四球' || walkText === '敬遠') {
         paRecord.balls = 4;
       }
-      if (walkText === '不死三振' || walkText === 'K+WP' || walkText === 'K+PB') {
+      if (isDroppedThirdStrike) {
         paRecord.strikes = 3;
       }
       paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
       paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
 
-      return {
-        ...state,
-        balls: 0,
-        strikes: 0,
-        bases: newBases,
-        baseRunners: newRunners,
-        playByPlay: [...(state.playByPlay || []), paRecord],
-        currentPaEvents: [],
-        [teamKey]: {
-          ...teamObj,
-          score: teamObj.score + runsScored,
-          lineup: newLineup,
-          bench: updatedBench,
-          currentBatterIndex: nextIndex,
-          inningScores: runsScored > 0 ? updateInningScore(teamObj, state.inning, runsScored) : teamObj.inningScores
-        },
-        ...(isDefensiveMiscue ? { [fieldingTeamKey]: updatedFieldingTeam } : {})
-      };
-    }
-
-    case 'SAC_FLY': {
-      const teamKey = state.isTop ? 'awayTeam' : 'homeTeam';
-      const teamObj = state[teamKey];
-      const curIndex = teamObj.currentBatterIndex;
-      const batter = teamObj.lineup[curIndex];
-      const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
-      const willResetInning = state.outs >= 2;
-
-      const runsScored = state.bases[2] ? 1 : 0;
-      const scoringRunnerIds = runsScored > 0 ? resolveScoringRunners(teamObj, [2], state.baseRunners, curIndex) : [];
-
-      const { lineup: updatedLineup, bench: updatedBench } = recordTeamScoring(
-        teamObj,
-        scoringRunnerIds,
-        batter?.id,
-        runsScored, // batter gets 1 RBI
-        false
-      );
-
-      const resultText = runsScored > 0 ? '犧飛(1)' : '犧飛';
-      const newLineup = [...updatedLineup];
-      if (newLineup[curIndex]) {
-        newLineup[curIndex] = {
-          ...newLineup[curIndex],
-          atBats: [...(newLineup[curIndex].atBats || []), resultText]
-        };
-      }
-
-      const curRunners = state.baseRunners || [null, null, null];
-      const newBases: [boolean, boolean, boolean] = willResetInning ? [false, false, false] : [state.bases[0], state.bases[1], false];
-      const newRunners: [string | null, string | null, string | null] = willResetInning ? [null, null, null] : [curRunners[0], curRunners[1], null];
-
-      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: runsScored, runs: 0 });
-      paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
-      paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
+      const totalOuts = state.outs + runnerOuts;
+      const willResetInning = totalOuts >= 3;
 
       if (willResetInning) {
         return {
           ...state,
+          ...(isDroppedThirdStrike ? { strikeoutAnimationTrigger: (state.strikeoutAnimationTrigger || 0) + 1 } : {}),
           playByPlay: [...(state.playByPlay || []), paRecord],
-          ...autoAdvanceHalfInning(state, runsScored, newLineup, undefined, nextIndex),
+          ...autoAdvanceHalfInning(
+            state,
+            runsScored,
+            newLineup,
+            isDroppedThirdStrike ? updatedFieldingTeam.pitcher : undefined,
+            nextIndex
+          ),
           [teamKey]: {
             ...teamObj,
             score: teamObj.score + runsScored,
@@ -991,17 +1063,19 @@ function baseReducer(state: GameState, action: ActionType): GameState {
                 ? updateInningScore(teamObj, state.inning, 0)
                 : teamObj.inningScores
             )
-          }
+          },
+          ...((isDefensiveMiscue || isDroppedThirdStrike) ? { [fieldingTeamKey]: updatedFieldingTeam } : {})
         };
       }
 
       return {
         ...state,
-        outs: state.outs + 1,
+        outs: totalOuts,
         balls: 0,
         strikes: 0,
         bases: newBases,
         baseRunners: newRunners,
+        ...(isDroppedThirdStrike ? { strikeoutAnimationTrigger: (state.strikeoutAnimationTrigger || 0) + 1 } : {}),
         playByPlay: [...(state.playByPlay || []), paRecord],
         currentPaEvents: [],
         [teamKey]: {
@@ -1011,6 +1085,94 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           bench: updatedBench,
           currentBatterIndex: nextIndex,
           inningScores: runsScored > 0 ? updateInningScore(teamObj, state.inning, runsScored) : teamObj.inningScores
+        },
+        ...((isDefensiveMiscue || isDroppedThirdStrike) ? { [fieldingTeamKey]: updatedFieldingTeam } : {})
+      };
+    }
+
+    case 'SAC_FLY': {
+      const teamKey = state.isTop ? 'awayTeam' : 'homeTeam';
+      const teamObj = state[teamKey];
+      const curIndex = teamObj.currentBatterIndex;
+      const batter = teamObj.lineup[curIndex];
+      const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
+
+      const { newBases, newRunners, runsScored, runnerOuts, scoringRunnerIds, runnerMovements } = resolveBasePlayRunners(
+        state,
+        teamObj,
+        curIndex,
+        batter,
+        { 1: 1, 2: 2, 3: 4 },
+        'out',
+        action.runnerOutcomes
+      );
+
+      const willResetInning = state.outs + 1 + runnerOuts >= 3;
+      const effectiveRuns = state.outs >= 2 ? 0 : runsScored;
+      const rbiCount = action.rbiOverride !== undefined ? action.rbiOverride : effectiveRuns;
+
+      const { lineup: updatedLineup, bench: updatedBench } = recordTeamScoring(
+        teamObj,
+        effectiveRuns > 0 ? scoringRunnerIds : [],
+        batter?.id,
+        rbiCount,
+        false
+      );
+
+      const resultText = rbiCount > 0 ? `犧飛(${rbiCount})` : '犧飛';
+      const newLineup = [...updatedLineup];
+      if (newLineup[curIndex]) {
+        newLineup[curIndex] = {
+          ...newLineup[curIndex],
+          atBats: [...(newLineup[curIndex].atBats || []), resultText]
+        };
+      }
+
+      const paRecord = createPlateAppearanceRecord(state, {
+        result: resultText,
+        rbi: rbiCount,
+        runs: 0,
+        runnerMovements: state.outs >= 2 ? [] : runnerMovements
+      });
+      paRecord.awayScore = state.isTop ? teamObj.score + effectiveRuns : state.awayTeam.score;
+      paRecord.homeScore = !state.isTop ? teamObj.score + effectiveRuns : state.homeTeam.score;
+
+      if (willResetInning) {
+        return {
+          ...state,
+          playByPlay: [...(state.playByPlay || []), paRecord],
+          ...autoAdvanceHalfInning(state, effectiveRuns, newLineup, undefined, nextIndex),
+          [teamKey]: {
+            ...teamObj,
+            score: teamObj.score + effectiveRuns,
+            lineup: newLineup,
+            bench: updatedBench,
+            currentBatterIndex: nextIndex,
+            inningScores: effectiveRuns > 0 ? updateInningScore(teamObj, state.inning, effectiveRuns) : (
+              (teamObj.inningScores[state.inning - 1] === null || teamObj.inningScores[state.inning - 1] === undefined)
+                ? updateInningScore(teamObj, state.inning, 0)
+                : teamObj.inningScores
+            )
+          }
+        };
+      }
+
+      return {
+        ...state,
+        outs: state.outs + 1 + runnerOuts,
+        balls: 0,
+        strikes: 0,
+        bases: newBases,
+        baseRunners: newRunners,
+        playByPlay: [...(state.playByPlay || []), paRecord],
+        currentPaEvents: [],
+        [teamKey]: {
+          ...teamObj,
+          score: teamObj.score + effectiveRuns,
+          lineup: newLineup,
+          bench: updatedBench,
+          currentBatterIndex: nextIndex,
+          inningScores: effectiveRuns > 0 ? updateInningScore(teamObj, state.inning, effectiveRuns) : teamObj.inningScores
         }
       };
     }
@@ -1021,20 +1183,30 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const curIndex = teamObj.currentBatterIndex;
       const batter = teamObj.lineup[curIndex];
       const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
-      const willResetInning = state.outs >= 2;
 
-      const runsScored = state.bases[2] ? 1 : 0;
-      const scoringRunnerIds = runsScored > 0 ? resolveScoringRunners(teamObj, [2], state.baseRunners, curIndex) : [];
+      const { newBases, newRunners, runsScored, runnerOuts, scoringRunnerIds, runnerMovements } = resolveBasePlayRunners(
+        state,
+        teamObj,
+        curIndex,
+        batter,
+        { 1: 2, 2: 3, 3: 4 },
+        'out',
+        action.runnerOutcomes
+      );
+
+      const willResetInning = state.outs + 1 + runnerOuts >= 3;
+      const effectiveRuns = state.outs >= 2 ? 0 : runsScored;
+      const rbiCount = action.rbiOverride !== undefined ? action.rbiOverride : effectiveRuns;
 
       const { lineup: updatedLineup, bench: updatedBench } = recordTeamScoring(
         teamObj,
-        scoringRunnerIds,
+        effectiveRuns > 0 ? scoringRunnerIds : [],
         batter?.id,
-        runsScored, // batter gets 1 RBI if runner on 3rd scores
+        rbiCount,
         false
       );
 
-      const resultText = runsScored > 0 ? '犧打(1)' : '犧打';
+      const resultText = rbiCount > 0 ? `犧打(${rbiCount})` : '犧打';
       const newLineup = [...updatedLineup];
       if (newLineup[curIndex]) {
         newLineup[curIndex] = {
@@ -1043,19 +1215,381 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         };
       }
 
-      const curRunners = state.baseRunners || [null, null, null];
-      const newBases: [boolean, boolean, boolean] = willResetInning 
-        ? [false, false, false] 
-        : [false, state.bases[0], state.bases[1]];
-      const newRunners: [string | null, string | null, string | null] = willResetInning 
-        ? [null, null, null] 
-        : [null, curRunners[0], curRunners[1]];
+      const paRecord = createPlateAppearanceRecord(state, {
+        result: resultText,
+        rbi: rbiCount,
+        runs: 0,
+        runnerMovements: state.outs >= 2 ? [] : runnerMovements
+      });
+      paRecord.awayScore = state.isTop ? teamObj.score + effectiveRuns : state.awayTeam.score;
+      paRecord.homeScore = !state.isTop ? teamObj.score + effectiveRuns : state.homeTeam.score;
 
-      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: runsScored, runs: 0 });
+      if (willResetInning) {
+        return {
+          ...state,
+          playByPlay: [...(state.playByPlay || []), paRecord],
+          ...autoAdvanceHalfInning(state, effectiveRuns, newLineup, undefined, nextIndex),
+          [teamKey]: {
+            ...teamObj,
+            score: teamObj.score + effectiveRuns,
+            lineup: newLineup,
+            bench: updatedBench,
+            currentBatterIndex: nextIndex,
+            inningScores: effectiveRuns > 0 ? updateInningScore(teamObj, state.inning, effectiveRuns) : (
+              (teamObj.inningScores[state.inning - 1] === null || teamObj.inningScores[state.inning - 1] === undefined)
+                ? updateInningScore(teamObj, state.inning, 0)
+                : teamObj.inningScores
+            )
+          }
+        };
+      }
+
+      return {
+        ...state,
+        outs: state.outs + 1 + runnerOuts,
+        balls: 0,
+        strikes: 0,
+        bases: newBases,
+        baseRunners: newRunners,
+        playByPlay: [...(state.playByPlay || []), paRecord],
+        currentPaEvents: [],
+        [teamKey]: {
+          ...teamObj,
+          score: teamObj.score + effectiveRuns,
+          lineup: newLineup,
+          bench: updatedBench,
+          currentBatterIndex: nextIndex,
+          inningScores: effectiveRuns > 0 ? updateInningScore(teamObj, state.inning, effectiveRuns) : teamObj.inningScores
+        }
+      };
+    }
+
+    case 'BATTER_OUT': {
+      const teamKey = state.isTop ? 'awayTeam' : 'homeTeam';
+      const teamObj = state[teamKey];
+      const curIndex = teamObj.currentBatterIndex;
+      const batter = teamObj.lineup[curIndex];
+      const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
+
+      const outType = (action as any).outType || '出局';
+      const { newBases, newRunners, runsScored, runnerOuts, scoringRunnerIds, runnerMovements } = resolveBasePlayRunners(
+        state,
+        teamObj,
+        curIndex,
+        batter,
+        { 1: 1, 2: 2, 3: 3 },
+        'out',
+        action.runnerOutcomes
+      );
+
+      const willResetInning = state.outs + 1 + runnerOuts >= 3;
+      const effectiveRuns = state.outs >= 2 ? 0 : runsScored;
+      const defaultRbi = runnerOuts > 0 ? 0 : effectiveRuns;
+      const rbiCount = action.rbiOverride !== undefined ? action.rbiOverride : defaultRbi;
+
+      const { lineup: updatedLineup, bench: updatedBench } = recordTeamScoring(
+        teamObj,
+        effectiveRuns > 0 ? scoringRunnerIds : [],
+        batter?.id,
+        rbiCount,
+        false
+      );
+
+      const resultText = rbiCount > 0 ? `${outType}(${rbiCount})` : outType;
+      const newLineup = [...updatedLineup];
+      if (newLineup[curIndex]) {
+        newLineup[curIndex] = {
+          ...newLineup[curIndex],
+          atBats: [...(newLineup[curIndex].atBats || []), resultText]
+        };
+      }
+
+      const paRecord = createPlateAppearanceRecord(state, {
+        result: resultText,
+        rbi: rbiCount,
+        runs: 0,
+        runnerMovements: state.outs >= 2 ? [] : runnerMovements
+      });
+      if (outType === '三振' || outType.includes('三振') || outType.includes('SO') || outType.includes('K')) {
+        paRecord.strikes = 3;
+      }
+      paRecord.awayScore = state.isTop ? teamObj.score + effectiveRuns : state.awayTeam.score;
+      paRecord.homeScore = !state.isTop ? teamObj.score + effectiveRuns : state.homeTeam.score;
+
+      if (willResetInning) {
+        return {
+          ...state,
+          playByPlay: [...(state.playByPlay || []), paRecord],
+          ...autoAdvanceHalfInning(state, effectiveRuns, newLineup, undefined, nextIndex),
+          [teamKey]: {
+            ...teamObj,
+            score: teamObj.score + effectiveRuns,
+            lineup: newLineup,
+            bench: updatedBench,
+            currentBatterIndex: nextIndex,
+            inningScores: effectiveRuns > 0 ? updateInningScore(teamObj, state.inning, effectiveRuns) : (
+              (teamObj.inningScores[state.inning - 1] === null || teamObj.inningScores[state.inning - 1] === undefined)
+                ? updateInningScore(teamObj, state.inning, 0)
+                : teamObj.inningScores
+            )
+          }
+        };
+      }
+
+      return {
+        ...state,
+        [teamKey]: {
+          ...teamObj,
+          score: teamObj.score + effectiveRuns,
+          lineup: newLineup,
+          bench: updatedBench,
+          currentBatterIndex: nextIndex,
+          inningScores: effectiveRuns > 0 ? updateInningScore(teamObj, state.inning, effectiveRuns) : teamObj.inningScores
+        },
+        outs: state.outs + 1 + runnerOuts,
+        balls: 0,
+        strikes: 0,
+        bases: newBases,
+        baseRunners: newRunners,
+        playByPlay: [...(state.playByPlay || []), paRecord],
+        currentPaEvents: [],
+      };
+    }
+
+    case 'DOUBLE_PLAY': {
+      const teamKey = state.isTop ? 'awayTeam' : 'homeTeam';
+      const teamObj = state[teamKey];
+      const curIndex = teamObj.currentBatterIndex;
+      const batter = teamObj.lineup[curIndex];
+      const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
+
+      // Default DP: lowest occupied base (1B preferred) is out, others stay
+      const outBase = state.bases[0] ? 1 : state.bases[1] ? 2 : state.bases[2] ? 3 : null;
+      const defaultDpDest: Partial<Record<1 | 2 | 3, RunnerDestination>> = {
+        1: outBase === 1 ? 'out' : 1,
+        2: outBase === 2 ? 'out' : 2,
+        3: outBase === 3 ? 'out' : 3
+      };
+
+      const { newBases, newRunners, runsScored, runnerOuts, scoringRunnerIds, runnerMovements } = resolveBasePlayRunners(
+        state,
+        teamObj,
+        curIndex,
+        batter,
+        defaultDpDest,
+        'out',
+        action.runnerOutcomes
+      );
+
+      const effectiveOutsAdded = 1 + (runnerOuts > 0 ? runnerOuts : (outBase && !action.runnerOutcomes ? 1 : 0));
+      const willResetInning = state.outs + effectiveOutsAdded >= 3;
+      const effectiveRuns = state.outs >= 2 ? 0 : runsScored;
+      const rbiCount = action.rbiOverride !== undefined ? action.rbiOverride : 0;
+
+      const { lineup: updatedLineup, bench: updatedBench } = recordTeamScoring(
+        teamObj,
+        effectiveRuns > 0 ? scoringRunnerIds : [],
+        batter?.id,
+        rbiCount,
+        false
+      );
+
+      const resultText = rbiCount > 0 ? `雙殺(${rbiCount})` : '雙殺';
+      const newLineup = [...updatedLineup];
+      if (newLineup[curIndex]) {
+        newLineup[curIndex] = {
+          ...newLineup[curIndex],
+          atBats: [...(newLineup[curIndex].atBats || []), resultText]
+        };
+      }
+
+      const paRecord = createPlateAppearanceRecord(state, {
+        result: resultText,
+        rbi: rbiCount,
+        runs: 0,
+        runnerMovements: state.outs >= 2 ? [] : runnerMovements
+      });
+      paRecord.awayScore = state.isTop ? teamObj.score + effectiveRuns : state.awayTeam.score;
+      paRecord.homeScore = !state.isTop ? teamObj.score + effectiveRuns : state.homeTeam.score;
+
+      if (willResetInning) {
+        return {
+          ...state,
+          playByPlay: [...(state.playByPlay || []), paRecord],
+          ...autoAdvanceHalfInning(state, effectiveRuns, newLineup, undefined, nextIndex),
+          [teamKey]: {
+            ...teamObj,
+            score: teamObj.score + effectiveRuns,
+            lineup: newLineup,
+            bench: updatedBench,
+            currentBatterIndex: nextIndex,
+            inningScores: effectiveRuns > 0 ? updateInningScore(teamObj, state.inning, effectiveRuns) : (
+              (teamObj.inningScores[state.inning - 1] === null || teamObj.inningScores[state.inning - 1] === undefined)
+                ? updateInningScore(teamObj, state.inning, 0)
+                : teamObj.inningScores
+            )
+          }
+        };
+      }
+
+      return {
+        ...state,
+        outs: state.outs + effectiveOutsAdded,
+        balls: 0,
+        strikes: 0,
+        bases: newBases,
+        baseRunners: newRunners,
+        playByPlay: [...(state.playByPlay || []), paRecord],
+        currentPaEvents: [],
+        [teamKey]: {
+          ...teamObj,
+          score: teamObj.score + effectiveRuns,
+          lineup: newLineup,
+          bench: updatedBench,
+          currentBatterIndex: nextIndex,
+          inningScores: effectiveRuns > 0 ? updateInningScore(teamObj, state.inning, effectiveRuns) : teamObj.inningScores
+        }
+      };
+    }
+
+    case 'FIELDERS_CHOICE': {
+      const teamKey = state.isTop ? 'awayTeam' : 'homeTeam';
+      const teamObj = state[teamKey];
+      const curIndex = teamObj.currentBatterIndex;
+      const batter = teamObj.lineup[curIndex];
+      const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
+
+      // Default FC: lowest occupied base (1B preferred) is out, batter reaches 1B
+      const outBase = state.bases[0] ? 1 : state.bases[1] ? 2 : state.bases[2] ? 3 : null;
+      const defaultFcDest: Partial<Record<1 | 2 | 3, RunnerDestination>> = {
+        1: outBase === 1 ? 'out' : 2,
+        2: outBase === 2 ? 'out' : 2,
+        3: outBase === 3 ? 'out' : 3
+      };
+
+      const { newBases, newRunners, runsScored, runnerOuts, scoringRunnerIds, runnerMovements } = resolveBasePlayRunners(
+        state,
+        teamObj,
+        curIndex,
+        batter,
+        defaultFcDest,
+        1,
+        action.runnerOutcomes
+      );
+
+      // On fielder's choice at least 1 out is expected if not specified
+      const effectiveOutsAdded = runnerOuts > 0 ? runnerOuts : 1;
+      const willResetInning = state.outs + effectiveOutsAdded >= 3;
+      const effectiveRuns = willResetInning && state.outs >= 2 ? 0 : runsScored;
+      const rbiCount = action.rbiOverride !== undefined ? action.rbiOverride : effectiveRuns;
+
+      const { lineup: updatedLineup, bench: updatedBench } = recordTeamScoring(
+        teamObj,
+        effectiveRuns > 0 ? scoringRunnerIds : [],
+        batter?.id,
+        rbiCount,
+        false
+      );
+
+      const resultText = rbiCount > 0 ? `野選(${rbiCount})` : '野選';
+      const newLineup = [...updatedLineup];
+      if (newLineup[curIndex]) {
+        newLineup[curIndex] = {
+          ...newLineup[curIndex],
+          atBats: [...(newLineup[curIndex].atBats || []), resultText]
+        };
+      }
+
+      const paRecord = createPlateAppearanceRecord(state, {
+        result: resultText,
+        rbi: rbiCount,
+        runs: 0,
+        runnerMovements
+      });
+      paRecord.awayScore = state.isTop ? teamObj.score + effectiveRuns : state.awayTeam.score;
+      paRecord.homeScore = !state.isTop ? teamObj.score + effectiveRuns : state.homeTeam.score;
+
+      if (willResetInning) {
+        return {
+          ...state,
+          playByPlay: [...(state.playByPlay || []), paRecord],
+          ...autoAdvanceHalfInning(state, effectiveRuns, newLineup, undefined, nextIndex),
+          [teamKey]: {
+            ...teamObj,
+            score: teamObj.score + effectiveRuns,
+            lineup: newLineup,
+            bench: updatedBench,
+            currentBatterIndex: nextIndex,
+            inningScores: effectiveRuns > 0 ? updateInningScore(teamObj, state.inning, effectiveRuns) : (
+              (teamObj.inningScores[state.inning - 1] === null || teamObj.inningScores[state.inning - 1] === undefined)
+                ? updateInningScore(teamObj, state.inning, 0)
+                : teamObj.inningScores
+            )
+          }
+        };
+      }
+
+      return {
+        ...state,
+        outs: state.outs + effectiveOutsAdded,
+        balls: 0,
+        strikes: 0,
+        bases: newBases,
+        baseRunners: newRunners,
+        playByPlay: [...(state.playByPlay || []), paRecord],
+        currentPaEvents: [],
+        [teamKey]: {
+          ...teamObj,
+          score: teamObj.score + effectiveRuns,
+          lineup: newLineup,
+          bench: updatedBench,
+          currentBatterIndex: nextIndex,
+          inningScores: effectiveRuns > 0 ? updateInningScore(teamObj, state.inning, effectiveRuns) : teamObj.inningScores
+        }
+      };
+    }
+
+    case 'SINGLE': {
+      const teamKey = state.isTop ? 'awayTeam' : 'homeTeam';
+      const teamObj = state[teamKey];
+      const curIndex = teamObj.currentBatterIndex;
+      const batter = teamObj.lineup[curIndex];
+      const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
+
+      const { newBases, newRunners, runsScored, runnerOuts, scoringRunnerIds, runnerMovements } = resolveBasePlayRunners(
+        state,
+        teamObj,
+        curIndex,
+        batter,
+        { 1: 2, 2: 3, 3: 4 },
+        1,
+        action.runnerOutcomes
+      );
+
+      const rbiCount = action.rbiOverride !== undefined ? action.rbiOverride : runsScored;
+      const { lineup: updatedLineup, bench: updatedBench } = recordTeamScoring(
+        teamObj,
+        scoringRunnerIds,
+        batter?.id,
+        rbiCount,
+        false
+      );
+
+      const resultText = rbiCount > 0 ? `一安(${rbiCount})` : '一安';
+      const newLineup = [...updatedLineup];
+      if (newLineup[curIndex]) {
+        newLineup[curIndex] = {
+          ...newLineup[curIndex],
+          atBats: [...(newLineup[curIndex].atBats || []), resultText]
+        };
+      }
+
+      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: rbiCount, runs: 0, runnerMovements });
       paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
       paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
 
-      if (willResetInning) {
+      const totalOuts = state.outs + runnerOuts;
+      if (totalOuts >= 3) {
         return {
           ...state,
           playByPlay: [...(state.playByPlay || []), paRecord],
@@ -1063,6 +1597,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           [teamKey]: {
             ...teamObj,
             score: teamObj.score + runsScored,
+            hits: teamObj.hits + 1,
             lineup: newLineup,
             bench: updatedBench,
             currentBatterIndex: nextIndex,
@@ -1077,109 +1612,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
 
       return {
         ...state,
-        outs: state.outs + 1,
-        balls: 0,
-        strikes: 0,
-        bases: newBases,
-        baseRunners: newRunners,
-        playByPlay: [...(state.playByPlay || []), paRecord],
-        currentPaEvents: [],
-        [teamKey]: {
-          ...teamObj,
-          score: teamObj.score + runsScored,
-          lineup: newLineup,
-          bench: updatedBench,
-          currentBatterIndex: nextIndex,
-          inningScores: runsScored > 0 ? updateInningScore(teamObj, state.inning, runsScored) : teamObj.inningScores
-        }
-      };
-    }
-
-    case 'BATTER_OUT': {
-      const teamKey = state.isTop ? 'awayTeam' : 'homeTeam';
-      const teamObj = state[teamKey];
-      const curIndex = teamObj.currentBatterIndex;
-      const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
-      
-      const willResetInning = state.outs >= 2;
-
-      const resultText = (action as any).outType || '出局';
-
-      const newLineup = [...teamObj.lineup];
-      if (newLineup[curIndex]) {
-        newLineup[curIndex] = {
-          ...newLineup[curIndex],
-          atBats: [...(newLineup[curIndex].atBats || []), resultText]
-        };
-      }
-
-      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: 0, runs: 0 });
-      if (resultText === '三振' || resultText.includes('三振') || resultText.includes('SO') || resultText.includes('K')) {
-        paRecord.strikes = 3;
-      }
-
-      if (willResetInning) {
-        return {
-          ...state,
-          playByPlay: [...(state.playByPlay || []), paRecord],
-          ...autoAdvanceHalfInning(state, 0, newLineup, undefined, nextIndex)
-        };
-      }
-
-      return {
-        ...state,
-        [teamKey]: {
-          ...teamObj,
-          lineup: newLineup,
-          currentBatterIndex: nextIndex
-        },
-        outs: state.outs + 1,
-        balls: 0,
-        strikes: 0,
-        bases: state.bases,
-        baseRunners: state.baseRunners,
-        playByPlay: [...(state.playByPlay || []), paRecord],
-        currentPaEvents: [],
-      };
-    }
-
-    case 'SINGLE': {
-      const teamKey = state.isTop ? 'awayTeam' : 'homeTeam';
-      const teamObj = state[teamKey];
-      const curIndex = teamObj.currentBatterIndex;
-      const batter = teamObj.lineup[curIndex];
-      const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
-
-      const runsScored = state.bases[2] ? 1 : 0;
-      const scoringRunnerIds = runsScored > 0 ? resolveScoringRunners(teamObj, [2], state.baseRunners, curIndex) : [];
-
-      const { lineup: updatedLineup, bench: updatedBench } = recordTeamScoring(
-        teamObj,
-        scoringRunnerIds,
-        batter?.id,
-        runsScored, // batter gets 1 RBI
-        false
-      );
-
-      const resultText = runsScored > 0 ? '一安(1)' : '一安';
-      const newLineup = [...updatedLineup];
-      if (newLineup[curIndex]) {
-        newLineup[curIndex] = {
-          ...newLineup[curIndex],
-          atBats: [...(newLineup[curIndex].atBats || []), resultText]
-        };
-      }
-
-      const curRunners = state.baseRunners || [null, null, null];
-      const newBases: [boolean, boolean, boolean] = [true, state.bases[0], state.bases[1]];
-      const newRunners: [string | null, string | null, string | null] = [batter?.id || null, curRunners[0], curRunners[1]];
-
-      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: runsScored, runs: 0 });
-      paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
-      paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
-
-      return {
-        ...state,
+        outs: totalOuts,
         balls: 0,
         strikes: 0,
         bases: newBases,
@@ -1205,21 +1638,26 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const batter = teamObj.lineup[curIndex];
       const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
 
-      const scoringBases: (0 | 1 | 2)[] = [];
-      if (state.bases[2]) scoringBases.push(2);
-      if (state.bases[1]) scoringBases.push(1);
-      const runsScored = scoringBases.length;
-      const scoringRunnerIds = resolveScoringRunners(teamObj, scoringBases, state.baseRunners, curIndex);
+      const { newBases, newRunners, runsScored, runnerOuts, scoringRunnerIds, runnerMovements } = resolveBasePlayRunners(
+        state,
+        teamObj,
+        curIndex,
+        batter,
+        { 1: 3, 2: 4, 3: 4 },
+        2,
+        action.runnerOutcomes
+      );
 
+      const rbiCount = action.rbiOverride !== undefined ? action.rbiOverride : runsScored;
       const { lineup: updatedLineup, bench: updatedBench } = recordTeamScoring(
         teamObj,
         scoringRunnerIds,
         batter?.id,
-        runsScored, // batter gets runsScored RBIs
+        rbiCount,
         false
       );
 
-      const resultText = runsScored > 0 ? `二安(${runsScored})` : '二安';
+      const resultText = rbiCount > 0 ? `二安(${rbiCount})` : '二安';
       const newLineup = [...updatedLineup];
       if (newLineup[curIndex]) {
         newLineup[curIndex] = {
@@ -1228,16 +1666,35 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         };
       }
 
-      const curRunners = state.baseRunners || [null, null, null];
-      const newBases: [boolean, boolean, boolean] = [false, true, state.bases[0]];
-      const newRunners: [string | null, string | null, string | null] = [null, batter?.id || null, curRunners[0]];
-
-      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: runsScored, runs: 0 });
+      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: rbiCount, runs: 0, runnerMovements });
       paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
       paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
 
+      const totalOuts = state.outs + runnerOuts;
+      if (totalOuts >= 3) {
+        return {
+          ...state,
+          playByPlay: [...(state.playByPlay || []), paRecord],
+          ...autoAdvanceHalfInning(state, runsScored, newLineup, undefined, nextIndex),
+          [teamKey]: {
+            ...teamObj,
+            score: teamObj.score + runsScored,
+            hits: teamObj.hits + 1,
+            lineup: newLineup,
+            bench: updatedBench,
+            currentBatterIndex: nextIndex,
+            inningScores: runsScored > 0 ? updateInningScore(teamObj, state.inning, runsScored) : (
+              (teamObj.inningScores[state.inning - 1] === null || teamObj.inningScores[state.inning - 1] === undefined)
+                ? updateInningScore(teamObj, state.inning, 0)
+                : teamObj.inningScores
+            )
+          }
+        };
+      }
+
       return {
         ...state,
+        outs: totalOuts,
         balls: 0,
         strikes: 0,
         bases: newBases,
@@ -1263,22 +1720,26 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const batter = teamObj.lineup[curIndex];
       const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
 
-      const scoringBases: (0 | 1 | 2)[] = [];
-      if (state.bases[2]) scoringBases.push(2);
-      if (state.bases[1]) scoringBases.push(1);
-      if (state.bases[0]) scoringBases.push(0);
-      const runsScored = scoringBases.length;
-      const scoringRunnerIds = resolveScoringRunners(teamObj, scoringBases, state.baseRunners, curIndex);
+      const { newBases, newRunners, runsScored, runnerOuts, scoringRunnerIds, runnerMovements } = resolveBasePlayRunners(
+        state,
+        teamObj,
+        curIndex,
+        batter,
+        { 1: 4, 2: 4, 3: 4 },
+        3,
+        action.runnerOutcomes
+      );
 
+      const rbiCount = action.rbiOverride !== undefined ? action.rbiOverride : runsScored;
       const { lineup: updatedLineup, bench: updatedBench } = recordTeamScoring(
         teamObj,
         scoringRunnerIds,
         batter?.id,
-        runsScored, // batter gets runsScored RBIs
+        rbiCount,
         false
       );
 
-      const resultText = runsScored > 0 ? `三安(${runsScored})` : '三安';
+      const resultText = rbiCount > 0 ? `三安(${rbiCount})` : '三安';
       const newLineup = [...updatedLineup];
       if (newLineup[curIndex]) {
         newLineup[curIndex] = {
@@ -1287,15 +1748,35 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         };
       }
 
-      const newBases: [boolean, boolean, boolean] = [false, false, true];
-      const newRunners: [string | null, string | null, string | null] = [null, null, batter?.id || null];
-
-      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: runsScored, runs: 0 });
+      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: rbiCount, runs: 0, runnerMovements });
       paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
       paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
 
+      const totalOuts = state.outs + runnerOuts;
+      if (totalOuts >= 3) {
+        return {
+          ...state,
+          playByPlay: [...(state.playByPlay || []), paRecord],
+          ...autoAdvanceHalfInning(state, runsScored, newLineup, undefined, nextIndex),
+          [teamKey]: {
+            ...teamObj,
+            score: teamObj.score + runsScored,
+            hits: teamObj.hits + 1,
+            lineup: newLineup,
+            bench: updatedBench,
+            currentBatterIndex: nextIndex,
+            inningScores: runsScored > 0 ? updateInningScore(teamObj, state.inning, runsScored) : (
+              (teamObj.inningScores[state.inning - 1] === null || teamObj.inningScores[state.inning - 1] === undefined)
+                ? updateInningScore(teamObj, state.inning, 0)
+                : teamObj.inningScores
+            )
+          }
+        };
+      }
+
       return {
         ...state,
+        outs: totalOuts,
         balls: 0,
         strikes: 0,
         bases: newBases,
@@ -1321,13 +1802,16 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const batter = teamObj.lineup[curIndex];
       const nextIndex = teamObj.lineup.length > 0 ? (curIndex + 1) % teamObj.lineup.length : curIndex;
 
-      const scoringBases: (0 | 1 | 2)[] = [];
-      if (state.bases[2]) scoringBases.push(2);
-      if (state.bases[1]) scoringBases.push(1);
-      if (state.bases[0]) scoringBases.push(0);
-      const runnersOnBase = scoringBases.length;
+      const { runsScored: runnerRuns, scoringRunnerIds, runnerMovements } = resolveBasePlayRunners(
+        state,
+        teamObj,
+        curIndex,
+        batter,
+        { 1: 4, 2: 4, 3: 4 },
+        4
+      );
+      const runnersOnBase = runnerRuns;
       const runsScored = runnersOnBase + 1;
-      const scoringRunnerIds = resolveScoringRunners(teamObj, scoringBases, state.baseRunners, curIndex);
 
       const { lineup: updatedLineup, bench: updatedBench } = recordTeamScoring(
         teamObj,
@@ -1353,7 +1837,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         };
       }
 
-      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: runsScored, runs: 1 });
+      const paRecord = createPlateAppearanceRecord(state, { result: resultText, rbi: runsScored, runs: 1, runnerMovements });
       paRecord.awayScore = state.isTop ? teamObj.score + runsScored : state.awayTeam.score;
       paRecord.homeScore = !state.isTop ? teamObj.score + runsScored : state.homeTeam.score;
 
@@ -1389,57 +1873,66 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       const fieldingTeamKey = state.isTop ? 'homeTeam' : 'awayTeam';
       const battingTeam = state[battingTeamKey];
       const fieldingTeam = state[fieldingTeamKey];
-      const curRunners = state.baseRunners || [null, null, null];
-      
-      let newBases = [...state.bases] as [boolean, boolean, boolean];
-      let newRunners = [...curRunners] as [string | null, string | null, string | null];
-      let runsScored = 0;
-      let scoringRunnerIds: (string | null)[] = [];
-      
-      if (newBases[2]) {
-        runsScored = 1;
-        scoringRunnerIds = resolveScoringRunners(battingTeam, [2], state.baseRunners, battingTeam.currentBatterIndex);
-        newBases[2] = false;
-        newRunners[2] = null;
-      }
-      if (newBases[1]) {
-        newBases[2] = true;
-        newRunners[2] = newRunners[1];
-        newBases[1] = false;
-        newRunners[1] = null;
-      }
-      if (newBases[0]) {
-        newBases[1] = true;
-        newRunners[1] = newRunners[0];
-        newBases[0] = false;
-        newRunners[0] = null;
-      }
+      const curIndex = battingTeam.currentBatterIndex;
 
-      // Track in-PA events: WP, PB, or BK
-      const eventLabel = action.subType === 'BK' 
+      const { newBases, newRunners, runsScored, runnerOuts, scoringRunnerIds, runnerMovements } = resolveBasePlayRunners(
+        state,
+        battingTeam,
+        curIndex,
+        undefined,
+        { 1: 2, 2: 3, 3: 4 },
+        'out', // batter does not take a base on WP/PB/BK
+        action.runnerOutcomes
+      );
+
+      // Track in-PA events: WP, PB, or BK + runner movement summary
+      const baseEventLabel = action.subType === 'BK' 
         ? '投手犯規 (BK)' 
         : action.subType === 'PB' 
           ? '捕逸 (PB)' 
           : '暴投 (WP)';
+      const eventLabel = runnerMovements.length > 0
+        ? `${baseEventLabel}（${runnerMovements.map(formatRunnerMovementZh).join('、')}）`
+        : baseEventLabel;
       const updatedPaEvents = [...(state.currentPaEvents || []), eventLabel];
 
-      // Note: Official baseball rules (Rule 9.12) state that Wild Pitch (WP) and Passed Ball (PB)
-      // do NOT count as defensive fielding errors (E), though they are tracked in PA events.
-      const updatedFieldingTeam = {
-        ...fieldingTeam
-      };
+      // Official baseball rules (Rule 9.12): WP and PB do NOT count as defensive fielding errors (E)
+      const updatedFieldingTeam = { ...fieldingTeam };
 
-      if (runsScored > 0) {
-        const { lineup: updatedLineup, bench: updatedBench } = recordTeamScoring(
-          battingTeam,
-          scoringRunnerIds,
-          undefined, // no batter RBI on wild pitch / passed ball
-          0,
-          false
-        );
+      const { lineup: updatedLineup, bench: updatedBench } = runsScored > 0
+        ? recordTeamScoring(
+            battingTeam,
+            scoringRunnerIds,
+            undefined, // no batter RBI on wild pitch / passed ball / balk
+            0,
+            false
+          )
+        : { lineup: battingTeam.lineup, bench: battingTeam.bench };
 
+      const totalOuts = state.outs + runnerOuts;
+      if (totalOuts >= 3) {
         return {
           ...state,
+          ...autoAdvanceHalfInning(state, runsScored, updatedLineup),
+          [battingTeamKey]: {
+            ...battingTeam,
+            score: battingTeam.score + runsScored,
+            lineup: updatedLineup,
+            bench: updatedBench,
+            inningScores: runsScored > 0 ? updateInningScore(battingTeam, state.inning, runsScored) : (
+              (battingTeam.inningScores[state.inning - 1] === null || battingTeam.inningScores[state.inning - 1] === undefined)
+                ? updateInningScore(battingTeam, state.inning, 0)
+                : battingTeam.inningScores
+            )
+          },
+          [fieldingTeamKey]: updatedFieldingTeam
+        };
+      }
+
+      if (runsScored > 0) {
+        return {
+          ...state,
+          outs: totalOuts,
           bases: newBases,
           baseRunners: newRunners,
           currentPaEvents: updatedPaEvents,
@@ -1456,6 +1949,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
       
       return {
         ...state,
+        outs: totalOuts,
         bases: newBases,
         baseRunners: newRunners,
         currentPaEvents: updatedPaEvents,
@@ -1502,7 +1996,8 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         },
         isTop: !state.isTop, 
         inning: state.isTop ? state.inning : state.inning + 1,
-        balls: 0, strikes: 0, outs: 0, bases: [false, false, false],
+        balls: 0, strikes: 0, outs: 0, bases: [false, false, false], baseRunners: [null, null, null],
+        currentPaEvents: [],
         isTimerRunning: false,
         timer: state.initialTimer || 20
       };
@@ -1533,7 +2028,8 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         },
         isTop: !state.isTop, 
         inning: state.isTop ? state.inning : state.inning + 1,
-        balls: 0, strikes: 0, outs: 0, bases: [false, false, false],
+        balls: 0, strikes: 0, outs: 0, bases: [false, false, false], baseRunners: [null, null, null],
+        currentPaEvents: [],
         isTimerRunning: false,
         timer: state.initialTimer || 20
       };
@@ -2091,8 +2587,14 @@ function baseReducer(state: GameState, action: ActionType): GameState {
         position: 'PH'
       });
 
+      const isBattingTeam = (action.team === 'away' && state.isTop) || (action.team === 'home' && !state.isTop);
+      const updatedBaseRunners = isBattingTeam && state.baseRunners
+        ? state.baseRunners.map(id => (id === lineupPlayer.id ? benchPlayer.id : id)) as [string | null, string | null, string | null]
+        : state.baseRunners;
+
       return {
         ...state,
+        baseRunners: updatedBaseRunners,
         playByPlay: [...(state.playByPlay || []), subRecord],
         [tKey]: { ...state[tKey], lineup: newLineup, bench: newBench }
       };
@@ -2138,8 +2640,14 @@ function baseReducer(state: GameState, action: ActionType): GameState {
           position: 'PH'
         });
 
+        const isBattingTeam = (action.team === 'away' && state.isTop) || (action.team === 'home' && !state.isTop);
+        const updatedBaseRunners = isBattingTeam && state.baseRunners
+          ? state.baseRunners.map(id => (id === lineupPlayer.id ? benchPlayer.id : id)) as [string | null, string | null, string | null]
+          : state.baseRunners;
+
         return {
           ...state,
+          baseRunners: updatedBaseRunners,
           playByPlay: hasGameActivity(state) ? [...(state.playByPlay || []), subRecord] : state.playByPlay,
           [tKey]: { ...state[tKey], lineup: newLineup, bench: newBench }
         };

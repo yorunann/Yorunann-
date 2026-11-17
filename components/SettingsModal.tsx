@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Settings as SettingsIcon, Smartphone, Check, Sparkles, Languages, Monitor, SlidersHorizontal } from 'lucide-react';
+import { X, Settings as SettingsIcon, Smartphone, Check, Sparkles, Languages, Monitor, SlidersHorizontal, Compass } from 'lucide-react';
 
 export type LanguageCode = 'en' | 'zh' | 'ja';
 
@@ -14,6 +14,8 @@ interface SettingsModalProps {
   onScoreboardLanguageChange?: (lang: LanguageCode) => void;
   useBetaControls?: boolean;
   onToggleBetaControls?: (value: boolean) => void;
+  originalBaseballMode?: boolean;
+  onToggleOriginalBaseballMode?: (value: boolean) => void;
 }
 
 const LANGUAGE_OPTIONS: { code: LanguageCode; label: string; sub: string }[] = [
@@ -31,7 +33,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onConsoleLanguageChange,
   onScoreboardLanguageChange,
   useBetaControls = false,
-  onToggleBetaControls
+  onToggleBetaControls,
+  originalBaseballMode = false,
+  onToggleOriginalBaseballMode
 }) => {
   if (!isOpen) return null;
 
@@ -246,6 +250,60 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <Check className="w-3.5 h-3.5" />
                   {currentConsoleLang === 'en' ? 'Reversible anytime' : currentConsoleLang === 'zh' ? '隨時可一鍵切回舊版' : 'いつでも復帰可能'}
                 </span>
+              </div>
+            </div>
+
+            {/* Original Baseball Mode Switch Section */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 transition-all hover:border-amber-300">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                    <Compass className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-bold text-slate-900 text-sm sm:text-base">
+                        {currentConsoleLang === 'en'
+                          ? 'Original Baseball Mode'
+                          : currentConsoleLang === 'zh'
+                          ? '原始棒球模式'
+                          : 'リアル野球モード'}
+                      </h4>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                        originalBaseballMode ? 'bg-amber-600 text-white' : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        {originalBaseballMode
+                          ? (currentConsoleLang === 'en' ? 'Active' : currentConsoleLang === 'zh' ? '已開啟' : 'ON')
+                          : (currentConsoleLang === 'en' ? 'Default Auto' : currentConsoleLang === 'zh' ? '預設自動推進' : '自動進塁')}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                      {currentConsoleLang === 'en'
+                        ? 'When enabled, each hit or play with runners on base prompts where each runner went (advance, scored, or out). Walks/HBP/IBB do not prompt.'
+                        : currentConsoleLang === 'zh'
+                        ? '關閉時（預設）：打者跑幾個壘包，壘上跑者就自動推進幾個壘。開啟後：每次發生安打或出局 Play（且壘上有人時），都會詢問每位跑者的去向（進壘／得分／出局）；四壞、觸身等保送則不詢問。'
+                        : '有効にすると、走者がいる打球プレイごとに各走者の進塁・生還・アウトを確認します（四死球・敬遠は確認しません）。'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Toggle Switch */}
+                <button
+                  type="button"
+                  onClick={() => onToggleOriginalBaseballMode && onToggleOriginalBaseballMode(!originalBaseballMode)}
+                  className={`relative inline-flex h-7 w-13 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 focus-visible:ring-offset-2 ${
+                    originalBaseballMode ? 'bg-amber-600' : 'bg-slate-300'
+                  }`}
+                  role="switch"
+                  aria-checked={originalBaseballMode}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                      originalBaseballMode ? 'translate-x-6' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
               </div>
             </div>
 

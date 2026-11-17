@@ -8,6 +8,7 @@ import {
 import * as XLSX from 'xlsx';
 import { GameState, Team, Player, SavedGameRecord, PlateAppearanceRecord } from '../types';
 import { getPitcherCount } from '../reducer';
+import { formatRunnerMovement } from './RunnerResolutionModal';
 
 interface GameRecordModalProps {
   isOpen: boolean;
@@ -2291,18 +2292,20 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                             : [base1 ? '一壘' : null, base2 ? '二壘' : null, base3 ? '三壘' : null].filter(Boolean).join('、') + '有人';
 
                         const hasEvents = Boolean(pa.eventsDuringPa && pa.eventsDuringPa.length > 0);
+                        const hasMovements = Boolean(pa.runnerMovements && pa.runnerMovements.length > 0);
+                        const hasDetails = hasEvents || hasMovements;
                         const isExpanded = Boolean(expandedPaIds[pa.id]);
 
                         return (
                           <div
                             key={pa.id || idx}
                             onClick={() => {
-                              if (hasEvents) {
+                              if (hasDetails) {
                                 setExpandedPaIds(prev => ({ ...prev, [pa.id]: !prev[pa.id] }));
                               }
                             }}
                             className={`bg-slate-950/85 border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-lg transition-all ${
-                              hasEvents 
+                              hasDetails 
                                 ? 'cursor-pointer hover:border-amber-500/40 hover:bg-slate-900/80' 
                                 : 'hover:border-slate-700/90 hover:bg-slate-900/60'
                             }`}
@@ -2481,9 +2484,23 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
                                     打席結果
                                   </div>
                                   <div className="flex items-center justify-end">
-                                    <div className="relative inline-flex items-center">
-                                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black border shadow-sm ${getOutcomeBadgeStyle(pa.result)}`}>
-                                        {pa.result}
+                                    <div
+                                      onClick={(e) => {
+                                        if (hasDetails) {
+                                          e.stopPropagation();
+                                          setExpandedPaIds(prev => ({ ...prev, [pa.id]: !prev[pa.id] }));
+                                        }
+                                      }}
+                                      title={hasDetails ? (isExpanded ? '點擊收合詳情' : '點擊展開跑者推進與打席詳情') : undefined}
+                                      className={`relative inline-flex items-center ${hasDetails ? 'cursor-pointer' : ''}`}
+                                    >
+                                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black border shadow-sm transition-all ${getOutcomeBadgeStyle(pa.result)} ${hasDetails ? 'hover:brightness-125' : ''}`}>
+                                        <span>{pa.result}</span>
+                                        {hasMovements && (
+                                          <span className="text-[9px] opacity-80 font-mono">
+                                            {isExpanded ? '▲' : '▼'}
+                                          </span>
+                                        )}
                                       </span>
                                       {pa.rbi > 0 && (
                                         <span 
@@ -2500,14 +2517,40 @@ export const GameRecordModal: React.FC<GameRecordModalProps> = ({
 
                             </div>
 
-                            {/* In-PA Events Footer (Wild Pitch, Passed Ball, Balk) - Shown only when expanded */}
-                            {hasEvents && isExpanded && (
-                              <div className="mt-2.5 pt-2 border-t border-slate-800/70 flex items-center gap-2 text-xs animate-in fade-in slide-in-from-top-1 duration-150">
-                                <span className="flex items-center gap-1.5 text-amber-300 font-bold text-[11px] bg-amber-950/40 border border-amber-500/30 px-2.5 py-1 rounded-lg">
-                                  <AlertTriangle size={12} className="text-amber-400 shrink-0" />
-                                  <span className="text-amber-400/90 font-bold">打席內事件：</span>
-                                  <span className="text-amber-100">{pa.eventsDuringPa!.join('、')}</span>
-                                </span>
+                            {/* Expanded Details Footer: Runner Movements & In-PA Events */}
+                            {hasDetails && isExpanded && (
+                              <div className="mt-2.5 pt-2 border-t border-slate-800/70 flex flex-col gap-2 text-xs animate-in fade-in slide-in-from-top-1 duration-150">
+                                {hasMovements && (
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="text-sky-300 font-bold text-[11px] mr-0.5">
+                                      {language === 'en' ? 'Runners:' : '跑壘推進：'}
+                                    </span>
+                                    {pa.runnerMovements!.map((m, mIdx) => {
+                                      const pillTone = m.toBase === 4
+                                        ? 'bg-emerald-950/60 text-emerald-200 border-emerald-500/40'
+                                        : m.toBase === 'out'
+                                          ? 'bg-rose-950/60 text-rose-200 border-rose-500/40'
+                                          : 'bg-sky-950/60 text-sky-200 border-sky-500/40';
+                                      return (
+                                        <span
+                                          key={mIdx}
+                                          className={`inline-flex items-center px-2 py-0.5 rounded-lg border text-[11px] font-bold ${pillTone}`}
+                                        >
+                                          {formatRunnerMovement(m, language)}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                                {hasEvents && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="flex items-center gap-1.5 text-amber-300 font-bold text-[11px] bg-amber-950/40 border border-amber-500/30 px-2.5 py-1 rounded-lg">
+                                      <AlertTriangle size={12} className="text-amber-400 shrink-0" />
+                                      <span className="text-amber-400/90 font-bold">打席內事件：</span>
+                                      <span className="text-amber-100">{pa.eventsDuringPa!.join('、')}</span>
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             )}
 

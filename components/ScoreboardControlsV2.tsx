@@ -221,12 +221,7 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
 
   // Confirm Walk / On-Base from Modal
   const handleConfirmWalk = (walkType: '四球' | '四壞' | '觸身' | '不死三振' | '敬遠' | 'K+WP' | 'K+PB' | '失誤') => {
-    if (walkType === '不死三振' || walkType === 'K+WP' || walkType === 'K+PB') {
-      dispatch({ type: 'WALK', walkType });
-      dispatch({ type: 'TRIGGER_K' });
-    } else {
-      dispatch({ type: 'WALK', walkType });
-    }
+    dispatch({ type: 'WALK', walkType });
     setIsWalkModalOpen(false);
   };
 
@@ -237,27 +232,9 @@ export const ScoreboardControlsV2: React.FC<ScoreboardControlsV2Props> = ({
     } else if (outType === '犧牲短打' && state.outs < 2) {
       dispatch({ type: 'SAC_BUNT' });
     } else if (outType === '雙殺') {
-      dispatch({ type: 'RECORD_AT_BAT', result: '雙殺' });
-      if (state.outs >= 1) {
-        dispatch({ type: 'NEXT_BATTER' });
-        dispatch({ type: 'NEXT_INNING' });
-      } else {
-        dispatch({ type: 'INCREMENT_OUT' });
-        dispatch({ type: 'INCREMENT_OUT' });
-        if (state.bases[0]) {
-          dispatch({ type: 'TOGGLE_BASE', baseIndex: 0 });
-        }
-        dispatch({ type: 'RESET_COUNT' });
-        dispatch({ type: 'NEXT_BATTER' });
-      }
+      dispatch({ type: 'DOUBLE_PLAY' });
     } else if (outType === '野選') {
-      dispatch({ type: 'RECORD_AT_BAT', result: '野選' });
-      if (!state.bases[0]) {
-        dispatch({ type: 'TOGGLE_BASE', baseIndex: 0 });
-      }
-      dispatch({ type: 'INCREMENT_OUT' });
-      dispatch({ type: 'RESET_COUNT' });
-      dispatch({ type: 'NEXT_BATTER' });
+      dispatch({ type: 'FIELDERS_CHOICE' });
     } else if (outType === '三振') {
       dispatch({ type: 'RECORD_AT_BAT', result: '三振' });
       dispatch({ type: 'TRIGGER_K' });
