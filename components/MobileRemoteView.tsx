@@ -19,7 +19,6 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { ScoreboardControls } from './ScoreboardControls';
-import { ScoreboardControlsV2 } from './ScoreboardControlsV2';
 import { RunnerResolutionModal, needsRunnerPrompt } from './RunnerResolutionModal';
 
 interface MobileRemoteViewProps {
@@ -32,7 +31,6 @@ interface MobileRemoteViewProps {
   roomCode: string;
   onChangeRoomCode: (newCode: string) => void;
   onReconnect: () => void;
-  useBetaControls: boolean;
   onExitRemoteMode: () => void;
   onOpenRecordModal: () => void;
   onToggleProjectMode: () => void;
@@ -52,7 +50,6 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
   roomCode,
   onChangeRoomCode,
   onReconnect,
-  useBetaControls,
   onExitRemoteMode,
   onOpenRecordModal,
   onToggleProjectMode,
@@ -579,21 +576,12 @@ export const MobileRemoteView: React.FC<MobileRemoteViewProps> = ({
               </div>
             </div>
           )}
-          {useBetaControls ? (
-            <ScoreboardControlsV2
-              state={state}
-              dispatch={handleAction}
-              language={language}
-              onOpenRecordModal={onOpenRecordModal}
-            />
-          ) : (
-            <ScoreboardControls
-              state={state}
-              dispatch={handleAction}
-              language={language}
-              onOpenRecordModal={onOpenRecordModal}
-            />
-          )}
+          <ScoreboardControls
+            state={state}
+            dispatch={handleAction}
+            language={language}
+            onOpenRecordModal={onOpenRecordModal}
+          />
         </div>
       </div>
 

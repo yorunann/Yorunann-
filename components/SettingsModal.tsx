@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Settings as SettingsIcon, Smartphone, Check, Sparkles, Languages, Monitor, SlidersHorizontal, Compass } from 'lucide-react';
+import { X, Settings as SettingsIcon, Check, Languages, Monitor, SlidersHorizontal, Compass } from 'lucide-react';
 
 export type LanguageCode = 'en' | 'zh' | 'ja';
 
@@ -12,8 +12,6 @@ interface SettingsModalProps {
   language?: LanguageCode;
   onConsoleLanguageChange?: (lang: LanguageCode) => void;
   onScoreboardLanguageChange?: (lang: LanguageCode) => void;
-  useBetaControls?: boolean;
-  onToggleBetaControls?: (value: boolean) => void;
   originalBaseballMode?: boolean;
   onToggleOriginalBaseballMode?: (value: boolean) => void;
 }
@@ -32,8 +30,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   language = 'zh',
   onConsoleLanguageChange,
   onScoreboardLanguageChange,
-  useBetaControls = false,
-  onToggleBetaControls,
   originalBaseballMode = false,
   onToggleOriginalBaseballMode
 }) => {
@@ -194,65 +190,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
 
-            {/* Beta UI Switch Section */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 transition-all hover:border-blue-300">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
-                    <Smartphone className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold text-slate-900 text-sm sm:text-base">
-                        {currentConsoleLang === 'en' 
-                          ? 'Touch-Friendly Console' 
-                          : currentConsoleLang === 'zh' 
-                          ? '新版行動友善控制台' 
-                          : 'モバイル最適化コンソール'}
-                      </h4>
-                      <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                        Beta
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Toggle Switch */}
-                <button
-                  type="button"
-                  onClick={() => onToggleBetaControls && onToggleBetaControls(!useBetaControls)}
-                  className={`relative inline-flex h-7 w-13 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${
-                    useBetaControls ? 'bg-blue-600' : 'bg-slate-300'
-                  }`}
-                  role="switch"
-                  aria-checked={useBetaControls}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                      useBetaControls ? 'translate-x-6' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* Status Note */}
-              <div className="mt-3 pt-3 border-t border-slate-200/80 flex items-center justify-between text-[11px]">
-                <span className="text-slate-500">
-                  {currentConsoleLang === 'en' ? 'Console Style: ' : currentConsoleLang === 'zh' ? '控制台樣式：' : 'コンソールスタイル：'}
-                  <strong className={useBetaControls ? 'text-blue-600 ml-1' : 'text-slate-700 ml-1'}>
-                    {useBetaControls 
-                      ? (currentConsoleLang === 'en' ? 'Touch Console' : currentConsoleLang === 'zh' ? '新版觸控控制台' : '新版コンソール')
-                      : (currentConsoleLang === 'en' ? 'Classic Controls' : currentConsoleLang === 'zh' ? '經典版控制台' : 'クラシック版')}
-                  </strong>
-                </span>
-                <span className="text-emerald-600 font-medium flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5" />
-                  {currentConsoleLang === 'en' ? 'Reversible anytime' : currentConsoleLang === 'zh' ? '隨時可一鍵切回舊版' : 'いつでも復帰可能'}
-                </span>
-              </div>
-            </div>
-
             {/* Original Baseball Mode Switch Section */}
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 transition-all hover:border-amber-300">
               <div className="flex items-start justify-between gap-4">
@@ -291,7 +228,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={() => onToggleOriginalBaseballMode && onToggleOriginalBaseballMode(!originalBaseballMode)}
-                  className={`relative inline-flex h-7 w-13 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 focus-visible:ring-offset-2 ${
+                  className={`relative inline-flex h-6 w-11 flex-none shrink-0 mt-0.5 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 focus-visible:ring-offset-2 ${
                     originalBaseballMode ? 'bg-amber-600' : 'bg-slate-300'
                   }`}
                   role="switch"
@@ -299,28 +236,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 >
                   <span
                     aria-hidden="true"
-                    className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                      originalBaseballMode ? 'translate-x-6' : 'translate-x-0'
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                      originalBaseballMode ? 'translate-x-5' : 'translate-x-0'
                     }`}
                   />
                 </button>
-              </div>
-            </div>
-
-            {/* Information card */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-700 text-xs flex items-start gap-3">
-              <Sparkles className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-              <div>
-                <h5 className="font-bold text-slate-800 mb-1">
-                  {currentConsoleLang === 'en' ? 'Safe Beta Experience' : currentConsoleLang === 'zh' ? '安心測試保證' : '安心テスト保証'}
-                </h5>
-                <p className="text-slate-600 leading-relaxed">
-                  {currentConsoleLang === 'en'
-                    ? 'The classic controls remain 100% intact. Your settings are remembered in this browser, so you can freely switch back and forth.'
-                    : currentConsoleLang === 'zh'
-                    ? '經典版的所有功能完全被完整保留。您的開關選擇會自動儲存在此瀏覽器中，您可以隨時切換比較，不用擔心任何功能消失。'
-                    : '従来のクラシック機能は100%保持されています。ブラウザに設定が記憶されるため、いつでも自由に戻せます。'}
-                </p>
               </div>
             </div>
           </div>

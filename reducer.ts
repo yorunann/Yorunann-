@@ -2036,6 +2036,7 @@ function baseReducer(state: GameState, action: ActionType): GameState {
     }
 
     case 'PREVIOUS_HALF_INNING':
+      if (state.inning <= 1 && state.isTop) return state;
       return {
         ...state,
         isTop: !state.isTop,

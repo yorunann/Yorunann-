@@ -1585,6 +1585,43 @@ export const ScoreboardDisplay = forwardRef<HTMLDivElement, ScoreboardDisplayPro
 
                 {/* Middle: Bases & Counts (No overflow, scaled gracefully) */}
                 <div className="flex-1 flex flex-row items-center justify-center w-full relative min-h-0 px-2 sm:px-4 overflow-hidden">
+                    <AnimatePresence>
+                      {showKAnimation && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none backdrop-blur-sm bg-black/20"
+                        >
+                          <div className="relative flex items-center justify-center">
+                            <span
+                              className="text-[120px] sm:text-[150px] lg:text-[170px] font-black font-rammetto leading-none"
+                              style={{
+                                color: state.isTop ? state.homeTeam.color : state.awayTeam.color,
+                                WebkitTextStroke: '3px white',
+                                filter: `drop-shadow(0 0 35px ${state.isTop ? state.homeTeam.color : state.awayTeam.color})`
+                              }}
+                            >
+                              K
+                            </span>
+                            <motion.div
+                              initial={{ opacity: 1, scale: 0.5 }}
+                              animate={{ opacity: 0, scale: 1.5 }}
+                              transition={{ duration: 0.6, ease: "easeOut" }}
+                              className="absolute w-[130px] h-[130px] sm:w-[160px] sm:h-[160px] lg:w-[180px] lg:h-[180px] border-[6px] rounded-full"
+                              style={{ borderColor: state.isTop ? state.homeTeam.color : state.awayTeam.color }}
+                            />
+                            <motion.div
+                              initial={{ opacity: 1, scale: 0.2 }}
+                              animate={{ opacity: 0, scale: 2 }}
+                              transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
+                              className="absolute w-[130px] h-[130px] sm:w-[160px] sm:h-[160px] lg:w-[180px] lg:h-[180px] border-[3px] border-white rounded-full"
+                            />
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                     <div className="w-1/2 flex items-center justify-end shrink-0 pr-3 sm:pr-6 border-r border-slate-700/50">
                        <div className="flex items-center justify-center origin-right scale-[0.72] sm:scale-[0.82] lg:scale-[0.9] xl:scale-95">
                           <Diamond 

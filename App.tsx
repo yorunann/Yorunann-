@@ -5,7 +5,6 @@ import { GameState, ActionType, Player } from './types';
 import { INITIAL_STATE } from './constants';
 import { ScoreboardDisplay } from './components/ScoreboardDisplay';
 import { ScoreboardControls } from './components/ScoreboardControls';
-import { ScoreboardControlsV2 } from './components/ScoreboardControlsV2';
 import { MonitorPlay, Maximize, Minimize, Keyboard, Settings, ExternalLink, RotateCcw, BookOpen, Plus, Minus, Menu, X, Smartphone, Sliders, Tv, Link2 } from 'lucide-react';
 import { useShortcuts, DEFAULT_SHORTCUTS, ShortcutMap } from './hooks/useShortcuts';
 import { ShortcutSettingsModal } from './components/ShortcutSettingsModal';
@@ -163,14 +162,6 @@ export const App: React.FC = () => {
   const [isPseudoFullscreen, setIsPseudoFullscreen] = useState(false);
   const [showIosTip, setShowIosTip] = useState(false);
   const [isPortrait, setIsPortrait] = useState(() => typeof window !== 'undefined' ? window.innerHeight > window.innerWidth : false);
-  const [useBetaControls, setUseBetaControls] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('scoreboard_beta_controls');
-      return saved ? JSON.parse(saved) : false;
-    } catch {
-      return false;
-    }
-  });
 
   useEffect(() => {
     const handleOrientation = () => {
@@ -190,15 +181,6 @@ export const App: React.FC = () => {
       }
     };
   }, []);
-
-  const handleToggleBetaControls = (val: boolean) => {
-    setUseBetaControls(val);
-    try {
-      localStorage.setItem('scoreboard_beta_controls', JSON.stringify(val));
-    } catch (e) {
-      console.error("Failed to save beta controls setting", e);
-    }
-  };
 
   const handleToggleOriginalBaseballMode = (val: boolean) => {
     handleDispatch({ type: 'UPDATE_META', field: 'originalBaseballMode', value: val });
@@ -330,7 +312,7 @@ export const App: React.FC = () => {
       window.removeEventListener('resize', updateScale);
       window.removeEventListener('orientationchange', updateScale);
     };
-  }, [useBetaControls, isPortrait, isDisplayMode, controlPanelWidth, localDisplayMode, state.displayMode]);
+  }, [isPortrait, isDisplayMode, controlPanelWidth, localDisplayMode, state.displayMode]);
 
   const fullscreenContainerRef = useRef<HTMLDivElement>(null);
   const [fullscreenScale, setFullscreenScale] = useState(() => {
@@ -1016,7 +998,6 @@ export const App: React.FC = () => {
             peerReconnect();
             peerRequestState();
           }}
-          useBetaControls={useBetaControls}
           onExitRemoteMode={() => {
             setIsRemoteMode(false);
             const url = new URL(window.location.href);
@@ -1192,13 +1173,13 @@ export const App: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-1 overflow-hidden relative flex">
         {/* Split Screen Layout */}
-        <div className={`w-full h-full flex ${(isPortrait && typeof window !== 'undefined' && window.innerWidth < 768) ? 'flex-col' : (useBetaControls ? 'flex-col md:flex-row' : 'flex-row')} gap-0 overflow-hidden`}>
+        <div className={`w-full h-full flex ${(isPortrait && typeof window !== 'undefined' && window.innerWidth < 768) ? 'flex-col' : 'flex-row'} gap-0 overflow-hidden`}>
           {/* Left/Top: Display */}
           <div 
             className={`flex-none p-2 sm:p-4 bg-slate-950 flex flex-col items-center justify-center ${isDisplayMode ? 'overflow-hidden' : 'overflow-y-auto overscroll-contain'} overflow-x-hidden no-scrollbar border-b md:border-b-0 md:border-r border-slate-700 relative ${
               (isPortrait && typeof window !== 'undefined' && window.innerWidth < 768)
                 ? 'w-full h-[35vh] sm:h-[42vh] shrink-0' 
-                : (useBetaControls ? 'w-full md:w-[var(--left-width)] h-[35vh] sm:h-[42vh] md:h-full shrink-0' : 'w-[var(--left-width)] h-full')
+                : 'w-[var(--left-width)] h-full'
             }`}
             style={{ 
               '--left-width': isDisplayMode ? '100%' : `calc(${100 - controlPanelWidth}% - 4px)`
@@ -1284,7 +1265,7 @@ export const App: React.FC = () => {
           {/* Resize Handle */}
           {!isDisplayMode && (
             <div 
-              className={`${(isPortrait && typeof window !== 'undefined' && window.innerWidth < 768) ? 'hidden' : (useBetaControls ? 'hidden md:flex' : 'flex')} w-1 bg-slate-700 hover:bg-blue-500 cursor-col-resize transition-colors z-50 items-center justify-center shrink-0`}
+              className={`${(isPortrait && typeof window !== 'undefined' && window.innerWidth < 768) ? 'hidden' : 'flex'} w-1 bg-slate-700 hover:bg-blue-500 cursor-col-resize transition-colors z-50 items-center justify-center shrink-0`}
               onMouseDown={(e) => {
                 e.preventDefault();
                 isResizingRef.current = true;
@@ -1298,26 +1279,17 @@ export const App: React.FC = () => {
           {/* Right/Bottom: Controls */}
           {!isDisplayMode && (
             <div 
-              className={`flex-1 overflow-y-auto overscroll-contain shadow-inner min-h-0 relative ${
-                (isPortrait && typeof window !== 'undefined' && window.innerWidth < 768) ? 'w-full' : (useBetaControls ? 'w-full md:w-auto' : '')
-              } ${useBetaControls ? 'bg-slate-900' : 'bg-gray-100'}`}
+              className={`flex-1 overflow-y-auto overscroll-contain shadow-inner min-h-0 relative bg-gray-100 ${
+                (isPortrait && typeof window !== 'undefined' && window.innerWidth < 768) ? 'w-full' : ''
+              }`}
               style={{ flexBasis: (isPortrait && typeof window !== 'undefined' && window.innerWidth < 768) ? undefined : `${controlPanelWidth}%` }}
             >
-                {useBetaControls ? (
-                  <ScoreboardControlsV2 
-                    state={state} 
-                    dispatch={handleInteractiveDispatch} 
-                    language={consoleLanguage} 
-                    onOpenRecordModal={() => setIsGameRecordModalOpen(true)}
-                  />
-                ) : (
-                  <ScoreboardControls 
-                    state={state} 
-                    dispatch={handleInteractiveDispatch} 
-                    language={consoleLanguage} 
-                    onOpenRecordModal={() => setIsGameRecordModalOpen(true)}
-                  />
-                )}
+                <ScoreboardControls 
+                  state={state} 
+                  dispatch={handleInteractiveDispatch} 
+                  language={consoleLanguage} 
+                  onOpenRecordModal={() => setIsGameRecordModalOpen(true)}
+                />
             </div>
           )}
         </div>
@@ -1326,7 +1298,7 @@ export const App: React.FC = () => {
        {/* Footer */}
        <footer className="bg-slate-900 text-slate-500 text-[10px] text-center p-1 border-t border-slate-800 flex flex-col sm:flex-row justify-center items-center gap-1 z-50 relative">
           <span>Made by Yorunann</span>
-          <span className="text-slate-600 ml-2">v3.6.0</span>
+          <span className="text-slate-600 ml-2">v3.6.3</span>
        </footer>
 
         <ShortcutSettingsModal
@@ -1351,8 +1323,6 @@ export const App: React.FC = () => {
           onConsoleLanguageChange={handleConsoleLanguageChange}
           onScoreboardLanguageChange={handleScoreboardLanguageChange}
           language={consoleLanguage}
-          useBetaControls={useBetaControls}
-          onToggleBetaControls={handleToggleBetaControls}
           originalBaseballMode={Boolean(state.meta?.originalBaseballMode)}
           onToggleOriginalBaseballMode={handleToggleOriginalBaseballMode}
         />

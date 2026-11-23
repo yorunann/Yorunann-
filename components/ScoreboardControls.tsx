@@ -1363,6 +1363,7 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
             <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide border-b pb-1">
               {language === 'en' ? 'Umpire Controls' : language === 'zh' ? 'Umpire Controls 裁判控制' : '審判コントロール'}
             </h3>
+            {Boolean(state.meta?.originalBaseballMode) ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             
             {/* Left Column (Count Controls) */}
@@ -1487,7 +1488,7 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                   <button 
                     className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-2 rounded text-xs shadow-md flex items-center justify-center gap-1 transition-transform active:scale-95"
                     onClick={() => dispatch({ type: 'REDO' })}
-                    title={language === 'en' ? 'Redo (Ctrl+Y)' : language === 'zh' ? '重做 (Ctrl+Y)' : 'やり直し (Ctrl+Y)'}
+                    title={language === 'en' ? 'Redo (Ctrl+Y)' : language === 'zh' ? '重做 (Ctrl+Y)' : 'やり直す (Ctrl+Y)'}
                   >
                     <RotateCw size={14} /> {language === 'en' ? 'Redo' : language === 'zh' ? '重做' : 'やり直す'}
                   </button>
@@ -1561,17 +1562,306 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                       value={state.inning}
                       onChange={(e) => dispatch({type: 'SET_INNING', value: parseInt(e.target.value) || 1})}
                     />
-                    <button 
-                      className="ml-auto bg-blue-800 hover:bg-blue-900 text-white font-bold px-2 py-1.5 rounded text-[10px] transition-transform active:scale-95"
-                      onClick={() => dispatch({ type: 'NEXT_INNING' })}
-                      title="Next Inning (Top/Bottom)"
-                    >
-                      {language === 'en' ? 'Next' : language === 'zh' ? '換局' : '次へ'}
-                    </button>
+                    <div className="ml-auto flex items-stretch rounded overflow-hidden">
+                      <button 
+                        className="bg-blue-800 hover:bg-blue-900 text-white font-bold px-2 py-1.5 text-[10px] transition-transform active:scale-95 flex items-center gap-0.5"
+                        onClick={() => dispatch({ type: 'NEXT_INNING' })}
+                        onContextMenu={(e) => { e.preventDefault(); dispatch({ type: 'PREVIOUS_HALF_INNING' }); }}
+                        title={language === 'en' ? 'Next Half Inning (+)' : language === 'zh' ? '下一半局 (換局 +)' : '次のイニング (+)'}
+                      >
+                        <span>{language === 'en' ? 'Next' : language === 'zh' ? '換局' : '次へ'}</span>
+                        <span>+</span>
+                      </button>
+                      <button 
+                        className="bg-blue-900 hover:bg-blue-950 text-white font-bold px-2 py-1.5 text-xs leading-none transition-transform active:scale-95 border-l border-blue-950 flex items-center justify-center"
+                        onClick={() => dispatch({ type: 'PREVIOUS_HALF_INNING' })}
+                        title={language === 'en' ? 'Previous Half Inning (-)' : language === 'zh' ? '退回上半局 (換局 -)' : '前のイニング (-)'}
+                      >
+                        -
+                      </button>
+                    </div>
                 </div>
               </div>
             </div>
-          </div>
+            </div>
+            ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 sm:gap-x-4 gap-y-2">
+              {/* Row 1 Left: Ball */}
+              <div className="flex min-h-[44px] md:col-start-1 md:row-start-1">
+                <button 
+                  className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-2 rounded-l shadow flex-1 flex flex-col items-center justify-center transition-transform active:scale-95"
+                  onClick={() => dispatch({ type: 'INCREMENT_BALL' })}
+                  onContextMenu={(e) => { e.preventDefault(); dispatch({ type: 'DECREMENT_BALL' }); }}
+                >
+                  <span className="text-lg">{language === 'ja' ? 'ボール' : language === 'zh' ? '壞球' : 'BALL'}</span>
+                </button>
+                <button 
+                  className="bg-green-700 hover:bg-green-800 text-white font-bold px-4 rounded-r shadow flex items-center justify-center transition-transform active:scale-95 border-l border-green-800 text-xl"
+                  onClick={() => dispatch({ type: 'DECREMENT_BALL' })}
+                  title={language === 'en' ? 'Decrease Ball' : language === 'zh' ? '減少壞球' : 'ボール-1'}
+                >
+                  -
+                </button>
+              </div>
+
+              {/* Row 2 Left: Strike */}
+              <div className="flex min-h-[44px] md:col-start-1 md:row-start-2">
+                <button 
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-2 rounded-l shadow flex-1 flex flex-col items-center justify-center transition-transform active:scale-95"
+                  onClick={() => dispatch({ type: 'INCREMENT_STRIKE' })}
+                  onContextMenu={(e) => { e.preventDefault(); dispatch({ type: 'DECREMENT_STRIKE' }); }}
+                >
+                  <span className="text-lg">{language === 'ja' ? 'ストライク' : language === 'zh' ? '好球' : 'STRIKE'}</span>
+                </button>
+                <button 
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold px-4 rounded-r shadow flex items-center justify-center transition-transform active:scale-95 border-l border-yellow-700 text-xl"
+                  onClick={() => dispatch({ type: 'DECREMENT_STRIKE' })}
+                  title={language === 'en' ? 'Decrease Strike' : language === 'zh' ? '減少好球' : 'ストライク-1'}
+                >
+                  -
+                </button>
+              </div>
+
+              {/* Row 3 Left: Out */}
+              <div className="flex min-h-[44px] md:col-start-1 md:row-start-3">
+                <button 
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-2 rounded-l shadow flex-1 flex flex-col items-center justify-center transition-transform active:scale-95"
+                  onClick={() => {
+                    dispatch({ type: 'INCREMENT_OUT' });
+                    dispatch({ type: 'INCREMENT_PLAYER_STAT', role: 'pitcher' });
+                  }}
+                  onContextMenu={(e) => { e.preventDefault(); dispatch({ type: 'DECREMENT_OUT' }); }}
+                >
+                  <span className="text-lg">{language === 'ja' ? 'アウト' : language === 'zh' ? '出局' : 'OUT'}</span>
+                </button>
+                <button 
+                  className="bg-red-700 hover:bg-red-800 text-white font-bold px-4 rounded-r shadow flex items-center justify-center transition-transform active:scale-95 border-l border-red-800 text-xl"
+                  onClick={() => dispatch({ type: 'DECREMENT_OUT' })}
+                  title={language === 'en' ? 'Decrease Out' : language === 'zh' ? '減少出局' : 'アウト-1'}
+                >
+                  -
+                </button>
+              </div>
+
+              {/* Row 4 Left: Reset Count & Foul */}
+              <div className="flex gap-2 w-full min-h-[44px] md:col-start-1 md:row-start-4">
+                <button 
+                  className="flex-[3] bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-2 rounded shadow transition-transform active:scale-95 text-sm sm:text-base whitespace-nowrap"
+                  onClick={() => dispatch({ type: 'RESET_COUNT' })}
+                >
+                  {language === 'en' ? 'Reset Count' : language === 'zh' ? '重置好壞球' : 'カウントリセット'}
+                </button>
+                <button 
+                  className="flex-[2] bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-2 rounded shadow transition-transform active:scale-95 text-sm sm:text-base whitespace-nowrap"
+                  onClick={() => dispatch({ type: 'FOUL_BALL' })}
+                  title={language === 'en' ? 'Foul Ball (+1 Pitch, +1 Strike if < 2)' : language === 'zh' ? '界外球 (用球數+1，兩好球後不加好球)' : 'ファウル (球数+1)'}
+                >
+                  {language === 'en' ? 'Foul' : language === 'zh' ? '界外球' : 'ファウル'}
+                </button>
+              </div>
+
+              {/* Row 5 Left: Previous & Next Batter */}
+              <div className="flex gap-2 w-full min-h-[44px] md:col-start-1 md:row-start-5">
+                <button
+                  className="flex-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 font-semibold py-2 rounded text-xs flex items-center justify-center gap-2 border border-indigo-200 transition-transform active:scale-95"
+                  onClick={() => dispatch({ type: 'PREVIOUS_BATTER' })}
+                >
+                  <User size={14} /> {language === 'en' ? 'Previous Batter' : language === 'zh' ? '上一位打者' : '前の打者へ'}
+                </button>
+                <button
+                  className="flex-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 font-semibold py-2 rounded text-xs flex items-center justify-center gap-2 border border-indigo-200 transition-transform active:scale-95"
+                  onClick={() => dispatch({ type: 'NEXT_BATTER' })}
+                >
+                  <User size={14} /> {language === 'en' ? 'Next Batter' : language === 'zh' ? '下一位打者' : '次の打者へ'}
+                </button>
+              </div>
+
+              {/* Row 6 Left: HR & Undo / Redo */}
+              <div className="flex gap-4 items-stretch h-[60px] md:col-start-1 md:row-start-6">
+                <div className="flex-1 flex justify-center items-center">
+                  <div className="relative w-14 h-14 shrink-0 group">
+                    {hrState === 'playing' && (
+                        <svg className="absolute inset-[-4px] w-[64px] h-[64px] -rotate-90 pointer-events-none rounded-full" style={{ zIndex: 10 }}>
+                            <circle cx="32" cy="32" r="30" stroke="transparent" strokeWidth="4" fill="none" />
+                            <circle cx="32" cy="32" r="30" stroke="#a855f7" strokeWidth="4" fill="none" strokeDasharray="188.5" style={{ animation: 'hrProgressSvg 5s linear forwards' }} />
+                        </svg>
+                    )}
+                    {hrState === 'locked' && (
+                        <div className="absolute inset-[-4px] rounded-full border-4 border-purple-500 shadow-[0_0_10px_#a855f7]" style={{ zIndex: 10, pointerEvents: 'none' }} />
+                    )}
+                    <button
+                        className={`absolute inset-0 bg-purple-600 hover:bg-purple-700 text-white font-black text-lg rounded-full shadow-lg transition-transform active:scale-95 flex items-center justify-center border-4 border-transparent ${hrState !== 'idle' ? 'animate-pulse' : ''}`}
+                      onMouseDown={handleHrMouseDown}
+                      onMouseUp={handleHrMouseUp}
+                      onMouseLeave={handleHrMouseUp}
+                      onTouchStart={handleHrMouseDown}
+                      onTouchEnd={handleHrMouseUp}
+                      onDoubleClick={handleHrDoubleClick}
+                      title="HOME RUN (Hold to lock)"
+                    >
+                      HR
+                    </button>
+                  </div>
+                </div>
+                <div className="flex-1 flex gap-1.5">
+                  <button 
+                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-2 rounded text-xs shadow-md flex items-center justify-center gap-1 transition-transform active:scale-95"
+                    onClick={() => dispatch({ type: 'UNDO' })}
+                    title={language === 'en' ? 'Undo (Ctrl+Z)' : language === 'zh' ? '復原 (Ctrl+Z)' : '元に戻す (Ctrl+Z)'}
+                  >
+                    <RotateCcw size={14} /> {language === 'en' ? 'Undo' : language === 'zh' ? '復原' : '戻す'}
+                  </button>
+                  <button 
+                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-2 rounded text-xs shadow-md flex items-center justify-center gap-1 transition-transform active:scale-95"
+                    onClick={() => dispatch({ type: 'REDO' })}
+                    title={language === 'en' ? 'Redo (Ctrl+Y)' : language === 'zh' ? '重做 (Ctrl+Y)' : 'やり直す (Ctrl+Y)'}
+                  >
+                    <RotateCw size={14} /> {language === 'en' ? 'Redo' : language === 'zh' ? '重做' : 'やり直す'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Row 7 Left: Stretched Inning Control (moved below HR/Undo/Redo) */}
+              <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-2.5 py-1.5 shadow-sm h-full min-h-[48px] w-full md:col-start-1 md:row-start-7">
+                <span className="text-xs font-bold text-gray-500 shrink-0">INN:</span>
+                <input 
+                  type="number" 
+                  className="w-10 text-center font-bold border-none outline-none text-slate-900 bg-white text-sm"
+                  value={state.inning}
+                  onChange={(e) => dispatch({type: 'SET_INNING', value: parseInt(e.target.value) || 1})}
+                />
+                <div className="flex-1 flex items-stretch shadow-sm rounded overflow-hidden">
+                  <button 
+                    className="flex-1 bg-blue-800 hover:bg-blue-900 text-white font-bold px-2.5 py-2 text-sm transition-transform active:scale-95 text-center flex items-center justify-center gap-1"
+                    onClick={() => dispatch({ type: 'NEXT_INNING' })}
+                    onContextMenu={(e) => { e.preventDefault(); dispatch({ type: 'PREVIOUS_HALF_INNING' }); }}
+                    title={language === 'en' ? 'Next Half Inning (+)' : language === 'zh' ? '下一半局 (換局 +)' : '次のイニング (+)'}
+                  >
+                    <span>{language === 'en' ? 'Inning' : language === 'zh' ? '換局' : 'イニング'}</span>
+                    <span className="text-base leading-none">+</span>
+                  </button>
+                  <button 
+                    className="bg-blue-900 hover:bg-blue-950 text-white font-bold px-3.5 py-2 text-base leading-none transition-transform active:scale-95 border-l border-blue-950 flex items-center justify-center"
+                    onClick={() => dispatch({ type: 'PREVIOUS_HALF_INNING' })}
+                    title={language === 'en' ? 'Previous Half Inning (-)' : language === 'zh' ? '退回上半局 (換局 -)' : '前のイニング (-)'}
+                  >
+                    -
+                  </button>
+                </div>
+              </div>
+
+              {/* Row 1 Right: Flyout & Groundout */}
+              <div className="flex gap-2 w-full min-h-[44px] md:col-start-2 md:row-start-1">
+                <button 
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-2 rounded shadow transition-transform active:scale-95 text-sm text-center"
+                  onClick={() => dispatch({ type: 'BATTER_OUT', outType: '高飛' })}
+                >
+                  {language === 'en' ? 'Flyout' : language === 'zh' ? '高飛' : 'フライ'}
+                </button>
+                <button 
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-2 rounded shadow transition-transform active:scale-95 text-sm text-center"
+                  onClick={() => dispatch({ type: 'BATTER_OUT', outType: '滾地' })}
+                >
+                  {language === 'en' ? 'Groundout' : language === 'zh' ? '滾地' : 'ゴロ'}
+                </button>
+              </div>
+
+              {/* Row 2 Right: 1B */}
+              <button 
+                className="w-full min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded shadow transition-transform active:scale-95 text-sm text-center md:col-start-2 md:row-start-2"
+                onClick={() => dispatch({ type: 'SINGLE' })}
+              >
+                {language === 'en' ? '1B / Single' : language === 'zh' ? '一壘安' : 'シングル (1B)'}
+              </button>
+
+              {/* Row 3 Right: 2B */}
+              <button 
+                className="w-full min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded shadow transition-transform active:scale-95 text-sm text-center md:col-start-2 md:row-start-3"
+                onClick={() => dispatch({ type: 'DOUBLE' })}
+              >
+                {language === 'en' ? '2B / Double' : language === 'zh' ? '二壘安' : 'ツーベース (2B)'}
+              </button>
+
+              {/* Row 4 Right: 3B */}
+              <button 
+                className="w-full min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded shadow transition-transform active:scale-95 text-sm text-center md:col-start-2 md:row-start-4"
+                onClick={() => dispatch({ type: 'TRIPLE' })}
+              >
+                {language === 'en' ? '3B / Triple' : language === 'zh' ? '三壘安' : 'スリーベース (3B)'}
+              </button>
+
+              {/* Rows 5-6 Right: Direct On-Base Frame (Blue border, 2x3 buttons) */}
+              <div className="w-full h-full border-2 border-blue-500 rounded-lg p-1.5 bg-blue-50/30 grid grid-cols-3 grid-rows-2 gap-1.5 md:col-start-2 md:row-start-5 md:row-span-2">
+                <button
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded text-xs sm:text-sm shadow-sm transition-transform active:scale-95 flex items-center justify-center px-1"
+                  onClick={() => handleConfirmWalk('四壞')}
+                  title={language === 'en' ? 'Base on Balls (BB)' : language === 'zh' ? '四壞球保送' : '四球'}
+                >
+                  {language === 'en' ? 'BB' : language === 'zh' ? '四壞' : '四球'}
+                </button>
+                <button
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded text-xs sm:text-sm shadow-sm transition-transform active:scale-95 flex items-center justify-center px-1"
+                  onClick={() => handleConfirmWalk('敬遠')}
+                  title={language === 'en' ? 'Intentional Walk (IBB)' : language === 'zh' ? '故意四壞 (敬遠)' : '敬遠'}
+                >
+                  {language === 'en' ? 'IBB' : language === 'zh' ? '敬遠' : '敬遠'}
+                </button>
+                <button
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded text-xs sm:text-sm shadow-sm transition-transform active:scale-95 flex items-center justify-center px-1"
+                  onClick={() => handleConfirmWalk('觸身')}
+                  title={language === 'en' ? 'Hit by Pitch (HBP)' : language === 'zh' ? '觸身球' : '死球'}
+                >
+                  {language === 'en' ? 'HBP' : language === 'zh' ? '觸身' : '死球'}
+                </button>
+                <button
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded text-xs sm:text-sm shadow-sm transition-transform active:scale-95 flex items-center justify-center px-1"
+                  onClick={() => handleConfirmWalk('失誤')}
+                  title={language === 'en' ? 'Reach on Error (E)' : language === 'zh' ? '失誤上壘' : '失策'}
+                >
+                  {language === 'en' ? 'E' : language === 'zh' ? '失誤' : '失策'}
+                </button>
+                <button
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded text-xs sm:text-sm shadow-sm transition-transform active:scale-95 flex items-center justify-center px-1"
+                  onClick={() => handleConfirmWalk('K+WP')}
+                  title={language === 'en' ? 'Wild Pitch D3K' : language === 'zh' ? '暴投不死三振' : '暴投振り逃げ'}
+                >
+                  K+WP
+                </button>
+                <button
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded text-xs sm:text-sm shadow-sm transition-transform active:scale-95 flex items-center justify-center px-1"
+                  onClick={() => handleConfirmWalk('K+PB')}
+                  title={language === 'en' ? 'Passed Ball D3K' : language === 'zh' ? '捕逸不死三振' : '捕逸振り逃げ'}
+                >
+                  K+PB
+                </button>
+              </div>
+
+              {/* Row 7 Right: Direct Advance Frame (Orange border, 3 buttons) */}
+              <div className="w-full h-full min-h-[48px] border-2 border-orange-500 rounded-lg p-1.5 bg-orange-50/30 grid grid-cols-3 gap-1.5 md:col-start-2 md:row-start-7">
+                <button
+                  className="bg-orange-600 hover:bg-orange-700 text-white font-bold rounded text-xs sm:text-sm shadow-sm transition-transform active:scale-95 flex items-center justify-center px-1"
+                  onClick={() => dispatch({ type: 'WILD_PITCH', subType: 'WP' })}
+                  title={language === 'en' ? 'Wild Pitch (WP)' : language === 'zh' ? '暴投 (Wild Pitch)' : '暴投'}
+                >
+                  {language === 'en' ? 'WP' : language === 'zh' ? '暴投' : '暴投'}
+                </button>
+                <button
+                  className="bg-orange-600 hover:bg-orange-700 text-white font-bold rounded text-xs sm:text-sm shadow-sm transition-transform active:scale-95 flex items-center justify-center px-1"
+                  onClick={() => dispatch({ type: 'WILD_PITCH', subType: 'PB' })}
+                  title={language === 'en' ? 'Passed Ball (PB)' : language === 'zh' ? '捕逸 (Passed Ball)' : '捕逸'}
+                >
+                  {language === 'en' ? 'PB' : language === 'zh' ? '捕逸' : '捕逸'}
+                </button>
+                <button
+                  className="bg-orange-600 hover:bg-orange-700 text-white font-bold rounded text-xs sm:text-sm shadow-sm transition-transform active:scale-95 flex items-center justify-center px-1"
+                  onClick={() => dispatch({ type: 'WILD_PITCH', subType: 'BK' })}
+                  title={language === 'en' ? 'Balk (BK)' : language === 'zh' ? '投手犯規 (Balk)' : 'ボーク'}
+                >
+                  {language === 'en' ? 'BK' : language === 'zh' ? '犯規' : 'ボーク'}
+                </button>
+              </div>
+            </div>
+            )}
 
             {/* Current Matchup Duel & Substitutions Card (Moved below HR and Pitch Count) */}
             <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-3.5 shadow-sm space-y-2.5">
@@ -1635,14 +1925,6 @@ export const ScoreboardControls: React.FC<ControlsProps> = ({ state, dispatch, l
                       <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: activeBatterTeamObj.color }} />
                       <span className="truncate">{activeBatterTeamObj.name} {language === 'zh' ? `第${activeBatterTeamObj.currentBatterIndex + 1}棒` : language === 'ja' ? `${activeBatterTeamObj.currentBatterIndex + 1}番打者` : `#${activeBatterTeamObj.currentBatterIndex + 1} Batter`}</span>
                     </span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-mono font-bold px-1.5 py-0.5 rounded" title="得分 (Runs)">
-                        R: {activeBatter?.runs || 0}
-                      </span>
-                      <span className="text-[10px] bg-blue-100 text-blue-800 font-mono font-bold px-1.5 py-0.5 rounded" title="打點 (RBI)">
-                        RBI: {activeBatter?.rbi || 0}
-                      </span>
-                    </div>
                   </div>
                   <div className="font-bold text-gray-900 text-sm truncate my-0.5">
                     {activeBatter?.name || '---'} {activeBatter?.number ? `#${activeBatter.number}` : ''}
